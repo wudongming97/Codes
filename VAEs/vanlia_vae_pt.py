@@ -12,13 +12,14 @@
 # 引入相关包
 
 
-# In[4]:
+# In[16]:
 
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
 from torchvision import datasets, transforms
 from my_plot import  my_plot
+from fashion_datasets import fashion
 
 
 # 一些全局变量
@@ -42,10 +43,14 @@ class VAE(nn.Module):
         self.encoder_ = torch.nn.Sequential(
             torch.nn.Linear(dim_img, 256),
             torch.nn.ReLU(),
-            torch.nn.Linear(256, 2*dim_z))
+            torch.nn.Linear(256,64),
+            torch.nn.Sigmoid(),
+            torch.nn.Linear(64, 2*dim_z))
         self.decoder_ = torch.nn.Sequential(
-            torch.nn.Linear(dim_z, 256),
+            torch.nn.Linear(dim_z, 64),
             torch.nn.ReLU(),
+            torch.nn.Linear(64,256),
+            torch.nn.Softplus(),
             torch.nn.Linear(256, dim_img),
             torch.nn.Sigmoid())
 
@@ -82,12 +87,18 @@ bce_criterion = nn.BCELoss(size_average=False)
 solver = torch.optim.Adam(model.parameters())
 
 
-# 导入Mnist手写体数据集。
+# ~~导入Mnist手写体数据集。~~
+# 导入fashion数据集
 
-# In[9]:
+# In[18]:
 
-train_datasets = datasets.MNIST('../datasets/mnist', train=True, download=True,
-                               transform=transforms.Compose([transforms.ToTensor()]))
+# train_datasets = datasets.MNIST('../datasets/mnist', train=True, download=True,
+#                               transform=transforms.Compose([transforms.ToTensor()]))
+normalize = transforms.Normalize(mean=[x / 255.0 for x in [125.3, 123.0, 113.9]],
+                                     std=[x / 255.0 for x in [63.0, 62.1, 66.7]])
+transform = transforms.Compose([transforms.ToTensor(),
+                                    transforms.Normalize((0.1307,), (0.3081,))])
+train_datasets = fashion(root='../datasets/fashion', train=True, transform=transform, download=True)
 train_loader = torch.utils.data.DataLoader(
         dataset=train_datasets,
         batch_size=batch_sz, shuffle=True)
@@ -143,7 +154,7 @@ def test_epoch(e):
 
 
 if __name__ == '__main__':
-    for e in range(1):
+    for e in range(100):
         train(e)
         test_epoch(e)
 

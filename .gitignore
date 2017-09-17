@@ -2,3 +2,4 @@ datasets/
 VAEs/out
 VAEs/.idea
 VAEs/__pycache__
+.vscode/

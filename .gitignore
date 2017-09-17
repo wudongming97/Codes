@@ -1,0 +1,4 @@
+datasets/
+VAEs/out
+VAEs/.idea
+VAEs/__pycache__

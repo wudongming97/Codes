@@ -14,6 +14,7 @@
 
 # In[16]:
 
+import os
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
@@ -92,13 +93,13 @@ solver = torch.optim.Adam(model.parameters())
 
 # In[18]:
 
-# train_datasets = datasets.MNIST('../datasets/mnist', train=True, download=True,
-#                               transform=transforms.Compose([transforms.ToTensor()]))
-normalize = transforms.Normalize(mean=[x / 255.0 for x in [125.3, 123.0, 113.9]],
-                                     std=[x / 255.0 for x in [63.0, 62.1, 66.7]])
-transform = transforms.Compose([transforms.ToTensor(),
-                                    transforms.Normalize((0.1307,), (0.3081,))])
-train_datasets = fashion(root='../datasets/fashion', train=True, transform=transform, download=True)
+train_datasets = datasets.MNIST('../datasets/mnist', train=True, download=True,
+                               transform=transforms.Compose([transforms.ToTensor()]))
+#normalize = transforms.Normalize(mean=[x / 255.0 for x in [125.3, 123.0, 113.9]],
+#                                     std=[x / 255.0 for x in [63.0, 62.1, 66.7]])
+#transform = transforms.Compose([transforms.ToTensor(),
+#                                    transforms.Normalize((0.1307,), (0.3081,))])
+#train_datasets = fashion(root='../datasets/fashion', train=True, transform=transform, download=True)
 train_loader = torch.utils.data.DataLoader(
         dataset=train_datasets,
         batch_size=batch_sz, shuffle=True)
@@ -136,32 +137,3 @@ def train(epoch):
 
     print('====> Epoch: {} Average loss: {:.4f}'.format(
         epoch, train_loss / len(train_loader.dataset)))
-
-
-# 每个 epoch 查看下图片效果
-
-# In[13]:
-
-def test_epoch(e):
-    z = Variable(torch.randn(batch_sz, dim_z))
-    samples = model.decoder(z).cpu().data.numpy()
-    my_plot(save_dir, e, samples, 36)
-
-
-# 主函数
-
-# In[15]:
-
-
-if __name__ == '__main__':
-    for e in range(100):
-        train(e)
-        test_epoch(e)
-
-
-# //todo
-
-# In[ ]:
-
-
-

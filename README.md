@@ -1,5 +1,5 @@
-#### vae 
+#### vaes: 
 * vanlia_vae
-#### gan
+#### gans:
 * wgan
 * vanlia_gan

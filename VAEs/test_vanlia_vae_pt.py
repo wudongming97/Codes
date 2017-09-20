@@ -56,10 +56,10 @@ def test_4():
 
 
 # 每个 epoch 查看下图片效果
-def test_epoch(e):
+def test_0():
     z = Variable(torch.randn(vanlia_vae.batch_sz, vanlia_vae.dim_z))
     samples = vanlia_vae.model.decoder(z).cpu().data.numpy()
-    my_plot(vanlia_vae.save_dir, e, samples, 36)
+    my_plot(vanlia_vae.save_dir, "test_0", samples, 36)
 
 
 # 主函数
@@ -71,9 +71,9 @@ if __name__ == '__main__':
         # train
         for e in range(50):
             vanlia_vae.train(e)
-            test_epoch(e)
         torch.save(vanlia_vae.model.state_dict(), saved_model)
 
+    test_0()
     test_1()
     test_2()
     # test_3()

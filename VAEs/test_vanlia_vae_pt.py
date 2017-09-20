@@ -1,9 +1,9 @@
 import os
 import torch
 from torch.autograd import Variable
-import numpy as np
 import vanlia_vae_pt as vanlia_vae
 from my_plot import my_plot
+
 
 # 获取（num）张制定（digit）的图片
 def get_special_imags(digit, num):
@@ -17,7 +17,7 @@ def get_special_imags(digit, num):
     imgs = torch.Tensor(num, 28*28)
     i = 0
     for data in enumerate(vanlia_vae.train_datasets):
-        _, (img,label) = data
+        _, (img, label) = data
         if label == digit:
             imgs[i, :] = img.view(28*28)
             i = i + 1
@@ -43,22 +43,24 @@ def test_2():
         res, _, _ = vanlia_vae.model.forward(Variable(imags_1 + delta * i))
         my_plot(vanlia_vae.save_dir, 'test_2_{}'.format(i), res.data.numpy(), 36)
 
+
 # 测试隐变量的期望和方差
 def test_3():
-    imags_8 = get_special_imags(8, 36)
-
     None
+
 
 # 可视化隐变量
 def test_4():
     # todo
     None
 
+
 # 每个 epoch 查看下图片效果
 def test_epoch(e):
     z = Variable(torch.randn(vanlia_vae.batch_sz, vanlia_vae.dim_z))
     samples = vanlia_vae.model.decoder(z).cpu().data.numpy()
     my_plot(vanlia_vae.save_dir, e, samples, 36)
+
 
 # 主函数
 if __name__ == '__main__':
@@ -74,7 +76,5 @@ if __name__ == '__main__':
 
     test_1()
     test_2()
-    #test_3()
-    #test_4()
-
-
+    # test_3()
+    # test_4()

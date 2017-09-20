@@ -19,8 +19,7 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 from torchvision import datasets, transforms
-from my_plot import  my_plot
-from fashion_datasets import fashion
+# from fashion_datasets import fashion
 
 
 # 一些全局变量
@@ -73,7 +72,7 @@ class VAE(nn.Module):
     def forward(self, x):
         mu, logvar = self.encoder(x)
         z = self.sample_z(mu, logvar)
-        return self.decoder(z),mu, logvar
+        return self.decoder(z), mu, logvar
 
 
 # 训练相关对象声明
@@ -137,3 +136,10 @@ def train(epoch):
 
     print('====> Epoch: {} Average loss: {:.4f}'.format(
         epoch, train_loss / len(train_loader.dataset)))
+
+
+if __name__ == '__main__':
+    saved_model = 'vanlia_vae_pt.pkl'
+    for e in range(250):
+        train(e)
+    torch.save(model.state_dict(), saved_model)

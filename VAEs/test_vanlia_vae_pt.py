@@ -2,7 +2,7 @@ import os
 import torch
 from torch.autograd import Variable
 import vanlia_vae_pt as vanlia_vae
-from my_plot import my_plot
+from utils import my_plot
 
 
 # 获取（num）张制定（digit）的图片
@@ -55,6 +55,16 @@ def test_4():
     None
 
 
+# vae 跟 infogan 有很多类似的地方，因此猜测 vae 也能像 infogan 一样学习到 disentangle representation
+def test_5():
+    imags_8 = get_special_imags(8, 1)
+    res, _, _ = vanlia_vae.model.forward(imags_8)
+    z_8 = res.expand(36, -1)
+
+    
+
+
+
 # 每个 epoch 查看下图片效果
 def test_0():
     z = Variable(torch.randn(vanlia_vae.batch_sz, vanlia_vae.dim_z))
@@ -73,8 +83,9 @@ if __name__ == '__main__':
             vanlia_vae.train(e)
         torch.save(vanlia_vae.model.state_dict(), saved_model)
 
-    test_0()
-    test_1()
-    test_2()
+    # test_0()
+    # test_1()
+    # test_2()
     # test_3()
     # test_4()
+    test_5()

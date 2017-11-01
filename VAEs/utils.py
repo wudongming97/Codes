@@ -4,8 +4,14 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
+import torch
+from torchvision import datasets, transforms
 
-
+Batch_sz = 100
+MNIST_train_loader = torch.utils.data.DataLoader(
+        dataset=datasets.MNIST('../datasets/mnist', train=True, download=True,
+                               transform=transforms.Compose([transforms.ToTensor()])),
+        batch_size=Batch_sz, shuffle=True)
 
 def my_plot(save_dir, filename, samples, n):
     width = math.ceil(math.sqrt(n))

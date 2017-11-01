@@ -1,5 +1,6 @@
 datasets/
-VAEs/out
-VAEs/.idea
-VAEs/__pycache__
+*/out
+*/.idea/
+*/__pycache__
 .vscode/
+

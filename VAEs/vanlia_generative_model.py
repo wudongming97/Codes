@@ -1,3 +1,4 @@
+# coding: utf-8
 # vae可以看做在包含隐变量 z 模型的生成器模型的基础上，再增加了一个正则项，迫使隐变量 z 满足某种分布。
 # vanlia_generative_model 主要想尝试下不要这个正则项，生成会有什么效果。
 # 模型描述：z~N(0，1)为隐变量，先验概率为高斯分布，通过一个由神经网络实现的确定性函数 f 把 z 变换到数据空间，通过最大似然方法训练模型。
@@ -47,7 +48,7 @@ def train_ep(epoch):
         loss.backward()
         optimizer.step()
 
-        if batch_idx % 100 == 0:
+        if batch_idx % 10 == 0:
             print("Epoch: [%2d] Batch_idx:[%4d]  loss: %.8f" %
                   ((epoch), (batch_idx), loss.data[0]))
 
@@ -71,3 +72,7 @@ if __name__ == '__main__':
         train()
     test_0()
     #test_1()
+
+
+
+## it don`t work, strange!!

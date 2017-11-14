@@ -116,7 +116,7 @@ class InfoGAN(nn.Module):
         self.D = discriminator()
         self.G_optimizer = torch.optim.Adam(self.G.parameters())
         self.D_optimizer = torch.optim.Adam(self.D.parameters())
-        self.info_optimizer = torch.optim.Adam(itertools.chain(self.G.parameters(), self.D.parameters()),)
+        self.info_optimizer = torch.optim.Adam(itertools.chain(self.G.parameters(), self.D.parameters()))
         self.BCE_loss = nn.BCELoss()
         self.CE_loss = nn.CrossEntropyLoss()
         self.MSE_loss = nn.MSELoss()

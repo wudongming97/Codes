@@ -61,9 +61,54 @@ def test_5():
     res, _, _ = vanlia_vae.model.forward(imags_8)
     z_8 = res.expand(36, -1)
 
-    
 
 
+# 用全0和全1作为输入， 会得到什么结果
+def test_6():
+    z0 = Variable(torch.zeros(vanlia_vae.batch_sz, vanlia_vae.dim_z))
+    samples = vanlia_vae.model.decoder(z0).cpu().data.numpy()
+    my_plot(vanlia_vae.save_dir, "test_6_0", samples, 36)
+
+    z0_5 = Variable(torch.zeros(vanlia_vae.batch_sz, vanlia_vae.dim_z)*0.5)
+    samples = vanlia_vae.model.decoder(z0_5).cpu().data.numpy()
+    my_plot(vanlia_vae.save_dir, "test_6_0_5", samples, 36)
+
+    z1 = Variable(torch.ones(vanlia_vae.batch_sz, vanlia_vae.dim_z))
+    samples = vanlia_vae.model.decoder(z1).cpu().data.numpy()
+    my_plot(vanlia_vae.save_dir, "test_6_1", samples, 36)
+
+
+# 用均值在0.5，方差为1的高斯分布作为输入
+def test_7():
+    z = Variable(0.5 + torch.randn(vanlia_vae.batch_sz, vanlia_vae.dim_z))
+    samples = vanlia_vae.model.decoder(z).cpu().data.numpy()
+    my_plot(vanlia_vae.save_dir, "test_7", samples, 64)
+
+
+# 用均值在1，方差为1的高斯分布作为输入
+def test_8():
+    z = Variable(1 + torch.randn(vanlia_vae.batch_sz, vanlia_vae.dim_z))
+    samples = vanlia_vae.model.decoder(z).cpu().data.numpy()
+    my_plot(vanlia_vae.save_dir, "test_8", samples, 64)
+
+
+# 用均值在2，方差为1的高斯分布作为输入
+def test_9():
+    z = Variable(2 + torch.randn(vanlia_vae.batch_sz, vanlia_vae.dim_z))
+    samples = vanlia_vae.model.decoder(z).cpu().data.numpy()
+    my_plot(vanlia_vae.save_dir, "test_9", samples, 64)
+
+# 用均值在3，方差为1的高斯分布作为输入
+def test_10():
+    z = Variable(3 + torch.randn(vanlia_vae.batch_sz, vanlia_vae.dim_z))
+    samples = vanlia_vae.model.decoder(z).cpu().data.numpy()
+    my_plot(vanlia_vae.save_dir, "test_10", samples, 64)
+
+# 用均值在8，方差为1的高斯分布作为输入
+def test_11():
+    z = Variable(8 + torch.randn(vanlia_vae.batch_sz, vanlia_vae.dim_z))
+    samples = vanlia_vae.model.decoder(z).cpu().data.numpy()
+    my_plot(vanlia_vae.save_dir, "test_11", samples, 64)
 
 # 每个 epoch 查看下图片效果
 def test_0():
@@ -88,4 +133,10 @@ if __name__ == '__main__':
     # test_2()
     # test_3()
     # test_4()
-    test_5()
+    # test_5()
+    # test_6()
+    # test_7()
+    # test_8()
+    # test_9()
+    # test_10()
+    test_11()

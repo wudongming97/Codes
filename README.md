@@ -3,5 +3,5 @@
 #### GANs:
 * wgan
 * vanlia_gan
-### NLPs
+#### NLPs
 * cvae_lm

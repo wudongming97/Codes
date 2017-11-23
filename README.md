@@ -1,5 +1,7 @@
-#### vaes: 
+#### VAEs: 
 * vanlia_vae
-#### gans:
+#### GANs:
 * wgan
 * vanlia_gan
+### NLPs
+* cvae_lm

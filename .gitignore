@@ -4,3 +4,6 @@ datasets/
 */__pycache__
 .vscode/
 
+NLPs/nlp_dataset/*
+NLPs/saved_models/*
+NLPs/res_samples/*

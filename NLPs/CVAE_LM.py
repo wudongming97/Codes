@@ -43,7 +43,8 @@ class Encoder(nn.Module):
         mu = self.fc_mu(last_hidden[:, 0: self.hid_sz//2])
         log_var = self.fc_var(last_hidden[:, self.hid_sz//2: self.hid_sz])
         return mu, log_var
-    
+
+
 class Decoder(nn.Module):
     def __init__(self, vocab_sz, emb_dim, hid_sz, n_layers, z_dim):
         super(Decoder, self).__init__()

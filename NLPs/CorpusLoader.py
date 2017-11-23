@@ -1,6 +1,7 @@
 import numpy as np
 from Corpus import UNK_token, PAD_token, Corpus
 
+
 class CorpusLoader:
     def __init__(self, sentences, word2idx, idx2word):
         self.word2idx = word2idx

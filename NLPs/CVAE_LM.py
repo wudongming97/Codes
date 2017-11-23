@@ -1,6 +1,5 @@
 import os
 import datetime
-from functools import reduce
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
@@ -32,7 +31,7 @@ class Encoder(nn.Module):
 
     def forward(self, inputs, inputs_len, hidden=None):
         batch_sz = inputs.size(0)
-        if hidden == None:
+        if hidden is None:
             hidden = self.init_hidden(batch_sz)
 
         embedded = self.embedding(inputs)
@@ -73,7 +72,7 @@ class Decoder(nn.Module):
 
     def forward(self, inputs, mu, log_var, hidden=None):
         batch_sz = inputs.size(0)
-        if hidden == None:
+        if hidden is None:
             hidden = self.init_hidden(batch_sz)
         embedded = self.embedding(inputs)
         z = self.sample_z(mu, log_var)
@@ -121,12 +120,12 @@ class CVAE_LM:
         loss = kld_loss + rec_loss
 
         loss.backward()
-        torch.nn.utils.clip_grad_norm(self.encoder.parameters(), self.model_args['max_grad_norm'])
-        torch.nn.utils.clip_grad_norm(self.decoder.parameters(), self.model_args['max_grad_norm'])
+        torch.nn.utils.clip_grad_norm(self.encoder.parameters(), self.hyper_params['max_grad_norm'])
+        torch.nn.utils.clip_grad_norm(self.decoder.parameters(), self.hyper_params['max_grad_norm'])
         self.encoder_optimizer.step()
         self.decoder_optimizer.step()
 
-        return loss.data[0] / batch_sz, kld_loss.data[0] / batch_sz, rec_loss.data[0] / batch_sz
+        return loss.data[0], kld_loss.data[0], rec_loss.data[0]
 
     def fit(self, display_step=10):
         print('begin fit...')
@@ -175,11 +174,11 @@ class CVAE_LM:
     def load(self, encoder_file=None, decoder_file=None):
         print('load model...')
         model_name = self.model_args['name']
-        if encoder_file == None:
+        if encoder_file is None:
             self.encoder.load_state_dict(torch.load(os.path.join(self.save_dir, model_name + '_E.pkl')))
         else:
             self.encoder.load_state_dict(torch.load(encoder_file))
-        if decoder_file == None:
+        if decoder_file is None:
             self.decoder.load_state_dict(torch.load(os.path.join(self.save_dir, model_name + '_D.pkl')))
         else:
             self.decoder.load_state_dict(torch.load(decoder_file))

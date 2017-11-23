@@ -6,21 +6,21 @@ from functools import reduce
 
 TRAIN = 0
 EVALUTION = 1
-mode = TRAIN
+mode = EVALUTION
 
 model_args = {
         'name': 'CVAE_LM_test',
         'emb_dim': 312,
         'hid_sz': 156,
         'n_layers': 2,
-        'z_dim': 32,
-        'max_grad_norm': 5
+        'z_dim': 32
     }
 
 hyper_params = {
         'epoch': 10,
         'lr': 0.001,
-        'batch_sz': 60
+        'batch_sz': 60,
+        'max_grad_norm': 5
     }
 
 sentence_filter = lambda s:len(s.split()) > 5 and len(s.split()) < 15

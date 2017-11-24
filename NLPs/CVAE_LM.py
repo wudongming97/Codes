@@ -126,7 +126,7 @@ class CVAE_LM:
 
         return loss.data[0], kld_loss.data[0], rec_loss.data[0]
 
-    def fit(self, display_step=10):
+    def fit(self, corpus_loader=None, display_step=10):
         print('begin fit...')
         n_epoch = self.hyper_params['epoch']
         batch_sz = self.hyper_params['batch_sz']
@@ -139,6 +139,9 @@ class CVAE_LM:
                 if it % display_step == 0:
                     print("Epoch %d/%d | Batch %d/%d | train_loss: %.3f | kl_loss: %.3f | rec_loss: %.3f |" %
                           (epoch, n_epoch, it, self.corpus_loader.s_len // batch_sz, lss, kl_lss, rec_lss))
+            if corpus_loader is not None:
+                sentences = self.generate(corpus_loader)
+                print(sentences)
 
     def generate(self, corpus_loader, batch_sz=5, maxLen=10):
         z_dim = self.model_args['z_dim']

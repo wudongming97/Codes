@@ -29,7 +29,7 @@ def indices2sentences(indices, idx2word):
 def to_inputs(sentences, word2idx):
     indices = sentences2indices(sentences, word2idx)
     padded_input, lens, masks = pad_sentence_batch(indices)
-    return padded_input, lens, masks
+    return np.array(padded_input), lens, masks
 
 
 def to_outputs(indices, idx2word):
@@ -47,7 +47,7 @@ class CorpusLoader:
         self.vocab_sz = len(word2idx)
 
     def to_outputs(self, indices):
-        to_outputs(indices, self.idx2word)
+        return to_outputs(indices, self.idx2word)
 
     def next_batch(self, batch_sz):
         for i in range(0, self.s_len - self.s_len % batch_sz, batch_sz):
@@ -70,7 +70,10 @@ class ParallelCorpusLoader:
 
     def sentences_2_inputs(self, sentences_list):
         split_sentences = [s.split() for s in sentences_list]
-        to_inputs(split_sentences, self.X_word2idx)
+        return to_inputs(split_sentences, self.X_word2idx)
+
+    def to_outputs(self, indices):
+        return to_outputs(indices, self.Y_idx2word)
 
     def next_batch(self, batch_sz):
         for i in range(0, self.s_len - self.s_len % batch_sz, batch_sz):

@@ -1,5 +1,4 @@
 import os
-import datetime
 from functools import reduce
 import torch
 import torch.nn as nn
@@ -168,21 +167,12 @@ class CVAE_LM:
         model_name = self.model_args['name']
         torch.save(self.encoder.state_dict(), os.path.join(self.save_dir, model_name+'_E.pkl'))
         torch.save(self.decoder.state_dict(), os.path.join(self.save_dir, model_name+'_D.pkl'))
-        save_time = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M")
-        torch.save(self.encoder.state_dict(), os.path.join(self.save_dir, model_name + '_E.pkl' + save_time))
-        torch.save(self.decoder.state_dict(), os.path.join(self.save_dir, model_name + '_D.pkl' + save_time))
 
-    def load(self, encoder_file=None, decoder_file=None):
+    def load(self):
         print('load model...')
         model_name = self.model_args['name']
-        if encoder_file is None:
-            self.encoder.load_state_dict(torch.load(os.path.join(self.save_dir, model_name + '_E.pkl')))
-        else:
-            self.encoder.load_state_dict(torch.load(encoder_file))
-        if decoder_file is None:
-            self.decoder.load_state_dict(torch.load(os.path.join(self.save_dir, model_name + '_D.pkl')))
-        else:
-            self.decoder.load_state_dict(torch.load(decoder_file))
+        self.encoder.load_state_dict(torch.load(os.path.join(self.save_dir, model_name + '_E.pkl')))
+        self.decoder.load_state_dict(torch.load(os.path.join(self.save_dir, model_name + '_D.pkl')))
 
     @staticmethod
     def process_decoder_input(target):
@@ -205,7 +195,9 @@ if __name__ == '__main__':
     small_z_dim = 8
     small_n_layers = 2
 
-    corpus = Corpus('nlp_dataset/Corpus.test.txt').process()
+    test_data_path = '../datasets/en_vi_nlp/tst2012.en'
+
+    corpus = Corpus(test_data_path).process()
     corpus_loader = CorpusLoader(corpus.sentences, corpus.word2idx, corpus.idx2word)
 
     '''
@@ -248,8 +240,6 @@ if __name__ == '__main__':
     word_lists = corpus_loader.indices2sentences(indices.numpy().tolist())
     print(indices)
     print(word_lists)
-    sentences = [reduce(lambda x, y :x + ' ' + y, words) for words in word_lists]
+    sentences = [reduce(lambda x, y: x + ' ' + y, words) for words in word_lists]
     print(sentences)
-
-
 

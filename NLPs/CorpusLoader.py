@@ -1,4 +1,5 @@
 import numpy as np
+from functools import reduce
 from Corpus import UNK_token, PAD_token, Corpus, ParallelCorpus
 
 
@@ -14,6 +15,29 @@ def pad_sentence_batch(bt):
     return padded_seqs, seq_lens, masks
 
 
+def sentences2indices(sentences, word2idx):
+    indices = [[word2idx.get(word, UNK_token) for word in s] for s in sentences]
+    return indices
+
+
+def indices2sentences(indices, idx2word):
+    unk_word = idx2word[UNK_token]
+    sentences = [[idx2word.get(idx, unk_word) for idx in idxs] for idxs in indices]
+    return sentences
+
+
+def to_inputs(sentences, word2idx):
+    indices = sentences2indices(sentences, word2idx)
+    padded_input, lens, masks = pad_sentence_batch(indices)
+    return padded_input, lens, masks
+
+
+def to_outputs(indices, idx2word):
+    words_lists = indices2sentences(indices, idx2word)
+    sentences = [reduce(lambda x, y: x + ' ' + y, words) for words in words_lists]
+    return  sentences
+
+
 class CorpusLoader:
     def __init__(self, sentences, word2idx, idx2word):
         self.word2idx = word2idx
@@ -22,22 +46,14 @@ class CorpusLoader:
         self.sentences = sentences
         self.vocab_sz = len(word2idx)
 
-    def sentences2indices(self, sentences):
-        indices = [[self.word2idx.get(word, UNK_token) for word in s] for s in sentences]
-        return indices
-
-    def indices2sentences(self, indices):
-        unk_word = self.idx2word[UNK_token]
-        sentences = [[self.idx2word.get(idx, unk_word) for idx in idxs] for idxs in indices]
-        return sentences
+    def to_outputs(self, indices):
+        to_outputs(indices, self.idx2word)
 
     def next_batch(self, batch_sz):
         for i in range(0, self.s_len - self.s_len % batch_sz, batch_sz):
             split_sentences_bt = [[word for word in s.split()] for s in self.sentences[i: i + batch_sz]]
             sorted_sentences_bt = sorted(split_sentences_bt, key=len, reverse=True)
-            indices_bt = self.sentences2indices(sorted_sentences_bt)
-            # pad
-            padded_bt, bt_lens, bt_masks = pad_sentence_batch(indices_bt)
+            padded_bt, bt_lens, bt_masks = to_inputs(sorted_sentences_bt, self.word2idx)
             yield (np.array(padded_bt), bt_lens, bt_masks)
 
 
@@ -52,22 +68,18 @@ class ParallelCorpusLoader:
         self.X_vocab_sz = len(X_word2idx)
         self.Y_vocab_sz = len(Y_word2idx)
 
+    def sentences_2_inputs(self, sentences_list):
+        split_sentences = [s.split() for s in sentences_list]
+        to_inputs(split_sentences, self.X_word2idx)
+
     def next_batch(self, batch_sz):
         for i in range(0, self.s_len - self.s_len % batch_sz, batch_sz):
             split_sentences_pair_bt = [list(map(lambda x:x.split(), sp)) for sp in self.sentences_pair[i: i + batch_sz]]
             split_sentences_pair_bt.sort(key=lambda x: len(x[0]), reverse=True)
-            X_indices, Y_indices = self.spairs2indices(split_sentences_pair_bt)
-            # pad
-            X_padded_bt, X_bt_lens, X_bt_masks = pad_sentence_batch(X_indices)
-            Y_padded_bt, Y_bt_lens, Y_bt_masks = pad_sentence_batch(Y_indices)
+            X, Y = list(zip(*split_sentences_pair_bt))
+            X_padded_bt, X_bt_lens, X_bt_masks = to_inputs(X, self.X_word2idx)
+            Y_padded_bt, Y_bt_lens, Y_bt_masks = to_inputs(Y, self.Y_word2idx)
             yield ((np.array(X_padded_bt), X_bt_lens, X_bt_masks), (np.array(Y_padded_bt), Y_bt_lens, Y_bt_masks))
-
-    def spairs2indices(self, s_pairs):
-        X, Y = list(zip(*s_pairs))
-        X_indices = [[self.X_word2idx.get(word, UNK_token) for word in s] for s in X]
-        Y_indices = [[self.Y_word2idx.get(word, UNK_token) for word in s] for s in Y]
-        return X_indices, Y_indices
-
 
 
 if __name__ == '__main__':

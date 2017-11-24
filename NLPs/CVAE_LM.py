@@ -1,5 +1,4 @@
 import os
-from functools import reduce
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
@@ -153,8 +152,7 @@ class CVAE_LM:
             _, topi = decoder_output.data.topk(1)
             res_indices = torch.cat((res_indices, topi), 1)
             go_inputs = Variable(topi)
-        word_lists = corpus_loader.indices2sentences(res_indices.numpy().tolist())
-        sentences = [reduce(lambda x, y: x + ' ' + y, words) for words in word_lists]
+        sentences = corpus_loader.to_outputs(res_indices.numpy().tolist())
         return sentences
 
     def save(self):

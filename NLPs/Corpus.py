@@ -157,7 +157,7 @@ class ParallelCorpus:
 
 
 if __name__ == '__main__':
-    file = 'nlp_dataset/Corpus.test.txt'
+    file = '../datasets/en_vi_nlp/tst2012.en'
     corpus = Corpus(file).process().trim(3)
     corpus2 = ParallelCorpus(file, file).process().trim(2,3)
 

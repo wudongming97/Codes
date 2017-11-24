@@ -43,18 +43,18 @@ class CorpusLoader:
 
 class ParallelCorpusLoader:
     def __init__(self, sentences_pair, X_word2idx, X_idx2word, Y_word2idx, Y_idx2word):
-        self.pairs = sentences_pair
+        self.sentences_pair = sentences_pair
+        self.s_len = len(sentences_pair)
         self.X_word2idx = X_word2idx
         self.X_idx2word = X_idx2word
         self.Y_word2idx = Y_word2idx
         self.Y_idx2word = Y_idx2word
-        self.s_len = len(sentences_pair)
         self.X_vocab_sz = len(X_word2idx)
         self.Y_vocab_sz = len(Y_word2idx)
 
     def next_batch(self, batch_sz):
         for i in range(0, self.s_len - self.s_len % batch_sz, batch_sz):
-            split_sentences_pair_bt = [list(map(lambda x:x.split(), sp)) for sp in self.pairs[i: i + batch_sz]]
+            split_sentences_pair_bt = [list(map(lambda x:x.split(), sp)) for sp in self.sentences_pair[i: i + batch_sz]]
             split_sentences_pair_bt.sort(key=lambda x: len(x[0]), reverse=True)
             X_indices, Y_indices = self.spairs2indices(split_sentences_pair_bt)
             # pad
@@ -71,8 +71,8 @@ class ParallelCorpusLoader:
 
 
 if __name__ == '__main__':
-    file = 'nlp_dataset/Corpus.test.txt'
-    file1 = 'nlp_dataset/Corpus.shift.test.txt'
+    file = '../datasets/en_vi_nlp/tst2012.en'
+    file1 = '../datasets/en_vi_nlp/tst2012.vi'
     '''
     corpus = Corpus(file).process().trim(3)
     corpus_loader = CorpusLoader(corpus.sentences, corpus.word2idx, corpus.idx2word)

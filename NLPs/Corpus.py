@@ -14,7 +14,7 @@ class Corpus:
         self.sentences = open(self.file, encoding='UTF-8').read().strip().split('\n')
 
     def filter_sentences(self, f):
-        sentences = [s for s in self.sentences if f(s)]
+        sentences = [s for s in self.sentences if not f(s)]
         self.sentences = sentences
         return self
 
@@ -84,10 +84,10 @@ class ParallelCorpus:
         return self
 
     def filter_sentence_pairs(self, src_f=None, target_f=None):
-        if src_f is None:
-            sentences_pairs = [(s, t) for (s, t) in self.pair_sentences if src_f(s)]
-        if target_f is None:
-            sentences_pairs = [(s, t) for (s, t) in self.pair_sentences if target_f(t)]
+        if src_f is not None:
+            sentences_pairs = [(s, t) for (s, t) in self.pair_sentences if not src_f(s)]
+        if target_f is not None:
+            sentences_pairs = [(s, t) for (s, t) in self.pair_sentences if not target_f(t)]
         self.pair_sentences = sentences_pairs
         return self
 

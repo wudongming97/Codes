@@ -140,13 +140,8 @@ class CVAE_LM:
                 if it % display_step == 0:
                     print("Epoch %d/%d | Batch %d/%d | train_loss: %.3f | kl_loss: %.3f | rec_loss: %.3f |" %
                           (epoch, n_epoch, it, self.corpus_loader.s_len // batch_sz, lss, kl_lss, rec_lss))
-            # generated samples
-            indices = self.generate(2)
-            word_lists = self.corpus_loader.indices2sentences(indices.numpy().tolist())
-            sentences = [reduce(lambda x, y: x + ' ' + y, words) for words in word_lists]
-            print(sentences)
 
-    def generate(self, batch_sz=5, maxLen=10):
+    def generate(self, corpus_loader, batch_sz=5, maxLen=10):
         z_dim = self.model_args['z_dim']
         res_indices = torch.LongTensor([[SOS_token]]).expand(batch_sz, 1)
         go_inputs = Variable(torch.LongTensor([[SOS_token]])).expand((batch_sz, 1))
@@ -158,7 +153,9 @@ class CVAE_LM:
             _, topi = decoder_output.data.topk(1)
             res_indices = torch.cat((res_indices, topi), 1)
             go_inputs = Variable(topi)
-        return res_indices
+        word_lists = corpus_loader.indices2sentences(res_indices.numpy().tolist())
+        sentences = [reduce(lambda x, y: x + ' ' + y, words) for words in word_lists]
+        return sentences
 
     def save(self):
         print('save model...')
@@ -223,23 +220,19 @@ if __name__ == '__main__':
         'emb_dim': small_emb_sz,
         'hid_sz': small_hid_sz,
         'n_layers': small_n_layers,
-        'z_dim': small_z_dim,
-        'max_grad_norm': 5
+        'z_dim': small_z_dim
     }
 
     hyper_params = {
         'epoch': 6,
         'lr': 0.001,
-        'batch_sz': 10
+        'batch_sz': 10,
+        'max_grad_norm': 5
     }
     cvae_lm = CVAE_LM(corpus_loader, model_args, hyper_params)
     cvae_lm.fit()
     cvae_lm.save()
     cvae_lm.load()
-    indices = cvae_lm.generate(2)
-    word_lists = corpus_loader.indices2sentences(indices.numpy().tolist())
-    print(indices)
-    print(word_lists)
-    sentences = [reduce(lambda x, y: x + ' ' + y, words) for words in word_lists]
+    sentences = cvae_lm.generate(corpus_loader, 2)
     print(sentences)
 

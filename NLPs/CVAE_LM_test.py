@@ -41,9 +41,8 @@ if __name__ == '__main__':
         cvae_lm.load()
 
         # generate
-        indices = cvae_lm.generate(100)
-        word_lists = corpus_loader.indices2sentences(indices.numpy().tolist())
-        sentences = [reduce(lambda x, y: x + ' ' + y, words) for words in word_lists]
+        sentences = cvae_lm.generate(corpus_loader, 100)
+
         # save sentences to file
         save_dir = './res_samples/'
         if not os.path.exists(save_dir):

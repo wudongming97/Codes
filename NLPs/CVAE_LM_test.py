@@ -26,8 +26,9 @@ hyper_params = {
 train_data_path = '../datasets/en_vi_nlp/train.en'
 test_data_path = '../datasets/en_vi_nlp/tst2012.en'
 
-sentence_filter = lambda s:len(s.split()) < 5 or len(s.split()) > 18
-corpus = Corpus(train_data_path).filter_sentences(sentence_filter).process()
+remove_sentences_by_lenght = lambda s:len(s.split()) < 5 or len(s.split()) > 18
+remove_blank_sentences = lambda s: len(s) == 0
+corpus = Corpus(train_data_path).filter_sentences(remove_sentences_by_lenght).filter_sentences(remove_blank_sentences).process()
 corpus_loader = CorpusLoader(corpus.sentences, corpus.word2idx, corpus.idx2word)
 cvae_lm = CVAE_LM(corpus_loader, model_args, hyper_params)
 

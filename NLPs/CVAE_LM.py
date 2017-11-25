@@ -7,6 +7,8 @@ from Corpus import SOS_token, EOS_token
 from Utils import nll
 
 USE_GPU = torch.cuda.is_available()
+if USE_GPU:
+    torch.cuda.set_device(1)
 
 
 class Encoder(nn.Module):

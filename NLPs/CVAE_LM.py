@@ -6,6 +6,8 @@ from torch import optim
 from Corpus import SOS_token, EOS_token
 from Utils import nll
 
+USE_GPU = torch.cuda.is_available()
+
 
 class Encoder(nn.Module):
     def __init__(self, input_sz, emb_dim, hid_sz, n_layers, z_dim):
@@ -24,9 +26,11 @@ class Encoder(nn.Module):
         self.fc_var = nn.Linear(self.hid_sz - self.hid_sz//2, self.z_dim)
 
     def init_hidden(self, batch_sz):
-        result = (Variable(torch.zeros(self.n_layers, batch_sz, self.hid_sz)),
-                  Variable(torch.zeros(self.n_layers, batch_sz, self.hid_sz)))
-        return result
+        h0 = Variable(torch.zeros(self.n_layers, batch_sz, self.hid_sz))
+        c0 = Variable(torch.zeros(self.n_layers, batch_sz, self.hid_sz))
+        if USE_GPU:
+            h0, c0 = h0.cuda(), c0.cuda()
+        return h0, c0
 
     def forward(self, inputs, inputs_len, hidden=None):
         batch_sz = inputs.size(0)
@@ -61,13 +65,17 @@ class Decoder(nn.Module):
     def sample_z(self, mu, log_var):
         std = torch.exp(0.5 * log_var)
         z = Variable(torch.randn(mu.size()))
-        z = z * mu + std
-        return z
+        if USE_GPU:
+            z = z.cuda()
+        ret = z * mu + std
+        return ret
 
     def init_hidden(self, batch_sz):
-        result = (Variable(torch.zeros(self.n_layers, batch_sz, self.hid_sz)),
-                  Variable(torch.zeros(self.n_layers, batch_sz, self.hid_sz)))
-        return result
+        h0 = Variable(torch.zeros(self.n_layers, batch_sz, self.hid_sz))
+        c0 = Variable(torch.zeros(self.n_layers, batch_sz, self.hid_sz))
+        if USE_GPU:
+            h0, c0 = h0.cuda(), c0.cuda()
+        return h0, c0
 
     def forward(self, inputs, mu, log_var, hidden=None):
         batch_sz = inputs.size(0)
@@ -93,6 +101,9 @@ class CVAE_LM:
     def build_model(self):
         self.encoder = Encoder(self.corpus_loader.vocab_sz, self.model_args['emb_dim'], self.model_args['hid_sz'], self.model_args['n_layers'], self.model_args['z_dim'])
         self.decoder = Decoder(self.corpus_loader.vocab_sz, self.model_args['emb_dim'], self.model_args['hid_sz'], self.model_args['n_layers'], self.model_args['z_dim'])
+        if USE_GPU:
+            self.encoder = self.encoder.cuda()
+            self.decoder = self.decoder.cuda()
         self.encoder_optimizer = optim.Adam(self.encoder.parameters())
         self.decoder_optimizer = optim.Adam(self.decoder.parameters())
         # self.criterion = torch.nn.CrossEntropyLoss()
@@ -121,6 +132,8 @@ class CVAE_LM:
         # recon loss
         losses = nll(nn.functional.log_softmax(decoder_out), inputs.view(-1, 1))
         inputs_mask = torch.autograd.Variable(torch.FloatTensor(inputs_mask)).view(-1)
+        if USE_GPU:
+            inputs_mask = inputs_mask.cuda()
         rec_loss = torch.mul(losses, inputs_mask).sum() / batch_sz
 
         # loss = kl_loss + recon_loss
@@ -142,6 +155,8 @@ class CVAE_LM:
             for it, (padded_bt, bt_lens, bt_masks) in enumerate(
                     self.corpus_loader.next_batch(batch_sz)):
                 batch_inputs = Variable(torch.from_numpy(padded_bt))
+                if USE_GPU:
+                    batch_inputs = batch_inputs.cuda()
                 lss, kl_lss, rec_lss = self.train(batch_inputs, bt_lens, bt_masks)
 
                 if it % display_step == 0:
@@ -161,13 +176,18 @@ class CVAE_LM:
         go_inputs = Variable(torch.LongTensor([[SOS_token]])).expand((batch_sz, 1))
         mu = Variable(torch.zeros(batch_sz, z_dim))
         log_var = Variable(torch.ones(batch_sz, z_dim))
+
+        if USE_GPU:
+            go_inputs, mu, log_var = go_inputs.cuda(), mu.cuda(), log_var.cuda()
+            res_indices = torch.cuda.LongTensor([[SOS_token]]).expand(batch_sz, 1)
+
         for i in range(maxLen):
             decoder_output, decoder_hidden = self.decoder(go_inputs, mu, log_var)
             decoder_output = torch.nn.functional.log_softmax(decoder_output)
             _, topi = decoder_output.data.topk(1)
             res_indices = torch.cat((res_indices, topi), 1)
             go_inputs = Variable(topi)
-        sentences = corpus_loader.to_outputs(res_indices.numpy().tolist())
+        sentences = corpus_loader.to_outputs(res_indices.cpu().numpy().tolist())
         return sentences
 
     def save(self):
@@ -188,6 +208,8 @@ class CVAE_LM:
     def process_decoder_input(target):
         target = target[:, :-1]
         go = torch.autograd.Variable((torch.zeros(target.size(0), 1) + SOS_token).long())
+        if USE_GPU:
+            go = go.cuda()
         decoder_input = torch.cat((go, target), 1)
         return decoder_input
 

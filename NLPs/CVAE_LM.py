@@ -99,7 +99,10 @@ class CVAE_LM:
 
     def kl_loss_annealing_policy(self, n_epoch, cur_epoch):
         #line policy
-        self.alpha = torch.linspace(0, 1, n_epoch)[cur_epoch]
+        if n_epoch <= 1:
+            self.alpha = 1
+        else:
+            self.alpha = torch.linspace(0, 1, n_epoch)[cur_epoch]
 
     def train(self, inputs, inputs_len, inputs_mask):
         batch_sz = inputs.size(0)
@@ -234,7 +237,7 @@ if __name__ == '__main__':
     }
 
     hyper_params = {
-        'epoch': 6,
+        'epoch': 1,
         'lr': 0.001,
         'batch_sz': 10,
         'max_grad_norm': 5

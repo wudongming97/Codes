@@ -38,7 +38,7 @@ seq2seq = Seq2Seq(corpusLoader, model_args, hyper_params)
 
 
 def test(batch_sz):
-    test_lines = Corpus(test_data_source).sentences.filter_sentences(remove_blank_line)
+    test_lines = Corpus(test_data_source).filter_sentences(is_blank_line).sentences
     test_lines_len = len(test_lines)
     for i in range(0, test_lines_len - test_lines_len % batch_sz, batch_sz):
         bas = test_lines[i: i + batch_sz]
@@ -60,6 +60,7 @@ if __name__ == '__main__':
         print('begin evaluate...')
         seq2seq.load()
         test(60)
+        print('end evaluate...')
 
 
 

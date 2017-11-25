@@ -4,6 +4,10 @@ import torch
 from Utils import nll
 from Corpus import SOS_token, EOS_token
 
+USE_GPU = torch.cuda.is_available()
+if USE_GPU:
+    torch.cuda.set_device(1)
+
 
 class Encoder(torch.nn.Module):
     def __init__(self, input_size, encoder_embedding_dim, hidden_size, n_layers):
@@ -30,10 +34,12 @@ class Encoder(torch.nn.Module):
         output, _ = torch.nn.utils.rnn.pad_packed_sequence(rnn_out, batch_first=True)
         return output, hidden
 
-    def init_hidden(self, batch_size):
-        result = (torch.autograd.Variable(torch.zeros(self.n_layers, batch_size, self.hidden_size)),
-                  torch.autograd.Variable(torch.zeros(self.n_layers, batch_size, self.hidden_size)))
-        return result
+    def init_hidden(self, batch_sz):
+        h0 = torch.autograd.Variable(torch.zeros(self.n_layers, batch_sz, self.hidden_size))
+        c0 = torch.autograd.Variable(torch.zeros(self.n_layers, batch_sz, self.hidden_size))
+        if USE_GPU:
+            h0, c0 = h0.cuda(), c0.cuda()
+        return h0, c0
 
 class Decoder(torch.nn.Module):
     def __init__(self, output_size, decoder_embedding_dim, hidden_size, n_layers):
@@ -67,6 +73,8 @@ class Seq2Seq:
     def build_model(self):
         self.encoder = Encoder(self.corpus_loader.X_vocab_sz, self.model_args['encoder_embedding_dim'], self.model_args['hidden_size'], self.model_args['n_layers'])
         self.decoder = Decoder(self.corpus_loader.Y_vocab_sz, self.model_args['decoder_embedding_dim'], self.model_args['hidden_size'], self.model_args['n_layers'])
+        if USE_GPU:
+            self.encoder, self.decoder = self.encoder.cuda(), self.decoder.cuda()
         self.encoder_optimizer = torch.optim.Adam(self.encoder.parameters())
         self.decoder_optimizer = torch.optim.Adam(self.decoder.parameters())
         self.criterion = torch.nn.CrossEntropyLoss()
@@ -85,6 +93,8 @@ class Seq2Seq:
 
         losses = nll(torch.nn.functional.log_softmax(decoder_output), Y_inputs.view(-1, 1))
         Y_masks = torch.autograd.Variable(torch.FloatTensor(Y_masks)).view(-1)
+        if USE_GPU:
+            Y_masks = Y_masks.cuda()
         loss = torch.mul(losses, Y_masks).sum() / batch_size
         loss.backward()
         torch.nn.utils.clip_grad_norm(self.encoder.parameters(), self.hyper_params['max_grad_norm'])
@@ -102,6 +112,9 @@ class Seq2Seq:
             for local_step, ((X_input, X_lens, _), (Y_input, _, Y_masks)) in enumerate(self.corpus_loader.next_batch(batch_sz)):
                 X_input = torch.autograd.Variable(torch.from_numpy(X_input))
                 Y_input = torch.autograd.Variable(torch.from_numpy(Y_input))
+                if USE_GPU:
+                    X_input, Y_input = X_input.cuda(), Y_input.cuda()
+
                 loss = self.train(X_input, X_lens, Y_input, Y_masks)
 
                 if local_step % display_step == 0:
@@ -114,11 +127,19 @@ class Seq2Seq:
             maxLen = 2 * X_input.shape[1]
 
         encoder_inputs = torch.autograd.Variable(torch.from_numpy(X_input))
+        if USE_GPU:
+            encoder_inputs = encoder_inputs.cuda()
+
         encoder_output, encoder_hidden = self.encoder(encoder_inputs, X_lens)
         decoder_hidden = encoder_hidden
 
         output_indices = torch.LongTensor([[SOS_token]]).expand(batch_size, 1)
+        if USE_GPU:
+            output_indices = torch.cuda.LongTensor([[SOS_token]]).expand(batch_size, 1)
+
         decoder_inputs = torch.autograd.Variable(torch.LongTensor([[SOS_token]])).expand((batch_size, 1))
+        if USE_GPU:
+            decoder_inputs = decoder_inputs.cuda()
 
         for i in range(maxLen):
             decoder_output, decoder_hidden = self.decoder(decoder_inputs, decoder_hidden)
@@ -126,11 +147,13 @@ class Seq2Seq:
             _, topi = decoder_output.data.topk(1)
             output_indices = torch.cat((output_indices, topi), 1)
             decoder_inputs = torch.autograd.Variable(topi)
-        return output_indices.numpy()
+        return output_indices.cpu().numpy()
 
     def process_decoder_input(self, target):
         target = target[:, :-1]
         go = torch.autograd.Variable((torch.zeros(target.size(0), 1) + SOS_token).long())
+        if USE_GPU:
+            go = go.cuda()
         decoder_input = torch.cat((go, target), 1)
         return decoder_input
 

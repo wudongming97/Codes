@@ -86,9 +86,10 @@ class ParallelCorpus:
     def filter_sentence_pairs(self, src_f=None, target_f=None):
         if src_f is not None:
             sentences_pairs = [(s, t) for (s, t) in self.pair_sentences if not src_f(s)]
+            self.pair_sentences = sentences_pairs
         if target_f is not None:
             sentences_pairs = [(s, t) for (s, t) in self.pair_sentences if not target_f(t)]
-        self.pair_sentences = sentences_pairs
+            self.pair_sentences = sentences_pairs
         return self
 
     def trim(self, src_count, target_count):

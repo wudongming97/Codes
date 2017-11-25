@@ -30,15 +30,15 @@ from CorpusLoader import ParallelCorpusLoader
 from Seq2Seq import Seq2Seq
 
 
-remove_blank_line = lambda s: len(s) == 0
-corpus = ParallelCorpus(test_data_source, test_data_target).filter_sentence_pairs(remove_blank_line, remove_blank_line).process()
+is_blank_line = lambda s: len(s) == 0
+corpus = ParallelCorpus(train_data_source, train_data_target).filter_sentence_pairs(is_blank_line, is_blank_line).process()
 corpusLoader = ParallelCorpusLoader(corpus.pair_sentences, corpus.X_word2idx, corpus.X_idx2word,
                                     corpus.Y_word2idx, corpus.Y_idx2word)
 seq2seq = Seq2Seq(corpusLoader, model_args, hyper_params)
 
 
 def test(batch_sz):
-    test_lines = Corpus(test_data_source).sentences
+    test_lines = Corpus(test_data_source).sentences.filter_sentences(remove_blank_line)
     test_lines_len = len(test_lines)
     for i in range(0, test_lines_len - test_lines_len % batch_sz, batch_sz):
         bas = test_lines[i: i + batch_sz]

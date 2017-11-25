@@ -87,6 +87,7 @@ class CVAE_LM:
         self.model_args = model_args
         self.hyper_params = hyper_params
         self.save_dir = './saved_models/'
+        self.alpha = 0      # kl-loss annealing trick
         self.build_model()
 
     def build_model(self):
@@ -95,6 +96,10 @@ class CVAE_LM:
         self.encoder_optimizer = optim.Adam(self.encoder.parameters())
         self.decoder_optimizer = optim.Adam(self.decoder.parameters())
         # self.criterion = torch.nn.CrossEntropyLoss()
+
+    def kl_loss_annealing_policy(self, n_epoch, cur_epoch):
+        #line policy
+        self.alpha = torch.linspace(0, 1, n_epoch)[cur_epoch]
 
     def train(self, inputs, inputs_len, inputs_mask):
         batch_sz = inputs.size(0)
@@ -116,7 +121,7 @@ class CVAE_LM:
         rec_loss = torch.mul(losses, inputs_mask).sum() / batch_sz
 
         # loss = kl_loss + recon_loss
-        loss = kld_loss + rec_loss
+        loss = rec_loss + kld_loss * self.alpha
 
         loss.backward()
         torch.nn.utils.clip_grad_norm(self.encoder.parameters(), self.hyper_params['max_grad_norm'])
@@ -139,6 +144,10 @@ class CVAE_LM:
                 if it % display_step == 0:
                     print("Epoch %d/%d | Batch %d/%d | train_loss: %.3f | kl_loss: %.3f | rec_loss: %.3f |" %
                           (epoch, n_epoch, it, self.corpus_loader.s_len // batch_sz, lss, kl_lss, rec_lss))
+
+            # kl-loss policy
+            self.kl_loss_annealing_policy(n_epoch, epoch-1)
+
             if corpus_loader is not None:
                 sentences = self.generate(corpus_loader)
                 print(sentences)

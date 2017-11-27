@@ -106,8 +106,8 @@ class CVAE_LM:
         if USE_GPU:
             self.encoder = self.encoder.cuda()
             self.decoder = self.decoder.cuda()
-        self.encoder_optimizer = optim.Adam(self.encoder.parameters())
-        self.decoder_optimizer = optim.Adam(self.decoder.parameters())
+        self.encoder_optimizer = optim.Adam(self.encoder.parameters(), lr=self.hyper_params['lr'])
+        self.decoder_optimizer = optim.Adam(self.decoder.parameters(), lr=self.hyper_params['lr'])
         # self.criterion = torch.nn.CrossEntropyLoss()
 
     def kl_loss_annealing_policy(self, n_epoch, cur_epoch):

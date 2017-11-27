@@ -12,24 +12,26 @@ if USE_GPU:
 
 
 class Encoder(nn.Module):
-    def __init__(self, input_sz, emb_dim, hid_sz, n_layers, z_dim):
+    def __init__(self, input_sz, emb_dim, hid_sz, n_layers, z_dim, bidirectional=False):
         super(Encoder, self).__init__()
         self.input_sz = input_sz
         self.hid_sz = hid_sz
         self.emb_dim = emb_dim
         self.n_layers = n_layers
         self.z_dim = z_dim
+        self.bidirectional = bidirectional
+        self.num_directions = 2 if bidirectional else 1
         self.build_model()
 
     def build_model(self):
         self.embedding = nn.Embedding(self.input_sz, self.emb_dim)
-        self.rnn = nn.LSTM(self.emb_dim, self.hid_sz, self.n_layers, batch_first=True)
-        self.fc_mu = nn.Linear(self.hid_sz//2, self.z_dim)
-        self.fc_var = nn.Linear(self.hid_sz - self.hid_sz//2, self.z_dim)
+        self.rnn = nn.LSTM(self.emb_dim, self.hid_sz, self.n_layers, batch_first=True, bidirectional=self.bidirectional)
+        self.fc_mu = nn.Linear(self.num_directions * self.hid_sz, self.z_dim)
+        self.fc_var = nn.Linear(self.num_directions * self.hid_sz, self.z_dim)
 
     def init_hidden(self, batch_sz):
-        h0 = Variable(torch.zeros(self.n_layers, batch_sz, self.hid_sz))
-        c0 = Variable(torch.zeros(self.n_layers, batch_sz, self.hid_sz))
+        h0 = Variable(torch.zeros(self.n_layers * self.num_directions, batch_sz, self.hid_sz))
+        c0 = Variable(torch.zeros(self.n_layers * self.num_directions, batch_sz, self.hid_sz))
         if USE_GPU:
             h0, c0 = h0.cuda(), c0.cuda()
         return h0, c0
@@ -43,26 +45,28 @@ class Encoder(nn.Module):
         packed = torch.nn.utils.rnn.pack_padded_sequence(embedded, inputs_len, batch_first=True)
         _, (hidden, _) = self.rnn(packed, hidden)
         # output, _ = torch.nn.utils.rnn.pad_packed_sequence(rnn_out, batch_first=True)
-        last_hidden = hidden[self.n_layers-1:, :, :].view(batch_sz, -1)
-        mu = self.fc_mu(last_hidden[:, 0: self.hid_sz//2])
-        log_var = self.fc_var(last_hidden[:, self.hid_sz//2: self.hid_sz])
+        last_hidden = hidden[(self.n_layers-1) * self.num_directions:, :, :].view(batch_sz, -1)
+        mu = self.fc_mu(last_hidden)
+        log_var = self.fc_var(last_hidden)
         return mu, log_var
 
 
 class Decoder(nn.Module):
-    def __init__(self, vocab_sz, emb_dim, hid_sz, n_layers, z_dim):
+    def __init__(self, vocab_sz, emb_dim, hid_sz, n_layers, z_dim, bidirectional=False):
         super(Decoder, self).__init__()
         self.vocab_sz = vocab_sz
         self.emb_dim = emb_dim
         self.hid_sz = hid_sz
         self.z_dim = z_dim
         self.n_layers = n_layers
+        self.bidirectional = bidirectional
+        self.num_directions = 2 if bidirectional else 1
         self.build_model()
 
     def build_model(self):
         self.embedding = nn.Embedding(self.vocab_sz, self.emb_dim)
-        self.rnn = nn.LSTM(self.emb_dim+self.z_dim, self.hid_sz, self.n_layers, batch_first=True)
-        self.fc_out = nn.Linear(self.hid_sz, self.vocab_sz)
+        self.rnn = nn.LSTM(self.emb_dim+self.z_dim, self.hid_sz, self.n_layers, batch_first=True, bidirectional=self.bidirectional)
+        self.fc_out = nn.Linear(self.num_directions * self.hid_sz, self.vocab_sz)
 
     def sample_z(self, mu, log_var):
         std = torch.exp(0.5 * log_var)
@@ -73,8 +77,8 @@ class Decoder(nn.Module):
         return ret
 
     def init_hidden(self, batch_sz):
-        h0 = Variable(torch.zeros(self.n_layers, batch_sz, self.hid_sz))
-        c0 = Variable(torch.zeros(self.n_layers, batch_sz, self.hid_sz))
+        h0 = Variable(torch.zeros(self.n_layers * self.num_directions, batch_sz, self.hid_sz))
+        c0 = Variable(torch.zeros(self.n_layers * self.num_directions, batch_sz, self.hid_sz))
         if USE_GPU:
             h0, c0 = h0.cuda(), c0.cuda()
         return h0, c0
@@ -87,7 +91,7 @@ class Decoder(nn.Module):
         z = self.sample_z(mu, log_var)
         rnn_input = torch.cat([z.view(batch_sz, -1, self.z_dim).expand(batch_sz, embedded.size(1), self.z_dim), embedded], 2)
         output, hidden = self.rnn(rnn_input, hidden)
-        output = self.fc_out(output.contiguous().view(-1, self.hid_sz))
+        output = self.fc_out(output.contiguous().view(-1, self.hid_sz * self.num_directions))
         return output, hidden
 
 
@@ -101,8 +105,10 @@ class CVAE_LM:
         self.build_model()
 
     def build_model(self):
-        self.encoder = Encoder(self.corpus_loader.vocab_sz, self.model_args['emb_dim'], self.model_args['hid_sz'], self.model_args['n_layers'], self.model_args['z_dim'])
-        self.decoder = Decoder(self.corpus_loader.vocab_sz, self.model_args['emb_dim'], self.model_args['hid_sz'], self.model_args['n_layers'], self.model_args['z_dim'])
+        en_bid = self.model_args.get('encoder_bid', None)
+        de_bid = self.model_args.get('decoder_bid', None)
+        self.encoder = Encoder(self.corpus_loader.vocab_sz, self.model_args['emb_dim'], self.model_args['hid_sz'], self.model_args['n_layers'], self.model_args['z_dim'], en_bid)
+        self.decoder = Decoder(self.corpus_loader.vocab_sz, self.model_args['emb_dim'], self.model_args['hid_sz'], self.model_args['n_layers'], self.model_args['z_dim'], de_bid)
         if USE_GPU:
             self.encoder = self.encoder.cuda()
             self.decoder = self.decoder.cuda()
@@ -254,6 +260,8 @@ if __name__ == '__main__':
     # test cvae_lm
     model_args = {
         'name': 'CVAE_LM',
+        'encoder_bid': True,
+        'decoder_bid': False,
         'emb_dim': small_emb_sz,
         'hid_sz': small_hid_sz,
         'n_layers': small_n_layers,

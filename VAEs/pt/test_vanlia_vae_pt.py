@@ -1,8 +1,10 @@
 import os
+
 import torch
 from torch.autograd import Variable
-import vanlia_vae_pt as vanlia_vae
 from utils import my_plot
+
+from pt import vanlia_vae_pt as vanlia_vae
 
 
 # 获取（num）张制定（digit）的图片

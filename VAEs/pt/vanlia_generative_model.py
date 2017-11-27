@@ -3,11 +3,12 @@
 # vanlia_generative_model 主要想尝试下不要这个正则项，生成会有什么效果。
 # 模型描述：z~N(0，1)为隐变量，先验概率为高斯分布，通过一个由神经网络实现的确定性函数 f 把 z 变换到数据空间，通过最大似然方法训练模型。
 import os
+
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
-from torchvision import datasets, transforms
-from utils import MNIST_train_loader, my_plot, Batch_sz
+
+from pt.utils import MNIST_train_loader, my_plot, Batch_sz
 
 batch_sz = Batch_sz
 saved_model = 'vanlia_generative_model.pkl'

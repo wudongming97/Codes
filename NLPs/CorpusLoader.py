@@ -1,6 +1,6 @@
 import numpy as np
 from functools import reduce
-from Corpus import UNK_token, PAD_token, Corpus, ParallelCorpus
+from Corpus import UNK_token, PAD_token, ParallelCorpus, SOS_token, EOS_token
 
 
 def pad_sentence_batch(bt):
@@ -50,18 +50,24 @@ class CorpusLoader:
         split_sentences = [s.split() for s in sentences]
         if is_sort:
             split_sentences.sort(key=len, reverse=True)
-        sorted_sentences = [reduce(lambda s1,s2:s1+ ' ' + s2, s) for s in split_sentences]
+        sorted_sentences = [reduce(lambda s1,s2:s1+ ' ' + s2, s, '') for s in split_sentences]
         return to_inputs(split_sentences, self.word2idx), sorted_sentences
 
     def to_outputs(self, indices):
         return to_outputs(indices, self.idx2word)
 
-    def next_batch(self, batch_sz):
+    def next_batch(self, batch_sz, target=False):
         for i in range(0, self.s_len - self.s_len % batch_sz, batch_sz):
             split_sentences_bt = [[word for word in s.split()] for s in self.sentences[i: i + batch_sz]]
             sorted_sentences_bt = sorted(split_sentences_bt, key=len, reverse=True)
-            padded_bt, bt_lens, bt_masks = to_inputs(sorted_sentences_bt, self.word2idx)
-            yield (np.array(padded_bt), bt_lens, bt_masks)
+            padded, lens, masks = to_inputs(sorted_sentences_bt, self.word2idx)
+            # 如果作为目标， 则在每句的末尾分别添加'<EOS>'
+            if target:
+                taget_sorted_sentences_bt = [word_list + [self.idx2word[EOS_token]] for word_list in sorted_sentences_bt]
+                t_padded, t_lens, t_masks = to_inputs(taget_sorted_sentences_bt, self.word2idx)
+                yield (np.array(padded), lens, masks), (np.array(t_padded), t_lens, t_masks)
+            else:
+                yield (np.array(padded), lens, masks)
 
 
 class ParallelCorpusLoader:

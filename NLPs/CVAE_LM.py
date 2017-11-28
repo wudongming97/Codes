@@ -124,14 +124,14 @@ class CVAE_LM:
         else:
             self.alpha = torch.linspace(0, 1, n_epoch)[cur_epoch]
 
-    def train(self, inputs, inputs_len, inputs_mask):
-        batch_sz = inputs.size(0)
+    def train(self, source_inputs, source_len, target_inputs, target_mask):
+        batch_sz = source_inputs.size(0)
 
         self.encoder_optimizer.zero_grad()
         self.decoder_optimizer.zero_grad()
 
-        mu, log_var = self.encoder(inputs, inputs_len)
-        decoder_inputs = self.process_decoder_input(inputs)
+        mu, log_var = self.encoder(source_inputs, source_len)
+        decoder_inputs = self.process_decoder_input(target_inputs)
         decoder_out, decoder_hidden = self.decoder(decoder_inputs, mu, log_var)
 
         # kl_loss
@@ -139,11 +139,11 @@ class CVAE_LM:
         kld_loss = torch.sum(kld_element).mul_(-0.5)
 
         # recon loss
-        losses = nll(nn.functional.log_softmax(decoder_out), inputs.view(-1, 1))
-        inputs_mask = torch.autograd.Variable(torch.FloatTensor(inputs_mask)).view(-1)
+        losses = nll(nn.functional.log_softmax(decoder_out), target_inputs.view(-1, 1))
+        target_mask = torch.autograd.Variable(torch.FloatTensor(target_mask)).view(-1)
         if USE_GPU:
-            inputs_mask = inputs_mask.cuda()
-        rec_loss = torch.mul(losses, inputs_mask).sum() / batch_sz
+            target_mask = target_mask.cuda()
+        rec_loss = torch.mul(losses, target_mask).sum() / batch_sz
 
         # loss = kl_loss + recon_loss
         loss = rec_loss + kld_loss * self.alpha
@@ -161,12 +161,13 @@ class CVAE_LM:
         n_epoch = self.hyper_params['epoch']
         batch_sz = self.hyper_params['batch_sz']
         for epoch in range(1, n_epoch+1):
-            for it, (padded_bt, bt_lens, bt_masks) in enumerate(
-                    self.corpus_loader.next_batch(batch_sz)):
-                batch_inputs = Variable(torch.from_numpy(padded_bt))
+            for it, ((source_padded, source_len, _), (target_inputs, _, target_mask)) in enumerate(
+                    self.corpus_loader.next_batch(batch_sz, target=True)):
+                source_inputs = Variable(torch.from_numpy(source_padded))
+                target_inputs = Variable(torch.from_numpy(target_inputs))
                 if USE_GPU:
-                    batch_inputs = batch_inputs.cuda()
-                lss, kl_lss, rec_lss = self.train(batch_inputs, bt_lens, bt_masks)
+                    source_inputs, target_inputs = source_inputs.cuda(), target_inputs.cuda()
+                lss, kl_lss, rec_lss = self.train(source_inputs, source_len, target_inputs, target_mask)
 
                 if it % display_step == 0:
                     print("Epoch %d/%d | Batch %d/%d | train_loss: %.3f | kl_loss: %.3f | rec_loss: %.3f |" %
@@ -275,22 +276,26 @@ if __name__ == '__main__':
     }
 
     hyper_params = {
-        'epoch': 100,
+        'epoch': 30,
         'lr': 0.001,
-        'batch_sz': 2,
+        'batch_sz': 1,
         'max_grad_norm': 5
     }
     cvae_lm = CVAE_LM(corpus_loader, model_args, hyper_params)
     cvae_lm.fit()
     cvae_lm.save()
     cvae_lm.load()
-    g_size = [2, model_args['z_dim']]
+    g_size = [1, model_args['z_dim']]
     mu = torch.zeros(g_size)
     log_var = torch.ones(g_size)
     sentences = cvae_lm.generate_by_z(mu, log_var)
     print('hahaha')
     print(corpus_loader.sentences)
-    sentences, sorted_sentences = cvae_lm.generate_by_encoder(corpus_loader.sentences, 10)
+    sentences, sorted_sentences = cvae_lm.generate_by_encoder([corpus_loader.sentences[0]], 10)
     print(sorted_sentences)
     print(sentences)
+    sentences, sorted_sentences = cvae_lm.generate_by_encoder([corpus_loader.sentences[1]], 10)
+    print(sorted_sentences)
+    print(sentences)
+
 

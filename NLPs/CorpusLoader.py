@@ -46,6 +46,13 @@ class CorpusLoader:
         self.sentences = sentences
         self.vocab_sz = len(word2idx)
 
+    def sentences_2_inputs(self, sentences, is_sort=True):
+        split_sentences = [s.split() for s in sentences]
+        if is_sort:
+            split_sentences.sort(key=len, reverse=True)
+        sorted_sentences = [reduce(lambda s1,s2:s1+ ' ' + s2, s) for s in split_sentences]
+        return to_inputs(split_sentences, self.word2idx), sorted_sentences
+
     def to_outputs(self, indices):
         return to_outputs(indices, self.idx2word)
 

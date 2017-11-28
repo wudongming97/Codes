@@ -1,4 +1,5 @@
 import os
+import numpy as np
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
@@ -155,7 +156,7 @@ class CVAE_LM:
 
         return loss.data[0], kld_loss.data[0], rec_loss.data[0]
 
-    def fit(self, corpus_loader=None, display_step=10):
+    def fit(self, display_step=10):
         print('begin fit...')
         n_epoch = self.hyper_params['epoch']
         batch_sz = self.hyper_params['batch_sz']
@@ -174,16 +175,27 @@ class CVAE_LM:
             # kl-loss policy
             self.kl_loss_annealing_policy(n_epoch, epoch-1)
 
-            if corpus_loader is not None:
-                sentences = self.generate(corpus_loader)
-                print(sentences)
+            #if corpus_loader is not None:
+            #    sentence_list = [(s+'\n') for s in self.generate(corpus_loader)]
+            #    for s in sentence_list:
+            #        print(s)
 
-    def generate(self, corpus_loader, batch_sz=5, maxLen=10):
+    def generate_by_encoder(self, sentence_list, maxLen):
+        (X_input, X_lens, _), sorted_sentences = self.corpus_loader.sentences_2_inputs(sentence_list)
+        X_input = Variable(torch.from_numpy(X_input))
+        if USE_GPU:
+            X_input = X_input.cuda()
+        mu, log_var = self.encoder(X_input, X_lens)
+
+        return self.generate_by_z(mu.data, log_var.data, maxLen), sorted_sentences
+
+    def generate_by_z(self, mu, log_var, maxLen=10):
+        batch_sz = mu.size(0)
         z_dim = self.model_args['z_dim']
         res_indices = torch.LongTensor([[SOS_token]]).expand(batch_sz, 1)
         go_inputs = Variable(torch.LongTensor([[SOS_token]])).expand((batch_sz, 1))
-        mu = Variable(torch.zeros(batch_sz, z_dim))
-        log_var = Variable(torch.ones(batch_sz, z_dim))
+        mu = Variable(mu)
+        log_var = Variable(log_var)
 
         if USE_GPU:
             go_inputs, mu, log_var = go_inputs.cuda(), mu.cuda(), log_var.cuda()
@@ -195,7 +207,7 @@ class CVAE_LM:
             _, topi = decoder_output.data.topk(1)
             res_indices = torch.cat((res_indices, topi), 1)
             go_inputs = Variable(topi)
-        sentences = corpus_loader.to_outputs(res_indices.cpu().numpy().tolist())
+        sentences = self.corpus_loader.to_outputs(res_indices.cpu().numpy().tolist())
         return sentences
 
     def save(self):
@@ -229,15 +241,9 @@ if __name__ == '__main__':
     from CorpusLoader import CorpusLoader
     from functools import reduce
 
-    small_batch_sz = 3
-    small_hid_sz = 9
-    small_emb_sz = 10
-    small_z_dim = 8
-    small_n_layers = 2
+    debug_data_path = '../datasets/en_vi_nlp/debug.en'
 
-    test_data_path = '../datasets/en_vi_nlp/tst2012.en'
-
-    corpus = Corpus(test_data_path).process()
+    corpus = Corpus(debug_data_path).process()
     corpus_loader = CorpusLoader(corpus.sentences, corpus.word2idx, corpus.idx2word)
 
     '''
@@ -259,25 +265,32 @@ if __name__ == '__main__':
 
     # test cvae_lm
     model_args = {
-        'name': 'CVAE_LM',
+        'name': 'CVAE_LM_debug',
         'encoder_bid': True,
         'decoder_bid': False,
-        'emb_dim': small_emb_sz,
-        'hid_sz': small_hid_sz,
-        'n_layers': small_n_layers,
-        'z_dim': small_z_dim
+        'emb_dim': 64,
+        'hid_sz': 64,
+        'n_layers': 1,
+        'z_dim': 8
     }
 
     hyper_params = {
-        'epoch': 1,
+        'epoch': 100,
         'lr': 0.001,
-        'batch_sz': 10,
+        'batch_sz': 2,
         'max_grad_norm': 5
     }
     cvae_lm = CVAE_LM(corpus_loader, model_args, hyper_params)
     cvae_lm.fit()
     cvae_lm.save()
     cvae_lm.load()
-    sentences = cvae_lm.generate(corpus_loader, 2)
+    g_size = [2, model_args['z_dim']]
+    mu = torch.zeros(g_size)
+    log_var = torch.ones(g_size)
+    sentences = cvae_lm.generate_by_z(mu, log_var)
+    print('hahaha')
+    print(corpus_loader.sentences)
+    sentences, sorted_sentences = cvae_lm.generate_by_encoder(corpus_loader.sentences, 10)
+    print(sorted_sentences)
     print(sentences)
 

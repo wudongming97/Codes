@@ -1,16 +1,15 @@
 import os
-import numpy as np
+import random
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
 from torch import optim
 from Corpus import SOS_token, EOS_token
-from Utils import nll
+from Utils import nll, print_sentences
 
 USE_GPU = torch.cuda.is_available()
 if USE_GPU:
     torch.cuda.set_device(1)
-
 
 class Encoder(nn.Module):
     def __init__(self, input_sz, emb_dim, hid_sz, n_layers, z_dim, bidirectional=False):
@@ -175,13 +174,29 @@ class CVAE_LM:
 
             # kl-loss policy
             self.kl_loss_annealing_policy(n_epoch, epoch-1)
+            # test
+            self.epoch_test()
 
-            #if corpus_loader is not None:
-            #    sentence_list = [(s+'\n') for s in self.generate(corpus_loader)]
-            #    for s in sentence_list:
-            #        print(s)
+    def epoch_test(self):
+        # random test
+        print('======== test with z ~ N(0, 1)=======')
+        g_size = [5, model_args['z_dim']]
+        mu = torch.zeros(g_size)
+        log_var = torch.ones(g_size)
+        z_sentences = self.generate_by_z(mu, log_var)
+        print_sentences(z_sentences)
 
-    def generate_by_encoder(self, sentence_list, maxLen):
+        # test use train data
+        print('======== test use train data ========')
+        maxlen = 5 if corpus_loader.s_len >= 5 else corpus_loader.s_len
+        sampled_sentences = random.sample(corpus_loader.sentences, maxlen)
+        g_sentences, sorted_source_sentences = self.generate_by_encoder(sampled_sentences)
+        print('train sentences ==>')
+        print_sentences(sorted_source_sentences)
+        print('generated sentences ==>')
+        print_sentences(g_sentences)
+
+    def generate_by_encoder(self, sentence_list, maxLen=10):
         (X_input, X_lens, _), sorted_sentences = self.corpus_loader.sentences_2_inputs(sentence_list)
         X_input = Variable(torch.from_numpy(X_input))
         if USE_GPU:
@@ -247,23 +262,6 @@ if __name__ == '__main__':
     corpus = Corpus(debug_data_path).process()
     corpus_loader = CorpusLoader(corpus.sentences, corpus.word2idx, corpus.idx2word)
 
-    '''
-    # test encoder and decoder
-    encoder = Encoder(corpus.n_words, small_emb_sz, small_hid_sz, small_n_layers, small_z_dim)
-    decoder = Decoder(corpus.n_words, small_emb_sz, small_hid_sz, small_n_layers, small_z_dim)
-    for it, (padded_bt, bt_lens, bt_masks) in enumerate(corpus_loader.next_batch(small_batch_sz)):
-        print(bt_lens)
-        if it == 20:
-            print(it)
-        mu, log_var = encoder(Variable(torch.from_numpy(padded_bt)), bt_lens)
-        print("iter: {}".format(it))
-        print(mu.size())
-        print(log_var.size())
-
-        de_out, de_hid = decoder(Variable(torch.from_numpy(padded_bt)), mu, log_var)
-        print(de_out.size())
-    '''
-
     # test cvae_lm
     model_args = {
         'name': 'CVAE_LM_debug',
@@ -276,7 +274,7 @@ if __name__ == '__main__':
     }
 
     hyper_params = {
-        'epoch': 30,
+        'epoch': 28,
         'lr': 0.001,
         'batch_sz': 1,
         'max_grad_norm': 5

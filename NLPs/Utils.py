@@ -33,6 +33,11 @@ def nll(log_prob, label):
     return -1 * (log_prob * mask).sum(1)
 
 
+def print_sentences(sentences):
+    for s in sentences:
+        print('  ' + s)
+
+
 if __name__ == '__main__':
     # test one_hot
     size = (3,4)

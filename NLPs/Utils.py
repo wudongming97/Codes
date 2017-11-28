@@ -40,8 +40,8 @@ def print_sentences(sentences):
 
 if __name__ == '__main__':
     # test one_hot
-    size = (3,4)
-    index = torch.LongTensor([0, 1, 2]).view(-1,1)
+    size = (3, 4)
+    index = torch.LongTensor([0, 1, 2]).view(-1, 1)
     out = one_hot(size, index)
     print(out)
 

@@ -94,7 +94,6 @@ class Decoder(nn.Module):
         output = self.fc_out(output.contiguous().view(-1, self.hid_sz * self.num_directions))
         return output, hidden
 
-
 class CVAE_LM:
     def __init__(self, corpus_loader, model_args, hyper_params):
         self.corpus_loader = corpus_loader
@@ -116,6 +115,24 @@ class CVAE_LM:
         self.decoder_optimizer = optim.Adam(self.decoder.parameters(), lr=self.hyper_params['lr'])
         # self.criterion = torch.nn.CrossEntropyLoss()
 
+    @staticmethod
+    def kld_loss(mu, log_var):
+        # kl_loss
+        kld_element = mu.pow(2).add_(log_var.exp()).mul_(-1).add_(1).add_(log_var)
+        kld_loss = torch.sum(kld_element).mul_(-0.5)
+        return kld_loss
+
+    @staticmethod
+    def rec_loss(decoder_out, target_inputs, target_mask):
+        # recon loss
+        batch_sz = target_inputs.size(0)
+        losses = nll(nn.functional.log_softmax(decoder_out), target_inputs.view(-1, 1))
+        target_mask = torch.autograd.Variable(torch.FloatTensor(target_mask)).view(-1)
+        if USE_GPU:
+            target_mask = target_mask.cuda()
+        loss = torch.mul(losses, target_mask).sum() / batch_sz
+        return loss
+
     def kl_loss_annealing_policy(self, n_epoch, cur_epoch):
         #line policy
         if n_epoch <= 1:
@@ -124,8 +141,6 @@ class CVAE_LM:
             self.alpha = torch.linspace(0, 1, n_epoch)[cur_epoch]
 
     def train(self, source_inputs, source_len, target_inputs, target_mask):
-        batch_sz = source_inputs.size(0)
-
         self.encoder_optimizer.zero_grad()
         self.decoder_optimizer.zero_grad()
 
@@ -134,15 +149,10 @@ class CVAE_LM:
         decoder_out, decoder_hidden = self.decoder(decoder_inputs, mu, log_var)
 
         # kl_loss
-        kld_element = mu.pow(2).add_(log_var.exp()).mul_(-1).add_(1).add_(log_var)
-        kld_loss = torch.sum(kld_element).mul_(-0.5)
+        kld_loss = self.kld_loss(mu, log_var)
 
         # recon loss
-        losses = nll(nn.functional.log_softmax(decoder_out), target_inputs.view(-1, 1))
-        target_mask = torch.autograd.Variable(torch.FloatTensor(target_mask)).view(-1)
-        if USE_GPU:
-            target_mask = target_mask.cuda()
-        rec_loss = torch.mul(losses, target_mask).sum() / batch_sz
+        rec_loss = self.rec_loss(decoder_out, target_inputs, target_mask)
 
         # loss = kl_loss + recon_loss
         loss = rec_loss + kld_loss * self.alpha

@@ -70,10 +70,10 @@ class Decoder(nn.Module):
 
     def sample_z(self, mu, log_var):
         std = torch.exp(0.5 * log_var)
-        z = Variable(torch.randn(mu.size()))
+        eps = Variable(torch.randn(mu.size()))
         if USE_GPU:
-            z = z.cuda()
-        ret = z * mu + std
+            eps = eps.cuda()
+        ret = mu + std * eps
         return ret
 
     def init_hidden(self, batch_sz):
@@ -130,7 +130,7 @@ class CVAE_LM:
         target_mask = torch.autograd.Variable(torch.FloatTensor(target_mask)).view(-1)
         if USE_GPU:
             target_mask = target_mask.cuda()
-        loss = torch.mul(losses, target_mask).sum() / batch_sz
+        loss = torch.mul(losses, target_mask).sum()
         return loss
 
     def kl_loss_annealing_policy(self, n_epoch, cur_epoch):
@@ -141,6 +141,7 @@ class CVAE_LM:
             self.alpha = torch.linspace(0, 1, n_epoch)[cur_epoch]
 
     def train(self, source_inputs, source_len, target_inputs, target_mask):
+        batch_sz = source_inputs.size(0)
         self.encoder_optimizer.zero_grad()
         self.decoder_optimizer.zero_grad()
 
@@ -154,8 +155,8 @@ class CVAE_LM:
         # recon loss
         rec_loss = self.rec_loss(decoder_out, target_inputs, target_mask)
 
-        # loss = kl_loss + recon_loss
-        loss = rec_loss + kld_loss * self.alpha
+        # loss = (kl_loss + recon_loss) / batch_sz
+        loss = (rec_loss + kld_loss * self.alpha) / batch_sz
 
         loss.backward()
         torch.nn.utils.clip_grad_norm(self.encoder.parameters(), self.hyper_params['max_grad_norm'])
@@ -185,12 +186,12 @@ class CVAE_LM:
             # kl-loss policy
             self.kl_loss_annealing_policy(n_epoch, epoch-1)
             # test
-            self.epoch_test()
+            self.epoch_test(2)
 
-    def epoch_test(self):
+    def epoch_test(self, batch_sz=5):
         # random test
         print('======== test with z ~ N(0, 1)=======')
-        g_size = [5, model_args['z_dim']]
+        g_size = [batch_sz, model_args['z_dim']]
         mu = torch.zeros(g_size)
         log_var = torch.ones(g_size)
         z_sentences = self.generate_by_z(mu, log_var)
@@ -198,7 +199,7 @@ class CVAE_LM:
 
         # test use train data
         print('======== test use train data ========')
-        maxlen = 5 if corpus_loader.s_len >= 5 else corpus_loader.s_len
+        maxlen = batch_sz if corpus_loader.s_len >= batch_sz else corpus_loader.s_len
         sampled_sentences = random.sample(corpus_loader.sentences, maxlen)
         g_sentences, sorted_source_sentences = self.generate_by_encoder(sampled_sentences)
         print('train sentences ==>')
@@ -286,7 +287,7 @@ if __name__ == '__main__':
     hyper_params = {
         'epoch': 28,
         'lr': 0.001,
-        'batch_sz': 1,
+        'batch_sz': 2,
         'max_grad_norm': 5
     }
     cvae_lm = CVAE_LM(corpus_loader, model_args, hyper_params)

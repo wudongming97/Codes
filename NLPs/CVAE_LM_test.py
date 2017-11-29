@@ -23,14 +23,14 @@ model_args = {
 hyper_params = {
         'epoch': 10,
         'lr': 0.0002,
-        'batch_sz': 1,
+        'batch_sz': 100,
         'max_grad_norm': 5
     }
 
 train_data_path = '../datasets/en_vi_nlp/train.en'
 test_data_path = '../datasets/en_vi_nlp/tst2012.en'
 
-remove_sentences_by_lenght = lambda s:len(s.split()) < 4 or len(s.split()) > 15
+remove_sentences_by_lenght = lambda s: len(s.split()) < 4 or len(s.split()) > 15
 remove_blank_sentences = lambda s: len(s) == 0
 corpus = Corpus(train_data_path).filter_sentences(remove_sentences_by_lenght).filter_sentences(remove_blank_sentences).process()
 corpus_loader = CorpusLoader(corpus.sentences, corpus.word2idx, corpus.idx2word)

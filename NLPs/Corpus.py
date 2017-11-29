@@ -11,7 +11,7 @@ class Corpus:
         self.word2count = {}
         self.idx2word = {0: "<PAD>", 1: "<SOS>", 2: "<EOS>", 3: "<UNK>"}
         self.n_words = 4
-        self.sentences = open(self.file, encoding='UTF-8').read().strip().split('\n')
+        self.sentences = open(self.file, encoding='UTF-8').read().strip().lower().split('\n')
 
     def filter_sentences(self, f):
         sentences = [s for s in self.sentences if not f(s)]
@@ -69,9 +69,9 @@ class ParallelCorpus:
 
     def pair_sentences(self, src_file, target_file):
         with open(src_file, encoding='UTF-8') as f1:
-            lines1 = f1.read().strip().split('\n')
+            lines1 = f1.read().strip().lower().split('\n')
         with open(target_file, encoding='UTF-8') as f2:
-            lines2 = f2.read().strip().split('\n')
+            lines2 = f2.read().strip().lower().split('\n')
         pair_sentences = list(zip(lines1, lines2))
         return pair_sentences
 

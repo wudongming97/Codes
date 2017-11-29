@@ -101,6 +101,7 @@ class CVAE_LM:
         self.hyper_params = hyper_params
         self.save_dir = './saved_models/'
         self.alpha = 0      # kl-loss annealing trick
+        self.batch_size = hyper_params['batch_sz']
         self.build_model()
 
     def build_model(self):
@@ -125,7 +126,6 @@ class CVAE_LM:
     @staticmethod
     def rec_loss(decoder_out, target_inputs, target_mask):
         # recon loss
-        batch_sz = target_inputs.size(0)
         losses = nll(nn.functional.log_softmax(decoder_out), target_inputs.view(-1, 1))
         target_mask = torch.autograd.Variable(torch.FloatTensor(target_mask)).view(-1)
         if USE_GPU:
@@ -139,9 +139,9 @@ class CVAE_LM:
             self.alpha = 1
         else:
             self.alpha = torch.linspace(0, 1, n_epoch)[cur_epoch]
+        print('kl-loss-annealing : {}'.format(self.alpha))
 
     def train(self, source_inputs, source_len, target_inputs, target_mask):
-        batch_sz = source_inputs.size(0)
         self.encoder_optimizer.zero_grad()
         self.decoder_optimizer.zero_grad()
 
@@ -150,12 +150,12 @@ class CVAE_LM:
         decoder_out, decoder_hidden = self.decoder(decoder_inputs, mu, log_var)
 
         # kl_loss
-        kld_loss = self.kld_loss(mu, log_var) / batch_sz
+        kld_loss = self.kld_loss(mu, log_var) / self.batch_size
 
         # recon loss
-        rec_loss = self.rec_loss(decoder_out, target_inputs, target_mask) / batch_sz
+        rec_loss = self.rec_loss(decoder_out, target_inputs, target_mask) / self.batch_size
 
-        # loss = (kl_loss + recon_loss) / batch_sz
+        # loss = kl_loss + recon_loss
         loss = rec_loss + kld_loss * self.alpha
 
         loss.backward()
@@ -169,10 +169,9 @@ class CVAE_LM:
     def fit(self, display_step=10):
         print('begin fit...')
         n_epoch = self.hyper_params['epoch']
-        batch_sz = self.hyper_params['batch_sz']
         for epoch in range(1, n_epoch+1):
             for it, ((source_padded, source_len, _), (target_inputs, _, target_mask)) in enumerate(
-                    self.corpus_loader.next_batch(batch_sz, target=True)):
+                    self.corpus_loader.next_batch(self.batch_size, target=True)):
                 source_inputs = Variable(torch.from_numpy(source_padded))
                 target_inputs = Variable(torch.from_numpy(target_inputs))
                 if USE_GPU:
@@ -181,12 +180,12 @@ class CVAE_LM:
 
                 if it % display_step == 0:
                     print("Epoch %d/%d | Batch %d/%d | train_loss: %.3f | kl_loss: %.3f | rec_loss: %.3f |" %
-                          (epoch, n_epoch, it, self.corpus_loader.s_len // batch_sz, lss, kl_lss, rec_lss))
+                          (epoch, n_epoch, it, self.corpus_loader.s_len // self.batch_size, lss, kl_lss, rec_lss))
 
             # kl-loss policy
             self.kl_loss_annealing_policy(n_epoch, epoch-1)
             # test
-            self.epoch_test(2)
+            self.epoch_test(3)
 
     def epoch_test(self, batch_sz=5):
         # random test
@@ -207,7 +206,7 @@ class CVAE_LM:
         print('generated sentences ==>')
         print_sentences(g_sentences)
 
-    def generate_by_encoder(self, sentence_list, maxLen=10):
+    def generate_by_encoder(self, sentence_list, maxLen=15):
         (X_input, X_lens, _), sorted_sentences = self.corpus_loader.sentences_2_inputs(sentence_list)
         X_input = Variable(torch.from_numpy(X_input))
         if USE_GPU:
@@ -216,22 +215,22 @@ class CVAE_LM:
 
         return self.generate_by_z(mu.data, log_var.data, maxLen), sorted_sentences
 
-    def generate_by_z(self, mu, log_var, maxLen=10):
-        batch_sz = mu.size(0)
+    def generate_by_z(self, mu, log_var, maxLen=15):
+        generate_batch_sz = mu.size(0)
         z_dim = self.model_args['z_dim']
-        res_indices = torch.LongTensor([[SOS_token]]).expand(batch_sz, 1)
-        go_inputs = Variable(torch.LongTensor([[SOS_token]])).expand((batch_sz, 1))
+        res_indices = torch.LongTensor([[SOS_token]]).expand(generate_batch_sz, 1)
+        go_inputs = Variable(torch.LongTensor([[SOS_token]])).expand((generate_batch_sz, 1))
         mu = Variable(mu)
         log_var = Variable(log_var)
 
         if USE_GPU:
             go_inputs, mu, log_var = go_inputs.cuda(), mu.cuda(), log_var.cuda()
-            res_indices = torch.cuda.LongTensor([[SOS_token]]).expand(batch_sz, 1)
+            res_indices = torch.cuda.LongTensor([[SOS_token]]).expand(generate_batch_sz, 1)
 
+        decoder_hidden = self.decoder.init_hidden(generate_batch_sz)
         for i in range(maxLen):
-            decoder_output, decoder_hidden = self.decoder(go_inputs, mu, log_var)
-            decoder_output = torch.nn.functional.log_softmax(decoder_output)
-            _, topi = decoder_output.data.topk(1)
+            decoder_output, decoder_hidden = self.decoder(go_inputs, mu, log_var, decoder_hidden)
+            topv, topi = decoder_output.data.topk(1)
             res_indices = torch.cat((res_indices, topi), 1)
             go_inputs = Variable(topi)
         sentences = self.corpus_loader.to_outputs(res_indices.cpu().numpy().tolist())
@@ -276,7 +275,7 @@ if __name__ == '__main__':
     # test cvae_lm
     model_args = {
         'name': 'CVAE_LM_debug',
-        'encoder_bid': True,
+        'encoder_bid': False,
         'decoder_bid': False,
         'emb_dim': 64,
         'hid_sz': 64,
@@ -285,7 +284,7 @@ if __name__ == '__main__':
     }
 
     hyper_params = {
-        'epoch': 28,
+        'epoch': 60,
         'lr': 0.001,
         'batch_sz': 2,
         'max_grad_norm': 5
@@ -294,16 +293,13 @@ if __name__ == '__main__':
     cvae_lm.fit()
     cvae_lm.save()
     cvae_lm.load()
-    g_size = [1, model_args['z_dim']]
+    g_size = [5, model_args['z_dim']]
     mu = torch.zeros(g_size)
     log_var = torch.ones(g_size)
     sentences = cvae_lm.generate_by_z(mu, log_var)
     print('hahaha')
     print(corpus_loader.sentences)
-    sentences, sorted_sentences = cvae_lm.generate_by_encoder([corpus_loader.sentences[0]], 10)
-    print(sorted_sentences)
-    print(sentences)
-    sentences, sorted_sentences = cvae_lm.generate_by_encoder([corpus_loader.sentences[1]], 10)
+    sentences, sorted_sentences = cvae_lm.generate_by_encoder(corpus_loader.sentences, 10)
     print(sorted_sentences)
     print(sentences)
 

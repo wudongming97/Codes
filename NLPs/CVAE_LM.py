@@ -65,7 +65,8 @@ class Decoder(nn.Module):
 
     def build_model(self):
         self.embedding = nn.Embedding(self.vocab_sz, self.emb_dim)
-        self.rnn = nn.LSTM(self.emb_dim+self.z_dim, self.hid_sz, self.n_layers, batch_first=True, bidirectional=self.bidirectional)
+        self.drop_out_layer = nn.AlphaDropout(0.8)
+        self.rnn = nn.LSTM(self.emb_dim+self.z_dim, self.hid_sz, self.n_layers, batch_first=True, bidirectional=self.bidirectional, dropout=0.8)
         self.fc_out = nn.Linear(self.num_directions * self.hid_sz, self.vocab_sz)
 
     def sample_z(self, mu, log_var):
@@ -88,8 +89,9 @@ class Decoder(nn.Module):
         if hidden is None:
             hidden = self.init_hidden(batch_sz)
         embedded = self.embedding(inputs)
+        embedded_dropout = self.drop_out_layer(embedded)
         z = self.sample_z(mu, log_var)
-        rnn_input = torch.cat([z.view(batch_sz, -1, self.z_dim).expand(batch_sz, embedded.size(1), self.z_dim), embedded], 2)
+        rnn_input = torch.cat([z.view(batch_sz, -1, self.z_dim).expand(batch_sz, embedded_dropout.size(1), self.z_dim), embedded_dropout], 2)
         output, hidden = self.rnn(rnn_input, hidden)
         output = self.fc_out(output.contiguous().view(-1, self.hid_sz * self.num_directions))
         return output, hidden

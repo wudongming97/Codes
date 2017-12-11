@@ -1,5 +1,6 @@
 import numpy as np
 from functools import reduce
+import random
 from Corpus import UNK_token, PAD_token, ParallelCorpus, SOS_token, EOS_token
 
 
@@ -56,9 +57,13 @@ class CorpusLoader:
     def to_outputs(self, indices):
         return to_outputs(indices, self.idx2word)
 
-    def next_batch(self, batch_sz, target=False):
+    def next_batch(self, batch_sz, target=False, shuffling=True):
         for i in range(0, self.s_len - self.s_len % batch_sz, batch_sz):
-            split_sentences_bt = [[word for word in s.split()] for s in self.sentences[i: i + batch_sz]]
+            if shuffling:
+                batch_sentences = random.sample(self.sentences, batch_sz)
+            else:
+                batch_sentences = self.sentences[i: i + batch_sz]
+            split_sentences_bt = [[word for word in s.split()] for s in batch_sentences]
             sorted_sentences_bt = sorted(split_sentences_bt, key=len, reverse=True)
             padded, lens, masks = to_inputs(sorted_sentences_bt, self.word2idx)
             # 如果作为目标， 则在每句的末尾分别添加'<EOS>'

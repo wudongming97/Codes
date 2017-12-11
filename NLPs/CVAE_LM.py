@@ -1,5 +1,6 @@
 import os
 import random
+import itertools
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
@@ -114,15 +115,14 @@ class CVAE_LM:
         if USE_GPU:
             self.encoder = self.encoder.cuda()
             self.decoder = self.decoder.cuda()
-        self.encoder_optimizer = optim.Adam(self.encoder.parameters(), lr=self.hyper_params['lr'])
-        self.decoder_optimizer = optim.Adam(self.decoder.parameters(), lr=self.hyper_params['lr'])
+        self.optimizer = optim.Adam(itertools.chain(self.encoder.parameters(), self.decoder.parameters()),  lr=self.hyper_params['lr'])
         # self.criterion = torch.nn.CrossEntropyLoss()
 
     @staticmethod
     def kld_loss(mu, log_var):
         # kl_loss
         kld_element = mu.pow(2).add_(log_var.exp()).mul_(-1).add_(1).add_(log_var)
-        kld_loss = torch.sum(kld_element).mul_(-0.5)
+        kld_loss = torch.sum(kld_element, 1).mul_(-0.5).mean().squeeze()
         return kld_loss
 
     @staticmethod
@@ -132,7 +132,7 @@ class CVAE_LM:
         target_mask = torch.autograd.Variable(torch.FloatTensor(target_mask)).view(-1)
         if USE_GPU:
             target_mask = target_mask.cuda()
-        loss = torch.mul(losses, target_mask).sum()
+        loss = torch.mul(losses, target_mask).mean().squeeze()
         return loss
 
     def kl_loss_annealing_policy(self, n_epoch, cur_epoch):
@@ -144,18 +144,17 @@ class CVAE_LM:
         print('kl-loss-annealing : {}'.format(self.alpha))
 
     def train(self, source_inputs, source_len, target_inputs, target_mask):
-        self.encoder_optimizer.zero_grad()
-        self.decoder_optimizer.zero_grad()
+        self.optimizer.zero_grad()
 
         mu, log_var = self.encoder(source_inputs, source_len)
         decoder_inputs = self.process_decoder_input(target_inputs)
         decoder_out, decoder_hidden = self.decoder(decoder_inputs, mu, log_var)
 
         # kl_loss
-        kld_loss = self.kld_loss(mu, log_var) / self.batch_size
+        kld_loss = self.kld_loss(mu, log_var)
 
         # recon loss
-        rec_loss = self.rec_loss(decoder_out, target_inputs, target_mask) / self.batch_size
+        rec_loss = self.rec_loss(decoder_out, target_inputs, target_mask)
 
         # loss = kl_loss + recon_loss
         loss = rec_loss + kld_loss * self.alpha
@@ -163,8 +162,7 @@ class CVAE_LM:
         loss.backward()
         torch.nn.utils.clip_grad_norm(self.encoder.parameters(), self.hyper_params['max_grad_norm'])
         torch.nn.utils.clip_grad_norm(self.decoder.parameters(), self.hyper_params['max_grad_norm'])
-        self.encoder_optimizer.step()
-        self.decoder_optimizer.step()
+        self.optimizer.step()
 
         return loss.data[0], kld_loss.data[0], rec_loss.data[0]
 

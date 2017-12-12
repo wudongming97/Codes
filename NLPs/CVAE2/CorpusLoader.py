@@ -35,7 +35,7 @@ class CorpusLoader:
         # todo
 
         #merged_data_words = [sentence=[word, ...], ...]
-        self.data_words = [[line.split() for line in fi.split('\n')] for fi in data]
+        self.data_words = [[line.split() for line in fi.split('\n') if len(line) != 0] for fi in data]
         with open(self.word_data_file, 'wb') as f:
             pickle.dump(self.data_words, f)
 
@@ -88,23 +88,23 @@ class CorpusLoader:
 
     def next_batch(self, batch_size, target_str='train'):
         target = 0 if target_str == 'train' else 1
+        for i in range(self.num_lines[target] // batch_size):
+            indexes = np.array(np.random.randint(self.num_lines[target], size=batch_size))
 
-        indexes = np.array(np.random.randint(self.num_lines[target], size=batch_size))
+            # input_seq_len = [len(line) for line in encoder_word_input]
+            # max_input_seq_len = np.amax(input_seq_len)
+            encoder_word_input = [self.word_tensors[target][index] for index in indexes]
+            decoder_word_input = [[self.word_to_idx[self.go_token]] + line for line in encoder_word_input]
+            decoder_word_output = [line + [self.word_to_idx[self.end_token]] for line in encoder_word_input]
+            encoder_word_input, input_seq_len, _ = self.sort_and_pad(encoder_word_input)
+            decoder_word_input, _, decoder_mask = self.sort_and_pad(decoder_word_input)
+            decoder_word_output, _, _ = self.sort_and_pad(decoder_word_output)
 
-        # input_seq_len = [len(line) for line in encoder_word_input]
-        # max_input_seq_len = np.amax(input_seq_len)
-        encoder_word_input = [self.word_tensors[target][index] for index in indexes]
-        decoder_word_input = [[self.word_to_idx[self.go_token]] + line for line in encoder_word_input]
-        decoder_word_output = [line + [self.word_to_idx[self.end_token]] for line in encoder_word_input]
-        encoder_word_input, input_seq_len, _ = self.sort_and_pad(encoder_word_input)
-        decoder_word_input, _, decoder_mask = self.sort_and_pad(decoder_word_input)
-        decoder_word_output, _, _ = self.sort_and_pad(decoder_word_output)
-
-        return encoder_word_input, input_seq_len, decoder_word_input, decoder_word_output, decoder_mask
+            yield np.array(encoder_word_input), input_seq_len, np.array(decoder_word_input), np.array(decoder_word_output), decoder_mask
 
 
 if __name__ == '__main__':
     loader = CorpusLoader()
-    loader.next_batch(batch_size=2)
+    encoder_word_input, input_seq_len, decoder_word_input, decoder_word_output, decoder_mask = loader.next_batch(batch_size=2)
 
 

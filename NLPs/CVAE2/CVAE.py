@@ -77,6 +77,7 @@ class CVAE(torch.nn.Module):
         # model
         self.encoder = Encoder(self.encoder_params)
         self.decoder = Decoder(self.decoder_params)
+
         self.fc_mu = torch.nn.Linear(
             self.encoder_params['n_layers'] * self.encoder.num_directions * self.encoder_params['hidden_size'],
             self.params['z_size'])
@@ -119,11 +120,12 @@ class CVAE(torch.nn.Module):
         kld_loss = self.kld_loss(mu, logvar)
 
         decoder_hidden = self.fc_h(z)
-        decoder_hidden = decoder_hidden.view(self.batch_size,
-                                             self.decoder_params['n_layers'] * self.decoder.num_directions, -1)
+        decoder_hidden = decoder_hidden.view(self.decoder_params['n_layers'] * self.decoder.num_directions,
+                                             self.batch_size, -1)
         _, c0 = self.decoder.init_hidden(self.batch_size)
         decoder_output = self.decoder(d_inputs, decoder_hidden, c0)
-        decoder_output = decoder_output.contiguous().view(-1,  self.decoder.num_directions * self.decoder_params['hidden_size'])
+        decoder_output = decoder_output.contiguous().view(-1, self.decoder.num_directions * self.decoder_params[
+            'hidden_size'])
         output = self.fc_out(decoder_output)
 
         return output, kld_loss
@@ -198,10 +200,15 @@ if __name__ == '__main__':
         'max_grad_norm': 5,
     }
 
-    corpus_loader = CorpusLoader()
+    corpus_loader_params = {
+        'lf': 30, #低频词
+    }
+    corpus_loader = CorpusLoader(corpus_loader_params, './data/')
     params['vocab_size'] = corpus_loader.word_vocab_size
 
     model = CVAE(encoder_params, decoder_params, params)
+    if USE_GPU:
+        model = model.cuda()
 
     # train
     model.fit(corpus_loader)

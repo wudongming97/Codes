@@ -7,7 +7,8 @@ import numpy as np
 from functools import reduce
 
 class CorpusLoader:
-    def __init__(self, path='./'):
+    def __init__(self ,params ,path='./'):
+        self.params = params
         self.raw_data_files = [path + 'train.txt', path + 'test.txt']
         self.word_data_file = path + 'words.pkl'
         self.word_idx_file = path + 'vocab.pkl'
@@ -26,10 +27,10 @@ class CorpusLoader:
             self.load_preprocessed()
             print('preprocessed data loaded ...')
         else:
-            self.preprocess()
+            self.preprocess(lf=self.params.get('lf', 0))
             print('data have preprocessed ...')
 
-    def preprocess(self):
+    def preprocess(self, lf=0):
         data = [open(file, encoding='UTF-8').read() for file in self.raw_data_files]
         # 一些全局的文本处理
         # todo
@@ -40,7 +41,7 @@ class CorpusLoader:
             pickle.dump(self.data_words, f)
 
         merged_data_words = (data[0] + '\n' + data[1]).split()
-        self.word_vocab_size, self.idx_to_word, self.word_to_idx = self.build_word_vocab(merged_data_words)
+        self.word_vocab_size, self.idx_to_word, self.word_to_idx = self.build_word_vocab(merged_data_words, lf)
         self.num_lines = [len(target) for target in self.data_words]
         with open(self.word_idx_file, 'wb') as f:
             pickle.dump(self.idx_to_word, f)
@@ -53,6 +54,8 @@ class CorpusLoader:
         for i, path in enumerate(self.word_tensor_files):
             np.save(path, self.word_tensors[i])
 
+        self.show_corpus_info()
+
     def load_preprocessed(self):
         self.data_words = pickle.load(open(self.word_data_file, 'rb'))
         self.idx_to_word = pickle.load(open(self.word_idx_file, 'rb'))
@@ -62,10 +65,19 @@ class CorpusLoader:
         self.num_lines = [len(target) for target in self.data_words]
         self.word_tensors = np.array([np.load(target) for target in self.word_tensor_files])
 
-    def build_word_vocab(self, merged_data_words, lf=0):
+        self.show_corpus_info()
+
+    def show_corpus_info(self):
+        print('\n')
+        print('--------- Corpus Info ---------')
+        print('train num_lines : {} , test num_lines: {}'.format(self.num_lines[0], self.num_lines[1]))
+        print('vocab_size: {}'.format(self.word_vocab_size))
+
+    def build_word_vocab(self, merged_data_words, lf):
         word_counts = collections.Counter(merged_data_words).most_common()
         # 删除低频的词
         word_counts = [w for w in word_counts if w[1] > lf]
+
         # idx2word
         idx_to_word = [self.pad_token, self.go_token, self.end_token, self.unk_token] + [w[0] for w in word_counts]
         vocab_size = len(idx_to_word)

@@ -91,8 +91,6 @@ class CorpusLoader:
         for i in range(self.num_lines[target] // batch_size):
             indexes = np.array(np.random.randint(self.num_lines[target], size=batch_size))
 
-            # input_seq_len = [len(line) for line in encoder_word_input]
-            # max_input_seq_len = np.amax(input_seq_len)
             encoder_word_input = [self.word_tensors[target][index] for index in indexes]
             decoder_word_input = [[self.word_to_idx[self.go_token]] + line for line in encoder_word_input]
             decoder_word_output = [line + [self.word_to_idx[self.end_token]] for line in encoder_word_input]

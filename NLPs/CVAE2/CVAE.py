@@ -176,15 +176,15 @@ class CVAE(torch.nn.Module):
 
 if __name__ == '__main__':
     encoder_params = {
-        'emb_size': 20,
-        'hidden_size': 20,
+        'emb_size': 512,
+        'hidden_size': 512,
         'n_layers': 2,
         'bidirectional': False,
     }
 
     decoder_params = {
-        'emb_size': 20,
-        'hidden_size': 22,
+        'emb_size': 512,
+        'hidden_size': 512,
         'n_layers': 2,
         'bidirectional': False,
         'drop_out': 0.8,
@@ -193,7 +193,7 @@ if __name__ == '__main__':
     params = {
         'n_epochs': 10,
         'lr': 0.0005,
-        'batch_size': 2,
+        'batch_size': 200,
         'z_size': 16,
         'max_grad_norm': 5,
     }

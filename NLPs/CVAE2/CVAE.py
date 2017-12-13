@@ -58,8 +58,8 @@ class Decoder(torch.nn.Module):
     def forward(self, inputs, h0, c0):
         embedded = self.embedding(inputs)
         embedded_dropout = self.drop_out_layer(embedded)
-        output, _ = self.rnn(embedded_dropout, (h0, c0))
-        return output
+        output, (hidden, _) = self.rnn(embedded_dropout, (h0, c0))
+        return output, hidden
 
     def init_hidden(self, batch_size):
         h0 = torch.autograd.Variable(
@@ -116,18 +116,16 @@ class CVAE(torch.nn.Module):
         kld_loss = (-0.5 * torch.sum(log_var - torch.pow(mu, 2) - torch.exp(log_var) + 1, 1)).mean().squeeze()
         return kld_loss
 
-    def forward_z(self, z, d_inputs):
-        batch_size = z.size()[0]
-        decoder_hidden = self.fc_h(z)
-        decoder_hidden = decoder_hidden.view(self.decoder_params['n_layers'] * self.decoder.num_directions,
-                                             batch_size, -1)
+    def forward_d(self, d_inputs, decoder_hidden):
+        batch_size = d_inputs.size()[0]
+
         _, c0 = self.decoder.init_hidden(batch_size)
-        decoder_output = self.decoder(d_inputs, decoder_hidden, c0)
+        decoder_output, hidden = self.decoder(d_inputs, decoder_hidden, c0)
         decoder_output = decoder_output.contiguous().view(-1, self.decoder.num_directions * self.decoder_params[
             'hidden_size'])
         output = self.fc_out(decoder_output)
 
-        return output
+        return output, hidden
 
     def forward(self, e_inputs, e_inputs_len, d_inputs):
         encoder_hidden = self.encoder.init_hidden(self.batch_size)
@@ -138,7 +136,11 @@ class CVAE(torch.nn.Module):
         kld_loss = self.kld_loss(mu, logvar)
 
         z = self.sample_z(mu, logvar)
-        output = self.forward_z(z, d_inputs)
+
+        decoder_hidden = self.fc_h(z)
+        decoder_hidden = decoder_hidden.view(self.decoder_params['n_layers'] * self.decoder.num_directions,
+                                             self.batch_size, -1)
+        output, _ = self.forward_d(d_inputs, decoder_hidden)
 
         return output, kld_loss
 
@@ -195,6 +197,7 @@ class CVAE(torch.nn.Module):
                         if  i > 4:
                             break
                         print('{}, {}'.format(i, self.sample_from_normal(corpus_loader)))
+                    print('\n')
 
 
     def sample_from_normal(self, corpus_loader):
@@ -216,14 +219,19 @@ class CVAE(torch.nn.Module):
         return self.sample_from_z(corpus_loader, z.data.cpu().numpy())
 
     def sample_from_z(self, corpus_loader, z_np):
+        # 一句一句的采样，所以batch_size都填1
         z = torch.autograd.Variable(torch.from_numpy(z_np)).float().view(-1, self.params['z_size'])
-        decoder_word_input_np = corpus_loader.go_input(batch_size=1)
+        decoder_word_input_np = corpus_loader.go_input(1)
         decoder_word_input = torch.autograd.Variable(torch.from_numpy(decoder_word_input_np).long())
         if USE_GPU:
             z, decoder_word_input = z.cuda(), decoder_word_input.cuda()
         result = ''
+
+        decoder_hidden = self.fc_h(z)
+        decoder_hidden = decoder_hidden.view(self.decoder_params['n_layers'] * self.decoder.num_directions, 1, -1)
+
         for i in range(corpus_loader.params['keep_seq_lens'][1]):
-            d_output = self.forward_z(z, decoder_word_input)
+            d_output, decoder_hidden = self.forward_d(decoder_word_input, decoder_hidden)
             prediction = torch.nn.functional.softmax(d_output)
             ix, word = corpus_loader.sample_word_from_distribution(prediction .data.cpu().numpy())
 
@@ -257,7 +265,8 @@ class CVAE(torch.nn.Module):
         rec_lss = self.rec_loss(d_output, decoder_word_output, decoder_mask)
 
         # update
-        lss = kld_coef * kld_lss + rec_lss
+        # lss = kld_coef * kld_lss + rec_lss
+        lss = rec_lss
         lss.backward()
         torch.nn.utils.clip_grad_norm(self.parameters(), self.params['max_grad_norm'])
         self.optimizer.step()

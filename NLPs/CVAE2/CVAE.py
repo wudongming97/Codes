@@ -1,5 +1,6 @@
 import os
 import math
+import random
 import torch
 import numpy as np
 from Utils import nll
@@ -232,8 +233,14 @@ class CVAE(torch.nn.Module):
 
         for i in range(corpus_loader.params['keep_seq_lens'][1]):
             d_output, decoder_hidden = self.forward_d(decoder_word_input, decoder_hidden)
-            prediction = torch.nn.functional.softmax(d_output)
-            ix, word = corpus_loader.sample_word_from_distribution(prediction .data.cpu().numpy())
+
+            # prediction = torch.nn.functional.softmax(d_output)
+            # ix, word = corpus_loader.sample_word_from_distribution(prediction .data.cpu().numpy())
+
+            d_output_np = d_output.data.squeeze().cpu().numpy()
+            ixs, words = corpus_loader.top_k(d_output_np, self.params['top_k'])
+            choice = random.randint(0, len(ixs)-1)
+            ix, word = ixs[choice], words[choice]
 
             if word == corpus_loader.end_token:
                 break
@@ -297,6 +304,7 @@ if __name__ == '__main__':
         'z_size': 16,
         'max_grad_norm': 5,
         'kl_lss_anneal': True,
+        'top_k': 2,
         # 'use_gpu': True,
         'model_name': 'trained_CVAE.model',
     }

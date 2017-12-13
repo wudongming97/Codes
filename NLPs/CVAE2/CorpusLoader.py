@@ -140,6 +140,13 @@ class CorpusLoader:
         ix = np.random.choice(range(self.word_vocab_size), p=distribution.ravel())
         return ix, self.idx_to_word[ix]
 
+    def top_k(self, array, k):
+        ixs = array.argsort()[-k:][::-1]
+        words = [self.idx_to_word[ix] for ix in ixs]
+
+        return ixs.tolist(), words
+
+
 if __name__ == '__main__':
     corpus_loader_params = {
         'lf': 1,  # 低频词

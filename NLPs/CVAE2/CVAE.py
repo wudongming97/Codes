@@ -1,8 +1,16 @@
 import os
-import random
+import math
 import torch
+import numpy as np
 from Utils import nll
 from CorpusLoader import CorpusLoader
+
+# 解决输出报UnicodeEncodeError
+import sys, codecs
+if sys.stdout.encoding != 'UTF-8':
+    sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
+if sys.stderr.encoding != 'UTF-8':
+    sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, 'strict')
 
 USE_GPU = torch.cuda.is_available()
 if USE_GPU:
@@ -93,6 +101,7 @@ class CVAE(torch.nn.Module):
 
         # train
         self.optimizer = torch.optim.Adam(self.parameters(),  lr=self.params['lr'])
+        self.have_saved_model = os.path.exists(self.params['model_name'])
 
     def sample_z(self, mu, logvar):
         std = torch.exp(0.5 * logvar)
@@ -104,10 +113,21 @@ class CVAE(torch.nn.Module):
 
     @staticmethod
     def kld_loss(mu, log_var):
-        # kl_loss
-        kld_element = mu.pow(2).add_(log_var.exp()).mul_(-1).add_(1).add_(log_var)
-        kld_loss = torch.sum(kld_element, 1).mul_(-0.5).mean().squeeze()
-        return kld_loss 
+        kld_loss = (-0.5 * torch.sum(log_var - torch.pow(mu, 2) - torch.exp(log_var) + 1, 1)).mean().squeeze()
+        return kld_loss
+
+    def forward_z(self, z, d_inputs):
+        batch_size = z.size()[0]
+        decoder_hidden = self.fc_h(z)
+        decoder_hidden = decoder_hidden.view(self.decoder_params['n_layers'] * self.decoder.num_directions,
+                                             batch_size, -1)
+        _, c0 = self.decoder.init_hidden(batch_size)
+        decoder_output = self.decoder(d_inputs, decoder_hidden, c0)
+        decoder_output = decoder_output.contiguous().view(-1, self.decoder.num_directions * self.decoder_params[
+            'hidden_size'])
+        output = self.fc_out(decoder_output)
+
+        return output
 
     def forward(self, e_inputs, e_inputs_len, d_inputs):
         encoder_hidden = self.encoder.init_hidden(self.batch_size)
@@ -115,18 +135,10 @@ class CVAE(torch.nn.Module):
 
         context = context.view(self.batch_size, -1)
         mu, logvar = self.fc_mu(context), self.fc_logvar(context)
-        z = self.sample_z(mu, logvar)
-
         kld_loss = self.kld_loss(mu, logvar)
 
-        decoder_hidden = self.fc_h(z)
-        decoder_hidden = decoder_hidden.view(self.decoder_params['n_layers'] * self.decoder.num_directions,
-                                             self.batch_size, -1)
-        _, c0 = self.decoder.init_hidden(self.batch_size)
-        decoder_output = self.decoder(d_inputs, decoder_hidden, c0)
-        decoder_output = decoder_output.contiguous().view(-1, self.decoder.num_directions * self.decoder_params[
-            'hidden_size'])
-        output = self.fc_out(decoder_output)
+        z = self.sample_z(mu, logvar)
+        output = self.forward_z(z, d_inputs)
 
         return output, kld_loss
 
@@ -140,40 +152,117 @@ class CVAE(torch.nn.Module):
         loss = torch.mul(losses, target_mask).mean().squeeze()
         return loss
 
-    def fit(self, corpus_loader, display_step=10):
+    def kld_coef(self, cur_epoch, cur_iter):
+        if self.params['kl_lss_anneal']:
+            return math.exp(cur_epoch - self.params['n_epochs'])
+        else:
+            return 1
+
+    def fit(self, corpus_loader, display_step=15):
         print('begin fit ...')
         n_epochs = self.params['n_epochs']
         for e in range(n_epochs):
             for it, inputs in enumerate(corpus_loader.next_batch(self.batch_size, target_str='train')):
-                encoder_word_input, input_seq_len, decoder_word_input, decoder_word_output, decoder_mask = inputs
+                sentences, encoder_word_input, input_seq_len, decoder_word_input, decoder_word_output, decoder_mask = inputs
 
                 encoder_word_input = torch.autograd.Variable(torch.from_numpy(encoder_word_input))
                 decoder_word_input = torch.autograd.Variable(torch.from_numpy(decoder_word_input))
                 decoder_word_output = torch.autograd.Variable(torch.from_numpy(decoder_word_output))
+
                 if USE_GPU:
-                    encoder_word_input, decoder_word_input, decoder_word_output = encoder_word_input.cuda(), decoder_word_input.cuda(), decoder_word_output.cuda()
+                    encoder_word_input, decoder_word_input = encoder_word_input.cuda(), decoder_word_input.cuda()
+                    decoder_word_output = decoder_word_output.cuda()
 
                 kl_lss, rec_lss = self.train_bt(encoder_word_input, input_seq_len, decoder_word_input,
-                                                 decoder_word_output, decoder_mask)
+                                                 decoder_word_output, decoder_mask, self.kld_coef(e, it))
 
                 if it % display_step == 0:
-                    print("Epoch %d/%d | Batch %d/%d | train_loss: %.3f | kl_loss: %.3f | rec_loss: %.3f |" %
-                          (e, n_epochs, it, corpus_loader.num_lines[0] // self.batch_size, kl_lss+rec_lss, kl_lss, rec_lss))
+                    print(
+                        "Epoch %d/%d | Batch %d/%d | train_loss: %.3f | kl_loss: %.3f | rec_loss: %.3f | kld_coef: %.3f |" %
+                        (e+1, n_epochs, it, corpus_loader.num_lines[0] // self.batch_size, kl_lss + rec_lss, kl_lss,
+                         rec_lss, self.kld_coef(e+1, it+1)))
+
+                if it % (display_step * 20) == 0:
+                    # 查看重构情况
+                    print('\n------------ reconstruction --------------')
+                    for i, s in enumerate(sentences):
+                        if i > 4:
+                            break
+                        print('-----')
+                        print("Input: {}\nOutput: {} ".format(s, self.sample_from_encoder(corpus_loader, s)))
+                    print('\n------------ sample_from_normal ----------')
+                    for i in range(self.params['batch_size']):
+                        if  i > 4:
+                            break
+                        print('{}, {}'.format(i, self.sample_from_normal(corpus_loader)))
 
 
-    def train_bt(self, encoder_word_input, input_seq_len, decoder_word_input,decoder_word_output, decoder_mask):
+    def sample_from_normal(self, corpus_loader):
+        z_np = np.random.normal(0, 1, self.params['z_size'])
+        return self.sample_from_z(corpus_loader, z_np)
+
+    def sample_from_encoder(self, corpus_loader, sentence):
+        words = sentence.split()
+        e_input = [corpus_loader.word_to_idx.get(w, corpus_loader.word_to_idx[corpus_loader.unk_token]) for w in words]
+        e_input_len = [len(e_input)]
+        e_input = torch.autograd.Variable(torch.from_numpy(np.atleast_2d(e_input)))
+        if USE_GPU:
+            e_input = e_input.cuda()
+
+        encoder_hidden = self.encoder.init_hidden(1)
+        context = self.encoder(e_input, e_input_len, encoder_hidden).view(1, -1)
+        mu, logvar = self.fc_mu(context), self.fc_logvar(context)
+        z = self.sample_z(mu, logvar)
+        return self.sample_from_z(corpus_loader, z.data.cpu().numpy())
+
+    def sample_from_z(self, corpus_loader, z_np):
+        z = torch.autograd.Variable(torch.from_numpy(z_np)).float().view(-1, self.params['z_size'])
+        decoder_word_input_np = corpus_loader.go_input(batch_size=1)
+        decoder_word_input = torch.autograd.Variable(torch.from_numpy(decoder_word_input_np).long())
+        if USE_GPU:
+            z, decoder_word_input = z.cuda(), decoder_word_input.cuda()
+        result = ''
+        for i in range(corpus_loader.params['keep_seq_lens'][1]):
+            d_output = self.forward_z(z, decoder_word_input)
+            prediction = torch.nn.functional.softmax(d_output)
+            ix, word = corpus_loader.sample_word_from_distribution(prediction .data.cpu().numpy())
+
+            if word == corpus_loader.end_token:
+                break
+
+            result += ' ' + word
+
+            decoder_word_input_np = np.array([[ix]])
+            decoder_word_input = torch.autograd.Variable(torch.from_numpy(decoder_word_input_np).long())
+            if USE_GPU:
+                decoder_word_input = decoder_word_input.cuda()
+
+        return result
+
+    def save(self):
+        torch.save(self.state_dict(), self.params['model_name'])
+        print('model saved ...')
+
+    def load(self):
+        self.load_state_dict(torch.load(self.params['model_name']))
+        print('model loaded ...')
+
+
+
+
+    def train_bt(self, encoder_word_input, input_seq_len, decoder_word_input,decoder_word_output, decoder_mask, kld_coef):
         self.optimizer.zero_grad()
 
-        d_output, kl_lss = self(encoder_word_input, input_seq_len, decoder_word_input)
+        d_output, kld_lss = self(encoder_word_input, input_seq_len, decoder_word_input)
         rec_lss = self.rec_loss(d_output, decoder_word_output, decoder_mask)
 
         # update
-        lss = kl_lss + rec_lss
+        lss = kld_coef * kld_lss + rec_lss
         lss.backward()
         torch.nn.utils.clip_grad_norm(self.parameters(), self.params['max_grad_norm'])
         self.optimizer.step()
 
-        return kl_lss.data[0], rec_lss.data[0]
+        return kld_lss.data[0], rec_lss.data[0]
 
 
 if __name__ == '__main__':
@@ -193,25 +282,39 @@ if __name__ == '__main__':
     }
 
     params = {
-        'n_epochs': 10,
+        'n_epochs': 5,
         'lr': 0.0005,
-        'batch_size': 200,
+        'batch_size': 64,
         'z_size': 16,
         'max_grad_norm': 5,
+        'kl_lss_anneal': True,
+        # 'use_gpu': True,
+        'model_name': 'trained_CVAE.model',
     }
 
     corpus_loader_params = {
-        'lf': 30, #低频词
+        'lf': 5, #低频词
+        'keep_seq_lens': [5, 20],
     }
-    corpus_loader = CorpusLoader(corpus_loader_params, './data/')
+    corpus_loader = CorpusLoader(corpus_loader_params)
     params['vocab_size'] = corpus_loader.word_vocab_size
 
     model = CVAE(encoder_params, decoder_params, params)
     if USE_GPU:
         model = model.cuda()
 
-    # train
-    model.fit(corpus_loader)
+    if model.have_saved_model:
+        model.load()
+    else:
+        # train
+        model.fit(corpus_loader)
+        model.save()
+
+    # evaluate
+    result = model.sample_from_encoder(corpus_loader, 'hao are you .')
+    print(result)
+
+
 
 
 

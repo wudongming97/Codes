@@ -7,12 +7,15 @@ import numpy as np
 from functools import reduce
 
 class CorpusLoader:
-    def __init__(self ,params ,path='./'):
+    def __init__(self ,params):
         self.params = params
-        self.raw_data_files = [path + 'train.txt', path + 'test.txt']
-        self.word_data_file = path + 'words.pkl'
-        self.word_idx_file = path + 'vocab.pkl'
-        self.word_tensor_files = [path + 'train.npy', path + 'valid.npy']
+        self.raw_data_files = ['./train.txt', './test.txt']
+        self.preprocessed_data_path = './preprocessed_data/'
+        if not os.path.exists(self.preprocessed_data_path):
+            os.makedirs(self.preprocessed_data_path)
+        self.word_data_file = self.preprocessed_data_path + 'words.pkl'
+        self.word_idx_file = self.preprocessed_data_path + 'vocab.pkl'
+        self.word_tensor_files = [self.preprocessed_data_path + 'train.npy', self.preprocessed_data_path + 'valid.npy']
 
         self.pad_token = '<pad>'
         self.go_token = '<go>'
@@ -30,13 +33,25 @@ class CorpusLoader:
             self.preprocess(lf=self.params.get('lf', 0))
             print('data have preprocessed ...')
 
-    def preprocess(self, lf=0):
-        data = [open(file, encoding='UTF-8').read() for file in self.raw_data_files]
-        # 一些全局的文本处理
-        # todo
+    def global_txt_process(self, data):
+        # tolow
+        res = [target.lower() for target in data]
+        return res
+        #
 
-        #merged_data_words = [sentence=[word, ...], ...]
-        self.data_words = [[line.split() for line in fi.split('\n') if len(line) != 0] for fi in data]
+    def preprocess(self, lf=0):
+        print('begin preprocessing ...')
+        data = [open(file, encoding='UTF-8').read() for file in self.raw_data_files]
+
+        # 一些全局的文本处理
+        data = self.global_txt_process(data)
+
+        #merged_data_words = [sentence=[word, ...], ...], 同时删除空行或者只有一个字母的行
+        self.data_words = [[line.split() for line in fi.split('\n') if len(line) >= 1] for fi in data]
+        #只保留指定长度的seq
+        low_level, high_level = self.params['keep_seq_lens']
+        self.data_words = [[words for words in target if len(words) >= low_level and len(words) < high_level] for target
+                           in self.data_words]
         with open(self.word_data_file, 'wb') as f:
             pickle.dump(self.data_words, f)
 
@@ -89,6 +104,10 @@ class CorpusLoader:
         sorted_seqs = sorted(inputs, key=len, reverse=True)
         seqs_len = [len(s) for s in sorted_seqs]
 
+        #从idx还原为txt
+        words_list = [[self.idx_to_word[idx] for idx in idx_list] for idx_list in sorted_seqs]
+        sentences = [reduce(lambda x1,x2: x1 + ' ' + x2, words) for words in words_list]
+
         padded_seqs = []
         masks = []
         max_sentence_len = max(seqs_len)
@@ -96,7 +115,7 @@ class CorpusLoader:
         for s in sorted_seqs:
             padded_seqs.append(s + [pad_idx]*(max_sentence_len-len(s)))
             masks.append([1]*len(s) + [0]*(max_sentence_len-len(s)))
-        return padded_seqs, seqs_len, masks
+        return sentences, padded_seqs, seqs_len, masks
 
     def next_batch(self, batch_size, target_str='train'):
         target = 0 if target_str == 'train' else 1
@@ -106,15 +125,28 @@ class CorpusLoader:
             encoder_word_input = [self.word_tensors[target][index] for index in indexes]
             decoder_word_input = [[self.word_to_idx[self.go_token]] + line for line in encoder_word_input]
             decoder_word_output = [line + [self.word_to_idx[self.end_token]] for line in encoder_word_input]
-            encoder_word_input, input_seq_len, _ = self.sort_and_pad(encoder_word_input)
-            decoder_word_input, _, decoder_mask = self.sort_and_pad(decoder_word_input)
-            decoder_word_output, _, _ = self.sort_and_pad(decoder_word_output)
+            sentences, encoder_word_input, input_seq_len, _ = self.sort_and_pad(encoder_word_input)
+            _, decoder_word_input, _, decoder_mask = self.sort_and_pad(decoder_word_input)
+            _, decoder_word_output, _, _ = self.sort_and_pad(decoder_word_output)
 
-            yield np.array(encoder_word_input), input_seq_len, np.array(decoder_word_input), np.array(decoder_word_output), decoder_mask
+            yield sentences, np.array(encoder_word_input), input_seq_len, np.array(decoder_word_input), np.array(
+                decoder_word_output), decoder_mask
 
+    def go_input(self, batch_size):
+        go_word_input = [[self.word_to_idx[self.go_token]] for _ in range(batch_size)]
+        return np.array(go_word_input)
+
+    def sample_word_from_distribution(self, distribution):
+        ix = np.random.choice(range(self.word_vocab_size), p=distribution.ravel())
+        return ix, self.idx_to_word[ix]
 
 if __name__ == '__main__':
-    loader = CorpusLoader()
-    encoder_word_input, input_seq_len, decoder_word_input, decoder_word_output, decoder_mask = loader.next_batch(batch_size=2)
+    corpus_loader_params = {
+        'lf': 1,  # 低频词
+        'keep_seq_lens': [5, 20],
+    }
+    loader = CorpusLoader(corpus_loader_params)
+    encoder_word_input, input_seq_len, decoder_word_input, decoder_word_output, decoder_mask = loader.next_batch(
+        batch_size=2)
 
 

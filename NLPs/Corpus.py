@@ -1,3 +1,5 @@
+import pickle
+
 PAD_token = 0
 SOS_token = 1
 EOS_token = 2
@@ -24,6 +26,16 @@ class Corpus:
             self.__index_words(s)
         print('sentences num : {}, vocab size: {}\n'.format(len(self.sentences), self.n_words))
         return self
+
+    def save(self, path='./'):
+        print('saving corpus ...')
+        sentences = [s.split() for s in self.sentences]
+        with open(path + 'data.pkl', 'wb') as f:
+            pickle.dump(sentences, f)
+        with open(path + 'idx2word.pkl', 'wb') as f:
+            pickle.dump(self.idx2word, f)
+        with open(path + 'word2idx.pkl', 'wb') as f:
+            pickle.dump(self.word2idx, f)
 
     def trim(self, count):
         keep_words = []
@@ -153,14 +165,10 @@ class ParallelCorpus:
         else:
             self.Y_word2count[word] += 1
 
-
-
-
-
 if __name__ == '__main__':
-    file = '../datasets/en_vi_nlp/tst2012.en'
-    corpus = Corpus(file).process().trim(3)
-    corpus2 = ParallelCorpus(file, file).process().trim(2,3)
+    file = '../datasets/en_vi_nlp/train.en'
+    corpus = Corpus(file).process().trim(1)
+    corpus.save()
 
     print('end')
 

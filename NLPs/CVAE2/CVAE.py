@@ -14,8 +14,8 @@ if sys.stderr.encoding != 'UTF-8':
     sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, 'strict')
 
 USE_GPU = torch.cuda.is_available()
-if USE_GPU:
-    torch.cuda.set_device(1)
+# if USE_GPU:
+#    torch.cuda.set_device(1)
 
 class Encoder(torch.nn.Module):
     def __init__(self, params):
@@ -147,7 +147,7 @@ class CVAE(torch.nn.Module):
 
     @staticmethod
     def rec_loss(d_output, d_target, d_mask):
-        # recon loss
+        # recon loss 。 note：这里的log_softmax是必须的， 应为nll的实现需要log_prob
         losses = nll(torch.nn.functional.log_softmax(d_output), d_target.view(-1, 1))
         target_mask = torch.autograd.Variable(torch.FloatTensor(d_mask)).view(-1)
         if USE_GPU:
@@ -215,8 +215,8 @@ class CVAE(torch.nn.Module):
 
         encoder_hidden = self.encoder.init_hidden(1)
         context = self.encoder(e_input, e_input_len, encoder_hidden).view(1, -1)
-        mu, logvar = self.fc_mu(context), self.fc_logvar(context)
-        z = self.sample_z(mu, logvar)
+        mu, log_var = self.fc_mu(context), self.fc_logvar(context)
+        z = self.sample_z(mu, log_var)
         return self.sample_from_z(corpus_loader, z.data.cpu().numpy())
 
     def sample_from_z(self, corpus_loader, z_np):
@@ -281,21 +281,21 @@ class CVAE(torch.nn.Module):
 if __name__ == '__main__':
     encoder_params = {
         'emb_size': 512,
-        'hidden_size': 256,
+        'hidden_size': 512,
         'n_layers': 1,
         'bidirectional': False,
     }
 
     decoder_params = {
         'emb_size': 512,
-        'hidden_size': 256,
+        'hidden_size': 512,
         'n_layers': 1,
         'bidirectional': False,
-        'drop_out': 0.8,
+        'drop_out': 0.9,
     }
 
     params = {
-        'n_epochs': 10,
+        'n_epochs': 100,
         'lr': 0.0005,
         'batch_size': 64,
         'z_size': 16,
@@ -307,7 +307,7 @@ if __name__ == '__main__':
     }
 
     corpus_loader_params = {
-        'lf': 5, #低频词
+        'lf': 20, #低频词
         'keep_seq_lens': [5, 20],
     }
     corpus_loader = CorpusLoader(corpus_loader_params)

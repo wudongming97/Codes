@@ -3,6 +3,8 @@ import re
 import collections
 import pickle
 
+import unidecode
+
 import numpy as np
 from functools import reduce
 
@@ -35,8 +37,12 @@ class CorpusLoader:
 
     def global_txt_process(self, data):
         # tolow
-        res = [target.lower() for target in data]
-        return res
+        data = [target.lower() for target in data]
+
+        # 把unicode转换成ascii
+        data = [unidecode.unidecode(target) for target in data]
+
+        return data
         #
 
     def preprocess(self, lf=0):
@@ -120,7 +126,10 @@ class CorpusLoader:
     def next_batch(self, batch_size, target_str='train'):
         target = 0 if target_str == 'train' else 1
         for i in range(self.num_lines[target] // batch_size):
-            indexes = np.array(np.random.randint(self.num_lines[target], size=batch_size))
+
+            indexes = range(self.num_lines[target])[i*batch_size:(i+1)*batch_size]
+            if self.params['shuffle']:
+                indexes = np.array(np.random.randint(self.num_lines[target], size=batch_size))
 
             encoder_word_input = [self.word_tensors[target][index] for index in indexes]
             decoder_word_input = [[self.word_to_idx[self.go_token]] + line for line in encoder_word_input]

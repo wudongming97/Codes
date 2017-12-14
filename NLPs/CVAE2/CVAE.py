@@ -7,13 +7,17 @@ from Utils import nll
 from CorpusLoader import CorpusLoader
 
 # 解决输出报UnicodeEncodeError
-import sys, codecs
-if sys.stdout.encoding != 'UTF-8':
-    sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
-if sys.stderr.encoding != 'UTF-8':
-    sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, 'strict')
+# import sys, codecs
+# if s# ys.stdout.encoding != 'UTF-8':
+#     sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
+# if sys.stderr.encoding != 'UTF-8':
+#     sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, 'strict')
 
 USE_GPU = torch.cuda.is_available()
+
+print('============ Env Info ===============')
+print('use gpu: {}'.format(str(USE_GPU)))
+print('pytorch version : {}\n'.format(torch.__version__))
 # if USE_GPU:
 #    torch.cuda.set_device(1)
 
@@ -133,10 +137,10 @@ class CVAE(torch.nn.Module):
         context = self.encoder(e_inputs, e_inputs_len, encoder_hidden)
 
         context = context.view(self.batch_size, -1)
-        mu, logvar = self.fc_mu(context), self.fc_logvar(context)
-        kld_loss = self.kld_loss(mu, logvar)
+        mu, log_var = self.fc_mu(context), self.fc_logvar(context)
+        kld_loss = self.kld_loss(mu, log_var)
 
-        z = self.sample_z(mu, logvar)
+        z = self.sample_z(mu, log_var)
 
         decoder_hidden = self.fc_h(z)
         decoder_hidden = decoder_hidden.view(self.decoder_params['n_layers'] * self.decoder.num_directions,
@@ -157,7 +161,8 @@ class CVAE(torch.nn.Module):
 
     def kld_coef(self, cur_epoch, cur_iter):
         if self.params['kl_lss_anneal']:
-            return math.exp(cur_epoch - self.params['n_epochs'])
+            # return math.exp(cur_epoch - self.params['n_epochs'])
+            return math.tanh(cur_epoch * 3 / self.params['n_epochs'] )
         else:
             return 1
 
@@ -269,8 +274,8 @@ class CVAE(torch.nn.Module):
         rec_lss = self.rec_loss(d_output, decoder_word_output, decoder_mask)
 
         # update
-        # lss = kld_coef * kld_lss + rec_lss
-        lss = rec_lss
+        lss = kld_coef * kld_lss + rec_lss
+        # lss = rec_lss
         lss.backward()
         torch.nn.utils.clip_grad_norm(self.parameters(), self.params['max_grad_norm'])
         self.optimizer.step()
@@ -307,8 +312,9 @@ if __name__ == '__main__':
     }
 
     corpus_loader_params = {
-        'lf': 20, #低频词
+        'lf': 0, #低频词
         'keep_seq_lens': [5, 20],
+        'shuffle': False,
     }
     corpus_loader = CorpusLoader(corpus_loader_params)
     params['vocab_size'] = corpus_loader.word_vocab_size

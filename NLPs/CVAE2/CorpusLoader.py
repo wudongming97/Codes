@@ -155,5 +155,3 @@ if __name__ == '__main__':
     loader = CorpusLoader(corpus_loader_params)
     encoder_word_input, input_seq_len, decoder_word_input, decoder_word_output, decoder_mask = loader.next_batch(
         batch_size=2)
-
-

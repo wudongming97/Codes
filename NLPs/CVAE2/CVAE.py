@@ -262,9 +262,6 @@ class CVAE(torch.nn.Module):
         self.load_state_dict(torch.load(self.params['model_name']))
         print('model loaded ...')
 
-
-
-
     def train_bt(self, encoder_word_input, input_seq_len, decoder_word_input,decoder_word_output, decoder_mask, kld_coef):
         self.optimizer.zero_grad()
 
@@ -284,27 +281,27 @@ class CVAE(torch.nn.Module):
 if __name__ == '__main__':
     encoder_params = {
         'emb_size': 512,
-        'hidden_size': 512,
-        'n_layers': 2,
+        'hidden_size': 256,
+        'n_layers': 1,
         'bidirectional': False,
     }
 
     decoder_params = {
         'emb_size': 512,
-        'hidden_size': 512,
-        'n_layers': 2,
+        'hidden_size': 256,
+        'n_layers': 1,
         'bidirectional': False,
         'drop_out': 0.8,
     }
 
     params = {
-        'n_epochs': 5,
+        'n_epochs': 10,
         'lr': 0.0005,
         'batch_size': 64,
         'z_size': 16,
         'max_grad_norm': 5,
         'kl_lss_anneal': True,
-        'top_k': 2,
+        'top_k': 1,
         # 'use_gpu': True,
         'model_name': 'trained_CVAE.model',
     }
@@ -330,13 +327,3 @@ if __name__ == '__main__':
     # evaluate
     result = model.sample_from_encoder(corpus_loader, 'hao are you .')
     print(result)
-
-
-
-
-
-
-
-
-
-

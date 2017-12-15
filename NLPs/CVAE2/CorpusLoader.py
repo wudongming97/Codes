@@ -106,7 +106,6 @@ class CorpusLoader:
         print('train num_lines : {} , test num_lines: {}'.format(self.num_lines[0], self.num_lines[1]))
         print('vocab_size: {}'.format(self.word_vocab_size))
         print('\n')
-        print('\n')
 
     def build_word_vocab(self, merged_data_words, lf):
         word_counts = collections.Counter(merged_data_words).most_common()

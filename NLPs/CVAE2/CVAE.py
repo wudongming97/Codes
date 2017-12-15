@@ -163,6 +163,8 @@ class CVAE(torch.nn.Module):
         if self.params['kl_lss_anneal']:
             # return math.exp(cur_epoch - self.params['n_epochs'])
             return math.tanh(cur_epoch * 8 / self.params['n_epochs'] )
+        elif self.params['only_rec_loss']:
+            return 0
         else:
             return 1
 
@@ -310,6 +312,7 @@ if __name__ == '__main__':
         'top_k': 1,
         # 'use_gpu': True,
         'model_name': 'trained_CVAE.model',
+        'only_rec_loss': False,
     }
 
     corpus_loader_params = {

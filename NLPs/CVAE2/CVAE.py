@@ -21,27 +21,33 @@ print('pytorch version : {}\n'.format(torch.__version__))
 # if USE_GPU:
 #    torch.cuda.set_device(1)
 
+# helper function
+def rnn_cell(str_rnn_cell):
+    if str_rnn_cell.lower() == 'lstm':
+        rnn_cell = torch.nn.LSTM
+    elif str_rnn_cell.lower() == 'gru':
+        rnn_cell = torch.nn.GRU
+    else:
+        raise ValueError("Unsupported RNN Cell: {0}".format(str_rnn_cell))
+
+    return rnn_cell
+
 class Encoder(torch.nn.Module):
     def __init__(self, params):
         super(Encoder, self).__init__()
         self.params = params
+        self.rnn_cell = rnn_cell(self.params['rnn_cell'])
         self.num_directions = 2 if self.params['bidirectional'] else 1
         
         # model
         self.embedding = torch.nn.Embedding(self.params['vocab_size'], self.params['emb_size'])
-        self.rnn = torch.nn.GRU(self.params['emb_size'], self.params['hidden_size'], self.params['n_layers'],
+        self.rnn = self.rnn_cell(self.params['emb_size'], self.params['hidden_size'], self.params['n_layers'],
                                  bidirectional=self.params['bidirectional'], batch_first=True)
-        
-    def init_hidden(self, batch_size):
-        h0 = torch.autograd.Variable(
-            torch.zeros(self.params['n_layers'] * self.num_directions, batch_size, self.params['hidden_size']))
-        if USE_GPU: h0 = h0.cuda()
-        return h0
     
-    def forward(self, inputs, inputs_len, hidden):
+    def forward(self, inputs, inputs_len):
         embedded = self.embedding(inputs)
         packed = torch.nn.utils.rnn.pack_padded_sequence(embedded, inputs_len, batch_first=True)
-        _, hidden = self.rnn(packed, hidden)
+        _, hidden = self.rnn(packed)
         return hidden
 
 
@@ -49,12 +55,13 @@ class Decoder(torch.nn.Module):
     def __init__(self, params):
         super(Decoder, self).__init__()
         self.params = params
+        self.rnn_cell = rnn_cell(self.params['rnn_cell'])
         self.num_directions = 2 if self.params['bidirectional'] else 1
 
         # model
         self.embedding = torch.nn.Embedding(self.params['vocab_size'], self.params['emb_size'])
         self.dropout_layer = torch.nn.AlphaDropout(self.params['input_dropout_p'])
-        self.rnn = torch.nn.GRU(self.params['emb_size'], self.params['hidden_size'], self.params['n_layers'],
+        self.rnn = self.rnn_cell(self.params['emb_size'], self.params['hidden_size'], self.params['n_layers'],
                                  bidirectional=self.params['bidirectional'], batch_first=True)
 
     def forward(self, inputs, h0):
@@ -126,8 +133,7 @@ class CVAE(torch.nn.Module):
         return output, hidden
 
     def forward(self, e_inputs, e_inputs_len, d_inputs):
-        encoder_hidden = self.encoder.init_hidden(self.batch_size)
-        context = self.encoder(e_inputs, e_inputs_len, encoder_hidden)
+        context = self.encoder(e_inputs, e_inputs_len)
 
         context = context[-self.encoder.num_directions:,:,:].view(self.batch_size, -1)
         mu, log_var = self.fc_mu(context), self.fc_logvar(context)
@@ -213,8 +219,7 @@ class CVAE(torch.nn.Module):
         if USE_GPU:
             e_input = e_input.cuda()
 
-        encoder_hidden = self.encoder.init_hidden(1)
-        context = self.encoder(e_input, e_input_len, encoder_hidden).view(1, -1)
+        context = self.encoder(e_input, e_input_len).view(1, -1)
         mu, log_var = self.fc_mu(context), self.fc_logvar(context)
         z = self.sample_z(mu, log_var)
         return self.sample_from_z(corpus_loader, z.data.cpu().numpy())
@@ -281,6 +286,7 @@ class CVAE(torch.nn.Module):
 
 if __name__ == '__main__':
     encoder_params = {
+        'rnn_cell': 'gru',
         'emb_size': 512,
         'hidden_size': 512,
         'n_layers': 1,
@@ -291,6 +297,7 @@ if __name__ == '__main__':
     }
 
     decoder_params = {
+        'rnn_cell': 'gru',
         'emb_size': 512,
         'hidden_size': 512,
         'n_layers': 1,

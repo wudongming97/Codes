@@ -93,7 +93,7 @@ class CVAE(torch.nn.Module):
             self.encoder.num_directions * self.encoder_params['hidden_size'],
             self.params['z_size'])
         self.fc_logvar = torch.nn.Linear(
-            self.encoder_params['n_layers'] * self.encoder.num_directions * self.encoder_params['hidden_size'],
+            self.encoder.num_directions * self.encoder_params['hidden_size'],
             self.params['z_size'])
         self.fc_h = torch.nn.Linear(
             self.params['z_size'],

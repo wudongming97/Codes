@@ -53,13 +53,13 @@ class Decoder(torch.nn.Module):
 
         # model
         self.embedding = torch.nn.Embedding(self.params['vocab_size'], self.params['emb_size'])
-        self.drop_out_layer = torch.nn.AlphaDropout(self.params['drop_out'])
+        self.dropout_layer = torch.nn.AlphaDropout(self.params['input_dropout_p'])
         self.rnn = torch.nn.GRU(self.params['emb_size'], self.params['hidden_size'], self.params['n_layers'],
                                  bidirectional=self.params['bidirectional'], batch_first=True)
 
     def forward(self, inputs, h0):
         embedded = self.embedding(inputs)
-        embedded_dropout = self.drop_out_layer(embedded)
+        embedded_dropout = self.dropout_layer(embedded)
         output, hidden = self.rnn(embedded_dropout, h0)
         return output, hidden
 
@@ -285,6 +285,9 @@ if __name__ == '__main__':
         'hidden_size': 512,
         'n_layers': 1,
         'bidirectional': False,
+        'input_dropout_p': 0.9,
+        #'rnn_dropout_p': 0.9,
+        #'output_dropout_p': 0.9,
     }
 
     decoder_params = {
@@ -292,7 +295,9 @@ if __name__ == '__main__':
         'hidden_size': 512,
         'n_layers': 1,
         'bidirectional': False,
-        'drop_out': 0.9,
+        'input_dropout_p': 0.9,
+        #'rnn_dropout_p': 0.9,
+        #'output_dropout_p': 0.9,
     }
 
     params = {

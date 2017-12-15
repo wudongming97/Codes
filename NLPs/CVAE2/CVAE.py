@@ -135,7 +135,6 @@ class CVAE(torch.nn.Module):
         return output, hidden
 
     def _stats_from_z(self, z):
-        # //////////////
         batch_size = z.size()[0]
         if self.decoder.params['rnn_cell'] == 'lstm':
             decoder_hidden = self.fc_h(z), self.fc_c(z)
@@ -146,8 +145,6 @@ class CVAE(torch.nn.Module):
             decoder_hidden = self.fc_h(z).view(self.decoder_params['n_layers'] * self.decoder.num_directions, batch_size, -1)
             return decoder_hidden
 
-        # ////////////////
-
     def forward(self, e_inputs, e_inputs_len, d_inputs):
         context = self.encoder(e_inputs, e_inputs_len)
 
@@ -157,9 +154,6 @@ class CVAE(torch.nn.Module):
 
         z = self.sample_z(mu, log_var)
 
-        #decoder_hidden = self.fc_h(z)
-        #decoder_hidden = decoder_hidden.view(self.decoder_params['n_layers'] * self.decoder.num_directions,
-        #                                     self.batch_size, -1)
         decoder_hidden = self._stats_from_z(z)
         output, _ = self.forward_d(d_inputs, decoder_hidden)
 
@@ -300,10 +294,10 @@ class CVAE(torch.nn.Module):
 if __name__ == '__main__':
     encoder_params = {
         'rnn_cell': 'lstm',
-        'emb_size': 512,
-        'hidden_size': 512,
+        'emb_size': 256,
+        'hidden_size': 256,
         'n_layers': 1,
-        'bidirectional': False,
+        'bidirectional': True,
         'input_dropout_p': 0.9,
         #'rnn_dropout_p': 0.9,
         #'output_dropout_p': 0.9,
@@ -311,10 +305,10 @@ if __name__ == '__main__':
 
     decoder_params = {
         'rnn_cell': 'lstm',
-        'emb_size': 512,
-        'hidden_size': 512,
+        'emb_size': 256,
+        'hidden_size': 256,
         'n_layers': 1,
-        'bidirectional': False,
+        'bidirectional': True,
         'input_dropout_p': 0.9,
         #'rnn_dropout_p': 0.9,
         #'output_dropout_p': 0.9,

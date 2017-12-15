@@ -29,22 +29,19 @@ class Encoder(torch.nn.Module):
         
         # model
         self.embedding = torch.nn.Embedding(self.params['vocab_size'], self.params['emb_size'])
-        self.rnn = torch.nn.LSTM(self.params['emb_size'], self.params['hidden_size'], self.params['n_layers'],
+        self.rnn = torch.nn.GRU(self.params['emb_size'], self.params['hidden_size'], self.params['n_layers'],
                                  bidirectional=self.params['bidirectional'], batch_first=True)
         
     def init_hidden(self, batch_size):
         h0 = torch.autograd.Variable(
             torch.zeros(self.params['n_layers'] * self.num_directions, batch_size, self.params['hidden_size']))
-        c0 = torch.autograd.Variable(
-            torch.zeros(self.params['n_layers'] * self.num_directions, batch_size, self.params['hidden_size']))
-        if USE_GPU:
-            h0, c0 = h0.cuda(), c0.cuda()
-        return h0, c0
+        if USE_GPU: h0 = h0.cuda()
+        return h0
     
     def forward(self, inputs, inputs_len, hidden):
         embedded = self.embedding(inputs)
         packed = torch.nn.utils.rnn.pack_padded_sequence(embedded, inputs_len, batch_first=True)
-        _, (hidden, _) = self.rnn(packed, hidden)
+        _, hidden = self.rnn(packed, hidden)
         return hidden
 
 
@@ -57,23 +54,20 @@ class Decoder(torch.nn.Module):
         # model
         self.embedding = torch.nn.Embedding(self.params['vocab_size'], self.params['emb_size'])
         self.drop_out_layer = torch.nn.AlphaDropout(self.params['drop_out'])
-        self.rnn = torch.nn.LSTM(self.params['emb_size'], self.params['hidden_size'], self.params['n_layers'],
+        self.rnn = torch.nn.GRU(self.params['emb_size'], self.params['hidden_size'], self.params['n_layers'],
                                  bidirectional=self.params['bidirectional'], batch_first=True)
 
-    def forward(self, inputs, h0, c0):
+    def forward(self, inputs, h0):
         embedded = self.embedding(inputs)
         embedded_dropout = self.drop_out_layer(embedded)
-        output, (hidden, _) = self.rnn(embedded_dropout, (h0, c0))
+        output, hidden = self.rnn(embedded_dropout, h0)
         return output, hidden
 
     def init_hidden(self, batch_size):
         h0 = torch.autograd.Variable(
             torch.zeros(self.params['n_layers'] * self.num_directions, batch_size, self.params['hidden_size']))
-        c0 = torch.autograd.Variable(
-            torch.zeros(self.params['n_layers'] * self.num_directions, batch_size, self.params['hidden_size']))
-        if USE_GPU:
-            h0, c0 = h0.cuda(), c0.cuda()
-        return h0, c0
+        if USE_GPU: h0 = h0.cuda()
+        return h0
 
 
 class CVAE(torch.nn.Module):
@@ -124,8 +118,7 @@ class CVAE(torch.nn.Module):
     def forward_d(self, d_inputs, decoder_hidden):
         batch_size = d_inputs.size()[0]
 
-        _, c0 = self.decoder.init_hidden(batch_size)
-        decoder_output, hidden = self.decoder(d_inputs, decoder_hidden, c0)
+        decoder_output, hidden = self.decoder(d_inputs, decoder_hidden)
         decoder_output = decoder_output.contiguous().view(-1, self.decoder.num_directions * self.decoder_params[
             'hidden_size'])
         output = self.fc_out(decoder_output)
@@ -160,11 +153,11 @@ class CVAE(torch.nn.Module):
         return loss
 
     def kld_coef(self, cur_epoch, cur_iter):
-        if self.params['kl_lss_anneal']:
+        if self.params['only_rec_loss']:
+            return 0
+        elif self.params['kl_lss_anneal']:
             # return math.exp(cur_epoch - self.params['n_epochs'])
             return math.tanh(cur_epoch * 8 / self.params['n_epochs'] )
-        elif self.params['only_rec_loss']:
-            return 0
         else:
             return 1
 
@@ -183,14 +176,13 @@ class CVAE(torch.nn.Module):
                     encoder_word_input, decoder_word_input = encoder_word_input.cuda(), decoder_word_input.cuda()
                     decoder_word_output = decoder_word_output.cuda()
 
+                kld_coef = self.kld_coef(e, it)
                 kl_lss, rec_lss = self.train_bt(encoder_word_input, input_seq_len, decoder_word_input,
-                                                 decoder_word_output, decoder_mask, self.kld_coef(e, it))
+                                                 decoder_word_output, decoder_mask, kld_coef)
 
                 if it % display_step == 0:
                     print(
-                        "Epoch %d/%d | Batch %d/%d | train_loss: %.3f | kl_loss: %.3f | rec_loss: %.3f | kld_coef: %.3f |" %
-                        (e+1, n_epochs, it, corpus_loader.num_lines[0] // self.batch_size, kl_lss + rec_lss, kl_lss,
-                         rec_lss, self.kld_coef(e+1, it+1)))
+                        "Epoch %d/%d | Batch %d/%d | train_loss: %.3f | rec_loss: %.3f | kl_loss: %.3f | kld_coef: %.3f | kld_coef*kl_loss: %.3f |" % (e+1, n_epochs, it, corpus_loader.num_lines[0] // self.batch_size, kl_lss*kld_coef + rec_lss, rec_lss, kl_lss, kld_coef, kld_coef*kl_lss))
 
                 if it % (display_step * 20) == 0:
                     # 查看重构情况
@@ -234,6 +226,7 @@ class CVAE(torch.nn.Module):
         decoder_word_input = torch.autograd.Variable(torch.from_numpy(decoder_word_input_np).long())
         if USE_GPU:
             z, decoder_word_input = z.cuda(), decoder_word_input.cuda()
+
         result = ''
 
         decoder_hidden = self.fc_h(z)
@@ -308,15 +301,15 @@ if __name__ == '__main__':
         'batch_size': 64,
         'z_size': 16,
         'max_grad_norm': 5,
-        'kl_lss_anneal': True,
         'top_k': 1,
         # 'use_gpu': True,
         'model_name': 'trained_CVAE.model',
-        'only_rec_loss': False,
+        'only_rec_loss': True,  # for debug
+        'kl_lss_anneal': True,
     }
 
     corpus_loader_params = {
-        'lf': 0, #低频词
+        'lf': 20, #低频词
         'keep_seq_lens': [5, 20],
         'shuffle': False,
         'global_seqs_sort': True,

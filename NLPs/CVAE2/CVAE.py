@@ -151,7 +151,7 @@ class CVAE(torch.nn.Module):
 
     @staticmethod
     def rec_loss(d_output, d_target, d_mask):
-        # recon loss 。 note：这里的log_softmax是必须的， 应为nll的实现需要log_prob
+        # recon loss 。 note：这里的log_softmax是必须的， 应为nll的输入需要log_prob
         losses = nll(torch.nn.functional.log_softmax(d_output), d_target.view(-1, 1))
         target_mask = torch.autograd.Variable(torch.FloatTensor(d_mask)).view(-1)
         if USE_GPU:
@@ -162,7 +162,7 @@ class CVAE(torch.nn.Module):
     def kld_coef(self, cur_epoch, cur_iter):
         if self.params['kl_lss_anneal']:
             # return math.exp(cur_epoch - self.params['n_epochs'])
-            return math.tanh(cur_epoch * 3 / self.params['n_epochs'] )
+            return math.tanh(cur_epoch * 8 / self.params['n_epochs'] )
         else:
             return 1
 
@@ -198,6 +198,7 @@ class CVAE(torch.nn.Module):
                             break
                         print('-----')
                         print("Input: {}\nOutput: {} ".format(s, self.sample_from_encoder(corpus_loader, s)))
+                    # 查看随机生成情况
                     print('\n------------ sample_from_normal ----------')
                     for i in range(self.params['batch_size']):
                         if  i > 4:
@@ -315,6 +316,7 @@ if __name__ == '__main__':
         'lf': 0, #低频词
         'keep_seq_lens': [5, 20],
         'shuffle': False,
+        'global_seqs_sort': True,
     }
     corpus_loader = CorpusLoader(corpus_loader_params)
     params['vocab_size'] = corpus_loader.word_vocab_size

@@ -45,6 +45,18 @@ class CorpusLoader:
         return data
         #
 
+    def global_seqs_process(self, data_words):
+        # 只保留指定长度的seq
+        low_level, high_level = self.params['keep_seq_lens']
+        data_words = [[words for words in target if len(words) >= low_level and len(words) < high_level] for target
+                           in data_words]
+        # 根据seq_len进行排序，decent
+        if self.params['global_seqs_sort']:
+            data_words = [sorted(target, key=len, reverse=True) for target in data_words]
+
+        return data_words
+
+
     def preprocess(self, lf=0):
         print('begin preprocessing ...')
         data = [open(file, encoding='UTF-8').read() for file in self.raw_data_files]
@@ -52,12 +64,12 @@ class CorpusLoader:
         # 一些全局的文本处理
         data = self.global_txt_process(data)
 
-        #merged_data_words = [sentence=[word, ...], ...], 同时删除空行或者只有一个字母的行
+        # merged_data_words = [sentence=[word, ...], ...], 同时删除空行或者只有一个字母的行
         self.data_words = [[line.split() for line in fi.split('\n') if len(line) >= 1] for fi in data]
-        #只保留指定长度的seq
-        low_level, high_level = self.params['keep_seq_lens']
-        self.data_words = [[words for words in target if len(words) >= low_level and len(words) < high_level] for target
-                           in self.data_words]
+
+        # 全局的seqs处理
+        self.data_words = self.global_seqs_process(self.data_words)
+
         with open(self.word_data_file, 'wb') as f:
             pickle.dump(self.data_words, f)
 
@@ -93,6 +105,8 @@ class CorpusLoader:
         print('--------- Corpus Info ---------')
         print('train num_lines : {} , test num_lines: {}'.format(self.num_lines[0], self.num_lines[1]))
         print('vocab_size: {}'.format(self.word_vocab_size))
+        print('\n')
+        print('\n')
 
     def build_word_vocab(self, merged_data_words, lf):
         word_counts = collections.Counter(merged_data_words).most_common()

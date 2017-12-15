@@ -48,7 +48,10 @@ class Encoder(torch.nn.Module):
         embedded = self.embedding(inputs)
         packed = torch.nn.utils.rnn.pack_padded_sequence(embedded, inputs_len, batch_first=True)
         _, hidden = self.rnn(packed)
-        return hidden
+        if self.params['rnn_cell'] == 'lstm':
+            return hidden[0]
+        else:
+            return hidden
 
 
 class Decoder(torch.nn.Module):
@@ -69,12 +72,6 @@ class Decoder(torch.nn.Module):
         embedded_dropout = self.dropout_layer(embedded)
         output, hidden = self.rnn(embedded_dropout, h0)
         return output, hidden
-
-    def init_hidden(self, batch_size):
-        h0 = torch.autograd.Variable(
-            torch.zeros(self.params['n_layers'] * self.num_directions, batch_size, self.params['hidden_size']))
-        if USE_GPU: h0 = h0.cuda()
-        return h0
 
 
 class CVAE(torch.nn.Module):
@@ -102,6 +99,13 @@ class CVAE(torch.nn.Module):
             self.params['z_size'],
             self.decoder_params['n_layers'] * self.decoder.num_directions * self.decoder_params['hidden_size']
         )
+        # only for lstm
+        if self.decoder.params['rnn_cell'] == 'lstm':
+            self.fc_c = torch.nn.Linear(
+                self.params['z_size'],
+                self.decoder_params['n_layers'] * self.decoder.num_directions * self.decoder_params['hidden_size']
+            )
+
         self.fc_out = torch.nn.Linear(
             self.decoder.num_directions * self.decoder_params['hidden_size'], self.params['vocab_size'])
 
@@ -123,14 +127,26 @@ class CVAE(torch.nn.Module):
         return kld_loss
 
     def forward_d(self, d_inputs, decoder_hidden):
-        batch_size = d_inputs.size()[0]
-
         decoder_output, hidden = self.decoder(d_inputs, decoder_hidden)
         decoder_output = decoder_output.contiguous().view(-1, self.decoder.num_directions * self.decoder_params[
             'hidden_size'])
         output = self.fc_out(decoder_output)
 
         return output, hidden
+
+    def _stats_from_z(self, z):
+        # //////////////
+        batch_size = z.size()[0]
+        if self.decoder.params['rnn_cell'] == 'lstm':
+            decoder_hidden = self.fc_h(z), self.fc_c(z)
+            decoder_hidden = (h.view(self.decoder_params['n_layers'] * self.decoder.num_directions, batch_size, -1) for h in
+                              decoder_hidden)
+            return tuple(decoder_hidden)
+        else:
+            decoder_hidden = self.fc_h(z).view(self.decoder_params['n_layers'] * self.decoder.num_directions, batch_size, -1)
+            return decoder_hidden
+
+        # ////////////////
 
     def forward(self, e_inputs, e_inputs_len, d_inputs):
         context = self.encoder(e_inputs, e_inputs_len)
@@ -141,9 +157,10 @@ class CVAE(torch.nn.Module):
 
         z = self.sample_z(mu, log_var)
 
-        decoder_hidden = self.fc_h(z)
-        decoder_hidden = decoder_hidden.view(self.decoder_params['n_layers'] * self.decoder.num_directions,
-                                             self.batch_size, -1)
+        #decoder_hidden = self.fc_h(z)
+        #decoder_hidden = decoder_hidden.view(self.decoder_params['n_layers'] * self.decoder.num_directions,
+        #                                     self.batch_size, -1)
+        decoder_hidden = self._stats_from_z(z)
         output, _ = self.forward_d(d_inputs, decoder_hidden)
 
         return output, kld_loss
@@ -208,8 +225,9 @@ class CVAE(torch.nn.Module):
 
 
     def sample_from_normal(self, corpus_loader):
-        z_np = np.random.normal(0, 1, self.params['z_size'])
-        return self.sample_from_z(corpus_loader, z_np)
+        z = torch.autograd.Variable(torch.randn(1, self.params['z_size']))
+        if USE_GPU: z = z.cuda()
+        return self.sample_from_z(corpus_loader, z)
 
     def sample_from_encoder(self, corpus_loader, sentence):
         words = sentence.split()
@@ -222,21 +240,16 @@ class CVAE(torch.nn.Module):
         context = self.encoder(e_input, e_input_len).view(1, -1)
         mu, log_var = self.fc_mu(context), self.fc_logvar(context)
         z = self.sample_z(mu, log_var)
-        return self.sample_from_z(corpus_loader, z.data.cpu().numpy())
+        return self.sample_from_z(corpus_loader, z)
 
-    def sample_from_z(self, corpus_loader, z_np):
+    def sample_from_z(self, corpus_loader, z):
         # 一句一句的采样，所以batch_size都填1
-        z = torch.autograd.Variable(torch.from_numpy(z_np)).float().view(-1, self.params['z_size'])
         decoder_word_input_np = corpus_loader.go_input(1)
         decoder_word_input = torch.autograd.Variable(torch.from_numpy(decoder_word_input_np).long())
-        if USE_GPU:
-            z, decoder_word_input = z.cuda(), decoder_word_input.cuda()
+        if USE_GPU: decoder_word_input = decoder_word_input.cuda()
 
         result = ''
-
-        decoder_hidden = self.fc_h(z)
-        decoder_hidden = decoder_hidden.view(self.decoder_params['n_layers'] * self.decoder.num_directions, 1, -1)
-
+        decoder_hidden = self._stats_from_z(z)
         for i in range(corpus_loader.params['keep_seq_lens'][1]):
             d_output, decoder_hidden = self.forward_d(decoder_word_input, decoder_hidden)
 
@@ -286,7 +299,7 @@ class CVAE(torch.nn.Module):
 
 if __name__ == '__main__':
     encoder_params = {
-        'rnn_cell': 'gru',
+        'rnn_cell': 'lstm',
         'emb_size': 512,
         'hidden_size': 512,
         'n_layers': 1,
@@ -297,7 +310,7 @@ if __name__ == '__main__':
     }
 
     decoder_params = {
-        'rnn_cell': 'gru',
+        'rnn_cell': 'lstm',
         'emb_size': 512,
         'hidden_size': 512,
         'n_layers': 1,

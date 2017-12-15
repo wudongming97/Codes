@@ -86,7 +86,7 @@ class CVAE(torch.nn.Module):
         self.decoder = Decoder(self.decoder_params)
 
         self.fc_mu = torch.nn.Linear(
-            self.encoder_params['n_layers'] * self.encoder.num_directions * self.encoder_params['hidden_size'],
+            self.encoder.num_directions * self.encoder_params['hidden_size'],
             self.params['z_size'])
         self.fc_logvar = torch.nn.Linear(
             self.encoder_params['n_layers'] * self.encoder.num_directions * self.encoder_params['hidden_size'],
@@ -129,7 +129,7 @@ class CVAE(torch.nn.Module):
         encoder_hidden = self.encoder.init_hidden(self.batch_size)
         context = self.encoder(e_inputs, e_inputs_len, encoder_hidden)
 
-        context = context.view(self.batch_size, -1)
+        context = context[-self.encoder.num_directions:,:,:].view(self.batch_size, -1)
         mu, log_var = self.fc_mu(context), self.fc_logvar(context)
         kld_loss = self.kld_loss(mu, log_var)
 

@@ -293,22 +293,22 @@ class CVAE(torch.nn.Module):
 
 if __name__ == '__main__':
     encoder_params = {
-        'rnn_cell': 'lstm',
-        'emb_size': 256,
-        'hidden_size': 256,
+        'rnn_cell': 'gru',
+        'emb_size': 512,
+        'hidden_size': 512,
         'n_layers': 1,
-        'bidirectional': True,
+        'bidirectional': False,
         'input_dropout_p': 0.9,
         #'rnn_dropout_p': 0.9,
         #'output_dropout_p': 0.9,
     }
 
     decoder_params = {
-        'rnn_cell': 'lstm',
-        'emb_size': 256,
-        'hidden_size': 256,
+        'rnn_cell': 'gru',
+        'emb_size': 512,
+        'hidden_size': 512,
         'n_layers': 1,
-        'bidirectional': True,
+        'bidirectional': False,
         'input_dropout_p': 0.9,
         #'rnn_dropout_p': 0.9,
         #'output_dropout_p': 0.9,

@@ -170,11 +170,13 @@ class CVAE(torch.nn.Module):
         return loss
 
     def kld_coef(self, cur_epoch, cur_iter):
+        scalar_sigmoid = lambda x: 1 / (1 + math.exp(-x))
         if self.params['only_rec_loss']:
             return 0
         elif self.params['kl_lss_anneal']:
             # return math.exp(cur_epoch - self.params['n_epochs'])
-            return math.tanh(cur_epoch * 8 / self.params['n_epochs'] )
+            # return math.tanh(cur_epoch * 8 / self.params['n_epochs'] )
+            return scalar_sigmoid(-15 + 20 * cur_epoch / self.params['n_epochs'])
         else:
             return 1
 
@@ -315,7 +317,7 @@ if __name__ == '__main__':
     }
 
     params = {
-        'n_epochs': 100,
+        'n_epochs': 30,
         'lr': 0.0005,
         'batch_size': 64,
         'z_size': 16,
@@ -323,7 +325,7 @@ if __name__ == '__main__':
         'top_k': 1,
         # 'use_gpu': True,
         'model_name': 'trained_CVAE.model',
-        'only_rec_loss': True,  # for debug
+        'only_rec_loss': False,  # for debug
         'kl_lss_anneal': True,
     }
 

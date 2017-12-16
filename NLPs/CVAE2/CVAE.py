@@ -141,9 +141,11 @@ class CVAE(torch.nn.Module):
             decoder_hidden = (h.view(self.decoder_params['n_layers'] * self.decoder.num_directions, batch_size, -1) for h in
                               decoder_hidden)
             return tuple(decoder_hidden)
-        else:
+        elif self.decoder.params['rnn_cell'] == 'gru':
             decoder_hidden = self.fc_h(z).view(self.decoder_params['n_layers'] * self.decoder.num_directions, batch_size, -1)
             return decoder_hidden
+        else:
+            raise ValueError("Unsupported RNN Cell")
 
     def forward(self, e_inputs, e_inputs_len, d_inputs):
         context = self.encoder(e_inputs, e_inputs_len)

@@ -1,4 +1,6 @@
 import os
+import math
+import random
 import re
 import collections
 import pickle
@@ -11,104 +13,98 @@ from functools import reduce
 class CorpusLoader:
     def __init__(self ,params):
         self.params = params
-        self.raw_data_files = ['./train.txt', './test.txt']
+        self.raw_data_file = './data.txt'
         self.preprocessed_data_path = './preprocessed_data/'
         if not os.path.exists(self.preprocessed_data_path):
             os.makedirs(self.preprocessed_data_path)
-        self.word_data_file = self.preprocessed_data_path + 'words.pkl'
-        self.word_idx_file = self.preprocessed_data_path + 'vocab.pkl'
-        self.word_tensor_files = [self.preprocessed_data_path + 'train.npy', self.preprocessed_data_path + 'valid.npy']
+        self.data_words_file = self.preprocessed_data_path + 'words.pkl'
+        self.data_idxs_file = self.preprocessed_data_path + 'idxs.pkl'
+        self.idx2word_file = self.preprocessed_data_path + 'vocab.pkl'
+
 
         self.pad_token = '<pad>'
         self.go_token = '<go>'
         self.end_token = '<end>'
         self.unk_token = '<unk>'
 
-        words_exists = os.path.exists(self.word_data_file)
-        idx_exists = os.path.exists(self.word_idx_file)
-        tensors_exists = reduce(lambda x1,x2: x1 and x2, [os.path.exists(f) for f in self.word_tensor_files])
+        words_exist = os.path.exists(self.data_words_file)
+        idx_exist = os.path.exists(self.idx2word_file)
+        tensors_exist = os.path.exists(self.data_idxs_file)
 
-        if idx_exists and tensors_exists and words_exists:
+        if words_exist and idx_exist and tensors_exist:
             self.load_preprocessed()
             print('preprocessed data loaded ...')
         else:
             self.preprocess(lf=self.params.get('lf', 0))
             print('data have preprocessed ...')
 
-    def global_txt_process(self, data):
+    def global_txt_process(self, file):
+        print('global txt processing ...')
         # tolow
-        data = [target.lower() for target in data]
+        data = open(self.raw_data_file, encoding='UTF-8').read().lower()
 
         # 把unicode转换成ascii
-        data = [unidecode.unidecode(target) for target in data]
+        data = unidecode.unidecode(data)
 
         return data
-        #
 
     def global_seqs_process(self, data_words):
         # 只保留指定长度的seq
         low_level, high_level = self.params['keep_seq_lens']
-        data_words = [[words for words in target if len(words) >= low_level and len(words) < high_level] for target
-                           in data_words]
+        data_words = [words for words in data_words if len(words) >= low_level and len(words) < high_level]
         # 根据seq_len进行排序，decent
         if self.params['global_seqs_sort']:
-            data_words = [sorted(target, key=len, reverse=True) for target in data_words]
+            data_words = sorted(data_words, key=len, reverse=True)
 
         return data_words
 
 
     def preprocess(self, lf=0):
         print('begin preprocessing ...')
-        data = [open(file, encoding='UTF-8').read() for file in self.raw_data_files]
-
         # 一些全局的文本处理
-        data = self.global_txt_process(data)
+        data = self.global_txt_process(self.raw_data_file)
 
-        # merged_data_words = [sentence=[word, ...], ...], 同时删除空行或者只有一个字母的行
-        self.data_words = [[line.split() for line in fi.split('\n') if len(line) >= 1] for fi in data]
+        # data_words = [sentence=[word, ...], ...], 同时删除空行或者只有一个字母的行
+        self.data_words = [line.split() for line in data.split('\n') if len(line) >= 1]
 
-        # 全局的seqs处理
+        # 全局的seqs&token处理
         self.data_words = self.global_seqs_process(self.data_words)
-
-        with open(self.word_data_file, 'wb') as f:
+        with open(self.data_words_file, 'wb') as f:
             pickle.dump(self.data_words, f)
 
-        merged_data_words = (data[0] + '\n' + data[1]).split()
-        self.word_vocab_size, self.idx_to_word, self.word_to_idx = self.build_word_vocab(merged_data_words, lf)
-        self.num_lines = [len(target) for target in self.data_words]
-        with open(self.word_idx_file, 'wb') as f:
+        self.num_line = len(self.data_words)
+
+        self.word_vocab_size, self.idx_to_word, self.word_to_idx = self.build_word_vocab(self.data_words, lf)
+        with open(self.idx2word_file, 'wb') as f:
             pickle.dump(self.idx_to_word, f)
 
         unk_get = lambda x: self.word_to_idx.get(x, self.word_to_idx.get(self.unk_token))
-        self.word_tensors = np.array(
-            [[list(map(unk_get, line)) for line in target] for target in self.data_words]
-        )
-        print(self.word_tensors.shape)
-        for i, path in enumerate(self.word_tensor_files):
-            np.save(path, self.word_tensors[i])
+        self.data_idxs = [list(map(unk_get, line)) for line in self.data_words]
+
+        with open(self.data_idxs_file, 'wb') as f:
+            pickle.dump(self.data_idxs, f)
 
         self.show_corpus_info()
 
     def load_preprocessed(self):
-        self.data_words = pickle.load(open(self.word_data_file, 'rb'))
-        self.idx_to_word = pickle.load(open(self.word_idx_file, 'rb'))
+        self.data_words = pickle.load(open(self.data_words_file, 'rb'))
+        self.data_idxs = pickle.load(open(self.data_idxs_file, 'rb'))
+        self.idx_to_word = pickle.load(open(self.idx2word_file, 'rb'))
         self.word_to_idx = {x: i for i, x in enumerate(self.idx_to_word)}
         self.word_vocab_size = len(self.idx_to_word)
         self.word_idx_file = dict(zip(self.idx_to_word, range(self.word_vocab_size)))
-        self.num_lines = [len(target) for target in self.data_words]
-        self.word_tensors = np.array([np.load(target) for target in self.word_tensor_files])
+        self.num_line = len(self.data_words)
 
         self.show_corpus_info()
 
     def show_corpus_info(self):
-        print('\n')
-        print('--------- Corpus Info ---------')
-        print('train num_lines : {} , test num_lines: {}'.format(self.num_lines[0], self.num_lines[1]))
         print('vocab_size: {}'.format(self.word_vocab_size))
+        print('total data num_lines: {}, train_data/test_data: {}'.format(self.num_line, self.params['train_fraction']))
         print('\n')
 
-    def build_word_vocab(self, merged_data_words, lf):
-        word_counts = collections.Counter(merged_data_words).most_common()
+    def build_word_vocab(self, data_words, lf):
+        flatten_words = [w for ws in data_words for w in ws ]
+        word_counts = collections.Counter(flatten_words).most_common()
         # 删除低频的词
         word_counts = [w for w in word_counts if w[1] > lf]
 
@@ -136,27 +132,37 @@ class CorpusLoader:
             masks.append([1]*len(s) + [0]*(max_sentence_len-len(s)))
         return sentences, padded_seqs, seqs_len, masks
 
-    def next_batch(self, batch_size, target_str='train'):
-        target = 0 if target_str == 'train' else 1
-        for i in range(self.num_lines[target] // batch_size):
+    def target_data_idxs(self, target='train'):
+        if target=='train':
+            data = self.data_idxs[:math.floor(self.num_line * self.params['train_fraction'])]
+            return data
+        else:
+            data = self.data_idxs[math.ceil(self.num_line * self.params['train_fraction']):]
+            return data
 
-            indexes = range(self.num_lines[target])[i*batch_size:(i+1)*batch_size]
+    # 数据默认用
+    def next_batch(self, batch_size, target):
+        data = self.target_data_idxs(target)
+        data_len = len(data)
+        for i in range(data_len // batch_size):
+
+            indexes = range(data_len)[i*batch_size:(i+1)*batch_size]
             if self.params['shuffle']:
-                indexes = np.array(np.random.randint(self.num_lines[target], size=batch_size))
+                indexes = random.sample(range(data_len), batch_size)
 
-            encoder_word_input = [self.word_tensors[target][index] for index in indexes]
+            encoder_word_input = [data[index] for index in indexes]
+
             decoder_word_input = [[self.word_to_idx[self.go_token]] + line for line in encoder_word_input]
             decoder_word_output = [line + [self.word_to_idx[self.end_token]] for line in encoder_word_input]
             sentences, encoder_word_input, input_seq_len, _ = self.sort_and_pad(encoder_word_input)
             _, decoder_word_input, _, decoder_mask = self.sort_and_pad(decoder_word_input)
             _, decoder_word_output, _, _ = self.sort_and_pad(decoder_word_output)
 
-            yield sentences, np.array(encoder_word_input), input_seq_len, np.array(decoder_word_input), np.array(
-                decoder_word_output), decoder_mask
+            yield sentences, encoder_word_input, input_seq_len, decoder_word_input, decoder_word_output, decoder_mask
 
     def go_input(self, batch_size):
         go_word_input = [[self.word_to_idx[self.go_token]] for _ in range(batch_size)]
-        return np.array(go_word_input)
+        return go_word_input
 
     def sample_word_from_distribution(self, distribution):
         ix = np.random.choice(range(self.word_vocab_size), p=distribution.ravel())

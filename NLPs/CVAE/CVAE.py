@@ -186,12 +186,12 @@ class CVAE(torch.nn.Module):
         print('begin fit ...')
         n_epochs = self.params['n_epochs']
         for e in range(n_epochs):
-            for it, inputs in enumerate(corpus_loader.next_batch(self.batch_size, target_str='train')):
+            for it, inputs in enumerate(corpus_loader.next_batch(self.batch_size, target='train')):
                 sentences, encoder_word_input, input_seq_len, decoder_word_input, decoder_word_output, decoder_mask = inputs
 
-                encoder_word_input = torch.autograd.Variable(torch.from_numpy(encoder_word_input))
-                decoder_word_input = torch.autograd.Variable(torch.from_numpy(decoder_word_input))
-                decoder_word_output = torch.autograd.Variable(torch.from_numpy(decoder_word_output))
+                encoder_word_input = torch.autograd.Variable(torch.Tensor(encoder_word_input).long())
+                decoder_word_input = torch.autograd.Variable(torch.Tensor(decoder_word_input).long())
+                decoder_word_output = torch.autograd.Variable(torch.Tensor(decoder_word_output).long())
 
                 if USE_GPU:
                     encoder_word_input, decoder_word_input = encoder_word_input.cuda(), decoder_word_input.cuda()
@@ -203,7 +203,7 @@ class CVAE(torch.nn.Module):
 
                 if it % display_step == 0:
                     print(
-                        "Epoch %d/%d | Batch %d/%d | train_loss: %.3f | rec_loss: %.3f | kl_loss: %.3f | kld_coef: %.3f | kld_coef*kl_loss: %.3f |" % (e+1, n_epochs, it, corpus_loader.num_lines[0] // self.batch_size, kl_lss*kld_coef + rec_lss, rec_lss, kl_lss, kld_coef, kld_coef*kl_lss))
+                        "Epoch %d/%d | Batch %d/%d | train_loss: %.3f | rec_loss: %.3f | kl_loss: %.3f | kld_coef: %.3f | kld_coef*kl_loss: %.3f |" % (e+1, n_epochs, it, corpus_loader.num_line // self.batch_size, kl_lss*kld_coef + rec_lss, rec_lss, kl_lss, kld_coef, kld_coef*kl_lss))
 
                 if it % (display_step * 20) == 0:
                     # 查看重构情况
@@ -242,7 +242,7 @@ class CVAE(torch.nn.Module):
 
     def sample_from_z(self, corpus_loader, z):
         # 一句一句的采样，所以batch_size都填1
-        decoder_word_input_np = corpus_loader.go_input(1)
+        decoder_word_input_np = np.array(corpus_loader.go_input(1))
         decoder_word_input = torch.autograd.Variable(torch.from_numpy(decoder_word_input_np).long())
         if USE_GPU: decoder_word_input = decoder_word_input.cuda()
 
@@ -332,6 +332,7 @@ if __name__ == '__main__':
         'keep_seq_lens': [5, 20],
         'shuffle': False,
         'global_seqs_sort': True,
+        'train_fraction': 0.8,
     }
     corpus_loader = CorpusLoader(corpus_loader_params)
     params['vocab_size'] = corpus_loader.word_vocab_size

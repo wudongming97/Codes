@@ -322,7 +322,7 @@ if __name__ == '__main__':
         'batch_size': 64,
         'z_size': 16,
         'max_grad_norm': 5,
-        'top_k': 1,
+        'top_k': 5,
         # 'use_gpu': True,
         'model_name': 'trained_CVAE.model',
         'only_rec_loss': False,  # for debug
@@ -349,6 +349,6 @@ if __name__ == '__main__':
         model.fit(corpus_loader)
         model.save()
 
-    # evaluate
-    result = model.sample_from_encoder(corpus_loader, 'hao are you .')
-    print(result)
+    # 随机生成1000个句子
+    for i in range(1000):
+        print('{}, {}'.format(i, model.sample_from_normal(corpus_loader)))

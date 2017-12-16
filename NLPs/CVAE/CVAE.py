@@ -213,7 +213,7 @@ class CVAE(torch.nn.Module):
 
                 if it % display_step == 0:
                     print(
-                        "Epoch %d/%d | Batch %d/%d | train_loss: %.3f | rec_loss: %.3f | kl_loss: %.3f | kld_coef: %.3f | kld_coef*kl_loss: %.3f |" % (e+1, n_epochs, it, corpus_loader.num_line // self.batch_size, kl_lss*kld_coef + rec_lss, rec_lss, kl_lss, kld_coef, kld_coef*kl_lss))
+                        "Epoch %d/%d | Batch %d/%d | train_loss: %.3f | rec_loss: %.3f | kl_loss: %.6f | kld_coef: %.6f | kld_coef*kl_loss: %.6f |" % (e+1, n_epochs, it, corpus_loader.num_line // self.batch_size, kl_lss*kld_coef + rec_lss, rec_lss, kl_lss, kld_coef, kld_coef*kl_lss))
 
                 if it % (display_step * 20) == 0:
                     # 查看重构情况

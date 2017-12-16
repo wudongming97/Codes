@@ -302,9 +302,6 @@ if __name__ == '__main__':
         'hidden_size': 512,
         'n_layers': 1,
         'bidirectional': False,
-        'input_dropout_p': 0.9,
-        #'rnn_dropout_p': 0.9,
-        #'output_dropout_p': 0.9,
     }
 
     decoder_params = {
@@ -314,8 +311,6 @@ if __name__ == '__main__':
         'n_layers': 1,
         'bidirectional': False,
         'input_dropout_p': 0.9,
-        #'rnn_dropout_p': 0.9,
-        #'output_dropout_p': 0.9,
     }
 
     params = {
@@ -325,10 +320,11 @@ if __name__ == '__main__':
         'z_size': 16,
         'max_grad_norm': 5,
         'top_k': 5,
-        # 'use_gpu': True,
+        'word_dropout_p': 0.8,
+        'kl_lss_anneal': True,
+        # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         'model_name': 'trained_CVAE.model',
         'only_rec_loss': False,  # for debug
-        'kl_lss_anneal': True,
     }
 
     corpus_loader_params = {

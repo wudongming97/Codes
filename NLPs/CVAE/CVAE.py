@@ -182,12 +182,22 @@ class CVAE(torch.nn.Module):
         else:
             return 1
 
+    def _word_dropout_helper(self, corpus_loader, p, x):
+        if np.random.binomial(1, p) == 1:
+            return corpus_loader.word_to_idx[corpus_loader.unk_token]
+        else:
+            return x
+
     def fit(self, corpus_loader, display_step=15):
-        print('begin fit ...')
+        print('begin fit ...\n')
         n_epochs = self.params['n_epochs']
         for e in range(n_epochs):
             for it, inputs in enumerate(corpus_loader.next_batch(self.batch_size, target='train')):
                 sentences, encoder_word_input, input_seq_len, decoder_word_input, decoder_word_output, decoder_mask = inputs
+
+                if self.params['word_dropout_p'] >= 0:
+                    drop_word_f = lambda x: self._word_dropout_helper(corpus_loader, self.params['word_dropout_p'], x)
+                    decoder_word_input = [list(map(drop_word_f, s)) for s in decoder_word_input]
 
                 encoder_word_input = torch.autograd.Variable(torch.Tensor(encoder_word_input).long())
                 decoder_word_input = torch.autograd.Variable(torch.Tensor(decoder_word_input).long())
@@ -310,17 +320,17 @@ if __name__ == '__main__':
         'hidden_size': 512,
         'n_layers': 1,
         'bidirectional': False,
-        'input_dropout_p': 0.9,
+        'input_dropout_p': 0.8,
     }
 
     params = {
         'n_epochs': 30,
-        'lr': 0.0005,
+        'lr': 0.001,
         'batch_size': 64,
         'z_size': 16,
         'max_grad_norm': 5,
         'top_k': 5,
-        'word_dropout_p': 0.8,
+        'word_dropout_p': 0.6,
         'kl_lss_anneal': True,
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         'model_name': 'trained_CVAE.model',
@@ -328,7 +338,7 @@ if __name__ == '__main__':
     }
 
     corpus_loader_params = {
-        'lf': 20, #低频词
+        'lf': 15, #低频词
         'keep_seq_lens': [5, 20],
         'shuffle': False,
         'global_seqs_sort': True,

@@ -13,6 +13,13 @@ from functools import reduce
 class CorpusLoader:
     def __init__(self ,params):
         self.params = params
+
+        self.lf = self.params.get('lf')
+        self.keep_seq_lens = self.params.get('keep_seq_lens')
+        self.shuffle = self.params.get('shuffle')
+        self.global_seqs_sort = self.params.get('global_seqs_sort')
+        self.train_fraction = self.params.get('train_fraction')
+
         self.raw_data_file = './data.txt'
         self.preprocessed_data_path = './preprocessed_data/'
         if not os.path.exists(self.preprocessed_data_path):
@@ -35,7 +42,7 @@ class CorpusLoader:
             self.load_preprocessed()
             print('preprocessed data loaded ...')
         else:
-            self.preprocess(lf=self.params.get('lf', 0))
+            self.preprocess()
             print('data have preprocessed ...')
 
     def global_txt_process(self, file):
@@ -50,16 +57,15 @@ class CorpusLoader:
 
     def global_seqs_process(self, data_words):
         # 只保留指定长度的seq
-        low_level, high_level = self.params['keep_seq_lens']
-        data_words = [words for words in data_words if len(words) >= low_level and len(words) < high_level]
+        data_words = [words for words in data_words if len(words) >= self.keep_seq_lens[0] and len(words) < self.keep_seq_lens[1]]
         # 根据seq_len进行排序，decent
-        if self.params['global_seqs_sort']:
+        if self.global_seqs_sort:
             data_words = sorted(data_words, key=len, reverse=True)
 
         return data_words
 
 
-    def preprocess(self, lf=0):
+    def preprocess(self):
         print('begin preprocessing ...')
         # 一些全局的文本处理
         data = self.global_txt_process(self.raw_data_file)
@@ -74,7 +80,7 @@ class CorpusLoader:
 
         self.num_line = len(self.data_words)
 
-        self.word_vocab_size, self.idx_to_word, self.word_to_idx = self.build_word_vocab(self.data_words, lf)
+        self.word_vocab_size, self.idx_to_word, self.word_to_idx = self.build_word_vocab(self.data_words, self.lf)
         with open(self.idx2word_file, 'wb') as f:
             pickle.dump(self.idx_to_word, f)
 
@@ -99,7 +105,7 @@ class CorpusLoader:
 
     def show_corpus_info(self):
         print('vocab_size: {}'.format(self.word_vocab_size))
-        print('total data num_lines: {}, train_data/test_data: {}'.format(self.num_line, self.params['train_fraction']))
+        print('total data num_lines: {}, train_data/test_data: {}'.format(self.num_line, self.train_fraction))
         print('\n')
 
     def build_word_vocab(self, data_words, lf):
@@ -134,10 +140,10 @@ class CorpusLoader:
 
     def target_data_idxs(self, target='train'):
         if target=='train':
-            data = self.data_idxs[:math.floor(self.num_line * self.params['train_fraction'])]
+            data = self.data_idxs[:math.floor(self.num_line * self.train_fraction)]
             return data
         else:
-            data = self.data_idxs[math.ceil(self.num_line * self.params['train_fraction']):]
+            data = self.data_idxs[math.ceil(self.num_line * self.train_fraction):]
             return data
 
     # 数据默认用
@@ -147,7 +153,7 @@ class CorpusLoader:
         for i in range(data_len // batch_size):
 
             indexes = range(data_len)[i*batch_size:(i+1)*batch_size]
-            if self.params['shuffle']:
+            if self.shuffle:
                 indexes = random.sample(range(data_len), batch_size)
 
             encoder_word_input = [data[index] for index in indexes]
@@ -174,12 +180,3 @@ class CorpusLoader:
 
         return ixs.tolist(), words
 
-
-if __name__ == '__main__':
-    corpus_loader_params = {
-        'lf': 1,  # 低频词
-        'keep_seq_lens': [5, 20],
-    }
-    loader = CorpusLoader(corpus_loader_params)
-    encoder_word_input, input_seq_len, decoder_word_input, decoder_word_output, decoder_mask = loader.next_batch(
-        batch_size=2)

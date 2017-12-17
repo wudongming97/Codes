@@ -1,10 +1,8 @@
 import os
 import math
 import random
-import re
 import collections
 import pickle
-
 import unidecode
 
 import numpy as np

@@ -1,15 +1,16 @@
-import os
-import math
-import random
 import collections
+import math
+import os
 import pickle
-import unidecode
-
-import numpy as np
+import random
 from functools import reduce
 
+import numpy as np
+import unidecode
+
+
 class CorpusLoader:
-    def __init__(self ,params):
+    def __init__(self, params):
         self.params = params
 
         self.lf = self.params.get('lf')
@@ -25,7 +26,6 @@ class CorpusLoader:
         self.data_words_file = self.preprocessed_data_path + 'words.pkl'
         self.data_idxs_file = self.preprocessed_data_path + 'idxs.pkl'
         self.idx2word_file = self.preprocessed_data_path + 'vocab.pkl'
-
 
         self.pad_token = '<pad>'
         self.go_token = '<go>'
@@ -56,13 +56,13 @@ class CorpusLoader:
 
     def _global_seqs_process(self, data_words):
         # 只保留指定长度的seq
-        data_words = [words for words in data_words if len(words) >= self.keep_seq_lens[0] and len(words) < self.keep_seq_lens[1]]
+        data_words = [words for words in data_words if
+                      len(words) >= self.keep_seq_lens[0] and len(words) < self.keep_seq_lens[1]]
         # 根据seq_len进行排序，decent
         if self.global_seqs_sort:
             data_words = sorted(data_words, key=len, reverse=True)
 
         return data_words
-
 
     def preprocess(self):
         print('begin preprocessing ...')
@@ -104,7 +104,7 @@ class CorpusLoader:
         print('\n')
 
     def _build_word_vocab(self, data_words, lf):
-        flatten_words = [w for ws in data_words for w in ws ]
+        flatten_words = [w for ws in data_words for w in ws]
         word_counts = collections.Counter(flatten_words).most_common()
         # 删除低频的词
         word_counts = [w for w in word_counts if w[1] > lf]
@@ -120,21 +120,21 @@ class CorpusLoader:
         sorted_seqs = sorted(inputs, key=len, reverse=True)
         seqs_len = [len(s) for s in sorted_seqs]
 
-        #从idx还原为txt
+        # 从idx还原为txt
         words_list = [[self.idx_to_word[idx] for idx in idx_list] for idx_list in sorted_seqs]
-        sentences = [reduce(lambda x1,x2: x1 + ' ' + x2, words) for words in words_list]
+        sentences = [reduce(lambda x1, x2: x1 + ' ' + x2, words) for words in words_list]
 
         padded_seqs = []
         masks = []
         max_sentence_len = max(seqs_len)
         pad_idx = self.word_to_idx.get(self.pad_token)
         for s in sorted_seqs:
-            padded_seqs.append(s + [pad_idx]*(max_sentence_len-len(s)))
-            masks.append([1]*len(s) + [0]*(max_sentence_len-len(s)))
+            padded_seqs.append(s + [pad_idx] * (max_sentence_len - len(s)))
+            masks.append([1] * len(s) + [0] * (max_sentence_len - len(s)))
         return sentences, padded_seqs, seqs_len, masks
 
     def _target_data_idxs(self, target='train'):
-        if target=='train':
+        if target == 'train':
             data = self.data_idxs[:math.floor(self.num_line * self.train_fraction)]
             return data
         else:
@@ -147,7 +147,7 @@ class CorpusLoader:
         data_len = len(data)
         for i in range(data_len // batch_size):
 
-            indexes = range(data_len)[i*batch_size:(i+1)*batch_size]
+            indexes = range(data_len)[i * batch_size:(i + 1) * batch_size]
             if self.shuffle:
                 indexes = random.sample(range(data_len), batch_size)
 
@@ -174,4 +174,3 @@ class CorpusLoader:
         words = [self.idx_to_word[ix] for ix in ixs]
 
         return ixs.tolist(), words
-

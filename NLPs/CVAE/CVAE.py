@@ -1,9 +1,12 @@
-import os
 import math
+import os
 import random
-import torch
+
 import numpy as np
+import torch
+
 from Utils import nll, USE_GPU
+
 
 # helper function
 def _rnn_cell_helper(str_rnn_cell):
@@ -15,6 +18,7 @@ def _rnn_cell_helper(str_rnn_cell):
         raise ValueError("Unsupported RNN Cell: {0}".format(str_rnn_cell))
 
     return rnn_cell
+
 
 class Encoder(torch.nn.Module):
     def __init__(self, params):
@@ -34,7 +38,7 @@ class Encoder(torch.nn.Module):
         self.embedding = torch.nn.Embedding(self.vocab_size, self.emb_size)
         self.rnn = self.rnn_cell(self.emb_size, self.hidden_size, self.n_layers,
                                  bidirectional=self.bidirectional, batch_first=True)
-    
+
     def forward(self, inputs, inputs_len):
         embedded = self.embedding(inputs)
         packed = torch.nn.utils.rnn.pack_padded_sequence(embedded, inputs_len, batch_first=True)
@@ -122,7 +126,7 @@ class CVAE(torch.nn.Module):
             self.decoder.num_directions * self.decoder.hidden_size, self.vocab_size)
 
         # train
-        self.optimizer = torch.optim.Adam(self.parameters(),  lr=self.lr)
+        self.optimizer = torch.optim.Adam(self.parameters(), lr=self.lr)
         self.have_saved_model = os.path.exists(self.model_name)
 
     def _sample_z(self, mu, logvar):
@@ -161,7 +165,7 @@ class CVAE(torch.nn.Module):
     def forward(self, e_inputs, e_inputs_len, d_inputs):
         context = self.encoder(e_inputs, e_inputs_len)
 
-        context = context[-self.encoder.num_directions:,:,:].view(self.batch_size, -1)
+        context = context[-self.encoder.num_directions:, :, :].view(self.batch_size, -1)
         mu, log_var = self.fc_mu(context), self.fc_logvar(context)
         kld_loss = self._kld_loss(mu, log_var)
 
@@ -219,11 +223,13 @@ class CVAE(torch.nn.Module):
 
                 kld_coef = self._kld_coef(e, it)
                 kl_lss, rec_lss = self.train_bt(encoder_word_input, input_seq_len, decoder_word_input,
-                                                 decoder_word_output, decoder_mask, kld_coef)
+                                                decoder_word_output, decoder_mask, kld_coef)
 
                 if it % display_step == 0:
                     print(
-                        "Epoch %d/%d | Batch %d/%d | train_loss: %.3f | rec_loss: %.3f | kl_loss: %.6f | kld_coef: %.6f | kld_coef*kl_loss: %.6f |" % (e+1, self.n_epochs, it, corpus_loader.num_line // self.batch_size, kl_lss*kld_coef + rec_lss, rec_lss, kl_lss, kld_coef, kld_coef*kl_lss))
+                        "Epoch %d/%d | Batch %d/%d | train_loss: %.3f | rec_loss: %.3f | kl_loss: %.6f | kld_coef: %.6f | kld_coef*kl_loss: %.6f |" % (
+                            e + 1, self.n_epochs, it, corpus_loader.num_line // self.batch_size,
+                            kl_lss * kld_coef + rec_lss, rec_lss, kl_lss, kld_coef, kld_coef * kl_lss))
 
                 if it % (display_step * 20) == 0:
                     # 查看重构情况
@@ -236,11 +242,10 @@ class CVAE(torch.nn.Module):
                     # 查看随机生成情况
                     print('\n------------ sample_from_normal ----------')
                     for i in range(self.batch_size):
-                        if  i > 4:
+                        if i > 4:
                             break
                         print('{}, {}'.format(i, self.sample_from_normal(corpus_loader)))
                     print('\n')
-
 
     def sample_from_normal(self, corpus_loader):
         z = torch.autograd.Variable(torch.randn(1, self.z_size))
@@ -276,7 +281,7 @@ class CVAE(torch.nn.Module):
 
             d_output_np = d_output.data.squeeze().cpu().numpy()
             ixs, words = corpus_loader.top_k(d_output_np, self.top_k)
-            choice = random.randint(0, len(ixs)-1)
+            choice = random.randint(0, len(ixs) - 1)
             ix, word = ixs[choice], words[choice]
 
             if word == corpus_loader.end_token:
@@ -299,7 +304,8 @@ class CVAE(torch.nn.Module):
         self.load_state_dict(torch.load(self.model_name))
         print('model loaded ...')
 
-    def train_bt(self, encoder_word_input, input_seq_len, decoder_word_input,decoder_word_output, decoder_mask, kld_coef):
+    def train_bt(self, encoder_word_input, input_seq_len, decoder_word_input, decoder_word_output, decoder_mask,
+                 kld_coef):
         self.optimizer.zero_grad()
 
         d_output, kld_lss = self(encoder_word_input, input_seq_len, decoder_word_input)

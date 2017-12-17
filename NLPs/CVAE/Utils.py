@@ -4,6 +4,7 @@ from torch.autograd import Variable
 USE_GPU = torch.cuda.is_available()
 TORCH_VERSION = torch.__version__
 
+
 def one_hot(size, index):
     """ Creates a matrix of one hot vectors.
     size = (3, 3)
@@ -14,6 +15,7 @@ def one_hot(size, index):
     mask = torch.LongTensor(*size).fill_(0)
     ret = mask.scatter_(1, index, 1)
     return ret
+
 
 def nll(log_prob, label):
     """ Is similar to [`nll_loss`](http://pytorch.org/docs/nn.html?highlight=nll#torch.nn.functional.nll_loss) except does not return an aggregate.
@@ -30,4 +32,3 @@ def nll(log_prob, label):
         mask = mask.cuda()
     # FloatTensor 不能跟 LongTensor 相乘，？？？？？
     return -1 * (log_prob * mask).sum(1)
-

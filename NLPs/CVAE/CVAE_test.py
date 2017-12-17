@@ -1,5 +1,5 @@
-from CorpusLoader import CorpusLoader
 from CVAE import CVAE
+from CorpusLoader import CorpusLoader
 from Utils import USE_GPU, TORCH_VERSION
 
 # 解决输出报UnicodeEncodeError
@@ -45,7 +45,7 @@ params = {
 }
 
 corpus_loader_params = {
-    'lf': 15, #低频词
+    'lf': 15,  # 低频词
     'keep_seq_lens': [5, 20],
     'shuffle': False,
     'global_seqs_sort': True,

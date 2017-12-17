@@ -11,3 +11,4 @@ NLPs/CVAE2/train.txt
 NLPs/CVAE2/test.txt
 NLPs/CVAE2/data1/*
 NLPs/CVAE2/ptd/*
+NLPs/CVAE/.idea/*

@@ -44,8 +44,9 @@ class CorpusLoader:
         else:
             self.preprocess()
             print('data have preprocessed ...')
+        self.show_corpus_info()
 
-    def global_txt_process(self, file):
+    def _global_txt_process(self, file):
         print('global txt processing ...')
         # tolow
         data = open(self.raw_data_file, encoding='UTF-8').read().lower()
@@ -55,7 +56,7 @@ class CorpusLoader:
 
         return data
 
-    def global_seqs_process(self, data_words):
+    def _global_seqs_process(self, data_words):
         # 只保留指定长度的seq
         data_words = [words for words in data_words if len(words) >= self.keep_seq_lens[0] and len(words) < self.keep_seq_lens[1]]
         # 根据seq_len进行排序，decent
@@ -68,19 +69,19 @@ class CorpusLoader:
     def preprocess(self):
         print('begin preprocessing ...')
         # 一些全局的文本处理
-        data = self.global_txt_process(self.raw_data_file)
+        data = self._global_txt_process(self.raw_data_file)
 
         # data_words = [sentence=[word, ...], ...], 同时删除空行或者只有一个字母的行
         self.data_words = [line.split() for line in data.split('\n') if len(line) >= 1]
 
         # 全局的seqs&token处理
-        self.data_words = self.global_seqs_process(self.data_words)
+        self.data_words = self._global_seqs_process(self.data_words)
         with open(self.data_words_file, 'wb') as f:
             pickle.dump(self.data_words, f)
 
         self.num_line = len(self.data_words)
 
-        self.word_vocab_size, self.idx_to_word, self.word_to_idx = self.build_word_vocab(self.data_words, self.lf)
+        self.word_vocab_size, self.idx_to_word, self.word_to_idx = self._build_word_vocab(self.data_words, self.lf)
         with open(self.idx2word_file, 'wb') as f:
             pickle.dump(self.idx_to_word, f)
 
@@ -89,8 +90,6 @@ class CorpusLoader:
 
         with open(self.data_idxs_file, 'wb') as f:
             pickle.dump(self.data_idxs, f)
-
-        self.show_corpus_info()
 
     def load_preprocessed(self):
         self.data_words = pickle.load(open(self.data_words_file, 'rb'))
@@ -101,14 +100,12 @@ class CorpusLoader:
         self.word_idx_file = dict(zip(self.idx_to_word, range(self.word_vocab_size)))
         self.num_line = len(self.data_words)
 
-        self.show_corpus_info()
-
     def show_corpus_info(self):
         print('vocab_size: {}'.format(self.word_vocab_size))
         print('total data num_lines: {}, train_data/test_data: {}'.format(self.num_line, self.train_fraction))
         print('\n')
 
-    def build_word_vocab(self, data_words, lf):
+    def _build_word_vocab(self, data_words, lf):
         flatten_words = [w for ws in data_words for w in ws ]
         word_counts = collections.Counter(flatten_words).most_common()
         # 删除低频的词
@@ -121,7 +118,7 @@ class CorpusLoader:
 
         return vocab_size, idx_to_word, word_to_idx
 
-    def sort_and_pad(self, inputs):
+    def _sort_and_pad(self, inputs):
         sorted_seqs = sorted(inputs, key=len, reverse=True)
         seqs_len = [len(s) for s in sorted_seqs]
 
@@ -138,7 +135,7 @@ class CorpusLoader:
             masks.append([1]*len(s) + [0]*(max_sentence_len-len(s)))
         return sentences, padded_seqs, seqs_len, masks
 
-    def target_data_idxs(self, target='train'):
+    def _target_data_idxs(self, target='train'):
         if target=='train':
             data = self.data_idxs[:math.floor(self.num_line * self.train_fraction)]
             return data
@@ -148,7 +145,7 @@ class CorpusLoader:
 
     # 数据默认用
     def next_batch(self, batch_size, target):
-        data = self.target_data_idxs(target)
+        data = self._target_data_idxs(target)
         data_len = len(data)
         for i in range(data_len // batch_size):
 
@@ -160,9 +157,9 @@ class CorpusLoader:
 
             decoder_word_input = [[self.word_to_idx[self.go_token]] + line for line in encoder_word_input]
             decoder_word_output = [line + [self.word_to_idx[self.end_token]] for line in encoder_word_input]
-            sentences, encoder_word_input, input_seq_len, _ = self.sort_and_pad(encoder_word_input)
-            _, decoder_word_input, _, decoder_mask = self.sort_and_pad(decoder_word_input)
-            _, decoder_word_output, _, _ = self.sort_and_pad(decoder_word_output)
+            sentences, encoder_word_input, input_seq_len, _ = self._sort_and_pad(encoder_word_input)
+            _, decoder_word_input, _, decoder_mask = self._sort_and_pad(decoder_word_input)
+            _, decoder_word_output, _, _ = self._sort_and_pad(decoder_word_output)
 
             yield sentences, encoder_word_input, input_seq_len, decoder_word_input, decoder_word_output, decoder_mask
 

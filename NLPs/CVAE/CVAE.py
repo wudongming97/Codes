@@ -22,7 +22,7 @@ print('pytorch version : {}\n'.format(torch.__version__))
 #    torch.cuda.set_device(1)
 
 # helper function
-def rnn_cell_helper(str_rnn_cell):
+def _rnn_cell_helper(str_rnn_cell):
     if str_rnn_cell.lower() == 'lstm':
         rnn_cell = torch.nn.LSTM
     elif str_rnn_cell.lower() == 'gru':
@@ -44,7 +44,7 @@ class Encoder(torch.nn.Module):
         self.bidirectional = self.params.get('bidirectional')
         self.num_directions = 2 if self.params.get('bidirectional') else 1
         self.rnn_cell_str = self.params.get('rnn_cell_str')
-        self.rnn_cell = rnn_cell_helper(self.rnn_cell_str)
+        self.rnn_cell = _rnn_cell_helper(self.rnn_cell_str)
 
         # model
         self.embedding = torch.nn.Embedding(self.vocab_size, self.emb_size)
@@ -73,7 +73,7 @@ class Decoder(torch.nn.Module):
         self.bidirectional = self.params.get('bidirectional')
         self.num_directions = 2 if self.params.get('bidirectional') else 1
         self.rnn_cell_str = self.params.get('rnn_cell_str')
-        self.rnn_cell = rnn_cell_helper(self.rnn_cell_str)
+        self.rnn_cell = _rnn_cell_helper(self.rnn_cell_str)
 
         self.input_dropout_p = self.params.get('input_dropout_p')
 
@@ -97,7 +97,7 @@ class CVAE(torch.nn.Module):
         self.params = params
         self.encoder_params = encoder_params
         self.decoder_params = decoder_params
-        
+
         self.encoder_params['vocab_size'] = self.params.get('vocab_size')
         self.decoder_params['vocab_size'] = self.params.get('vocab_size')
 
@@ -141,7 +141,7 @@ class CVAE(torch.nn.Module):
         self.optimizer = torch.optim.Adam(self.parameters(),  lr=self.lr)
         self.have_saved_model = os.path.exists(self.model_name)
 
-    def sample_z(self, mu, logvar):
+    def _sample_z(self, mu, logvar):
         std = torch.exp(0.5 * logvar)
         eps = torch.autograd.Variable(torch.randn(mu.size()))
         if USE_GPU:
@@ -150,11 +150,11 @@ class CVAE(torch.nn.Module):
         return ret
 
     @staticmethod
-    def kld_loss(mu, log_var):
+    def _kld_loss(mu, log_var):
         kld_loss = (-0.5 * torch.sum(log_var - torch.pow(mu, 2) - torch.exp(log_var) + 1, 1)).mean().squeeze()
         return kld_loss
 
-    def forward_d(self, d_inputs, decoder_hidden):
+    def _forward_d(self, d_inputs, decoder_hidden):
         decoder_output, hidden = self.decoder(d_inputs, decoder_hidden)
         decoder_output = decoder_output.contiguous().view(-1, self.decoder.num_directions * self.decoder.hidden_size)
         output = self.fc_out(decoder_output)
@@ -179,17 +179,17 @@ class CVAE(torch.nn.Module):
 
         context = context[-self.encoder.num_directions:,:,:].view(self.batch_size, -1)
         mu, log_var = self.fc_mu(context), self.fc_logvar(context)
-        kld_loss = self.kld_loss(mu, log_var)
+        kld_loss = self._kld_loss(mu, log_var)
 
-        z = self.sample_z(mu, log_var)
+        z = self._sample_z(mu, log_var)
 
         decoder_hidden = self._stats_from_z(z)
-        output, _ = self.forward_d(d_inputs, decoder_hidden)
+        output, _ = self._forward_d(d_inputs, decoder_hidden)
 
         return output, kld_loss
 
     @staticmethod
-    def rec_loss(d_output, d_target, d_mask):
+    def _rec_loss(d_output, d_target, d_mask):
         # recon loss 。 note：这里的log_softmax是必须的， 应为nll的输入需要log_prob
         losses = nll(torch.nn.functional.log_softmax(d_output), d_target.view(-1, 1))
         target_mask = torch.autograd.Variable(torch.FloatTensor(d_mask)).view(-1)
@@ -198,7 +198,7 @@ class CVAE(torch.nn.Module):
         loss = torch.mul(losses, target_mask).mean().squeeze()
         return loss
 
-    def kld_coef(self, cur_epoch, cur_iter):
+    def _kld_coef(self, cur_epoch, cur_iter):
         scalar_sigmoid = lambda x: 1 / (1 + math.exp(-x))
         if self.only_rec_loss:
             return 0
@@ -233,7 +233,7 @@ class CVAE(torch.nn.Module):
                     encoder_word_input, decoder_word_input = encoder_word_input.cuda(), decoder_word_input.cuda()
                     decoder_word_output = decoder_word_output.cuda()
 
-                kld_coef = self.kld_coef(e, it)
+                kld_coef = self._kld_coef(e, it)
                 kl_lss, rec_lss = self.train_bt(encoder_word_input, input_seq_len, decoder_word_input,
                                                  decoder_word_output, decoder_mask, kld_coef)
 
@@ -261,7 +261,7 @@ class CVAE(torch.nn.Module):
     def sample_from_normal(self, corpus_loader):
         z = torch.autograd.Variable(torch.randn(1, self.z_size))
         if USE_GPU: z = z.cuda()
-        return self.sample_from_z(corpus_loader, z)
+        return self._sample_from_z(corpus_loader, z)
 
     def sample_from_encoder(self, corpus_loader, sentence):
         words = sentence.split()
@@ -273,10 +273,10 @@ class CVAE(torch.nn.Module):
 
         context = self.encoder(e_input, e_input_len).view(1, -1)
         mu, log_var = self.fc_mu(context), self.fc_logvar(context)
-        z = self.sample_z(mu, log_var)
-        return self.sample_from_z(corpus_loader, z)
+        z = self._sample_z(mu, log_var)
+        return self._sample_from_z(corpus_loader, z)
 
-    def sample_from_z(self, corpus_loader, z):
+    def _sample_from_z(self, corpus_loader, z):
         # 一句一句的采样，所以batch_size都填1
         decoder_word_input_np = np.array(corpus_loader.go_input(1))
         decoder_word_input = torch.autograd.Variable(torch.from_numpy(decoder_word_input_np).long())
@@ -285,7 +285,7 @@ class CVAE(torch.nn.Module):
         result = ''
         decoder_hidden = self._stats_from_z(z)
         for i in range(corpus_loader.keep_seq_lens[1]):
-            d_output, decoder_hidden = self.forward_d(decoder_word_input, decoder_hidden)
+            d_output, decoder_hidden = self._forward_d(decoder_word_input, decoder_hidden)
 
             # prediction = torch.nn.functional.softmax(d_output)
             # ix, word = corpus_loader.sample_word_from_distribution(prediction .data.cpu().numpy())
@@ -319,7 +319,7 @@ class CVAE(torch.nn.Module):
         self.optimizer.zero_grad()
 
         d_output, kld_lss = self(encoder_word_input, input_seq_len, decoder_word_input)
-        rec_lss = self.rec_loss(d_output, decoder_word_output, decoder_mask)
+        rec_lss = self._rec_loss(d_output, decoder_word_output, decoder_mask)
 
         # update
         lss = kld_coef * kld_lss + rec_lss

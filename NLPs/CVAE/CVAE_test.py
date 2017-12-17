@@ -1,6 +1,6 @@
 from CorpusLoader import CorpusLoader
 from CVAE import CVAE
-from Utils import USE_GPU
+from Utils import USE_GPU, TORCH_VERSION
 
 # 解决输出报UnicodeEncodeError
 # import sys, codecs
@@ -10,8 +10,8 @@ from Utils import USE_GPU
 #     sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, 'strict')
 
 print('============ Env Info ===============')
+print('pytorch version : {}\n'.format(TORCH_VERSION))
 print('use gpu: {}'.format(str(USE_GPU)))
-print('pytorch version : {}\n'.format(torch.__version__))
 
 encoder_params = {
     'rnn_cell_str': 'gru',

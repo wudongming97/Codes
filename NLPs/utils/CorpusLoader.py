@@ -5,7 +5,6 @@ import pickle
 import random
 from functools import reduce
 
-import numpy as np
 import unidecode
 
 
@@ -115,7 +114,9 @@ class CorpusLoader:
 
     def show_corpus_info(self):
         print('char_vocab_size: {}, word_vocab_size: {}'.format(self.vocab_sizes[0], self.vocab_sizes[1]))
-        print('char_num_lines: {}, word_num_lines: {}, train_data/test_data: {}'.format(self.num_lines[0], self.num_lines[1], self.train_fraction))
+        print('char_num_lines: {}, word_num_lines: {}, train_data/test_data: {}'.format(self.num_lines[0],
+                                                                                        self.num_lines[1],
+                                                                                        self.train_fraction))
 
     def _build_vocab(self, seqs, lf):
         flatten_seq = [token for seq in seqs for token in seq]
@@ -147,12 +148,12 @@ class CorpusLoader:
 
     def _target_data_idxs(self, target, train):
         if train:
-            return  self.data_idxs[target][:math.floor(self.num_lines[target] * self.train_fraction)]
+            return self.data_idxs[target][:math.floor(self.num_lines[target] * self.train_fraction)]
         else:
             return self.data_idxs[target][math.ceil(self.num_lines[target] * self.train_fraction):]
 
     # 数据默认用
-    def next_batch(self, batch_size, target, train=True): #target: 0 or 1
+    def next_batch(self, batch_size, target, train=True):  # target: 0 or 1
         data = self._target_data_idxs(target, train)
         data_len = len(data)
         for i in range(data_len // batch_size):
@@ -182,7 +183,6 @@ class CorpusLoader:
         else:
             sentences = [reduce(lambda x1, x2: x1 + ' ' + x2, seq) for seq in seq_list]
         return sentences
-
 
     def vocab2idx(self, target):
         return self.vocabs_to_idx[target]

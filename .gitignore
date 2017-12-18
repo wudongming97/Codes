@@ -8,3 +8,4 @@ NLPs/CVAE/.idea/*
 NLPs/Hybrid_CVAE/.idea/*
 NLPs/models/__pycache__
 NLPs/utils/__pycache__
+NLPs/data

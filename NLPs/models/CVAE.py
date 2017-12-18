@@ -11,6 +11,7 @@ from utils.Nll import nll
 USE_GPU = torch.cuda.is_available()
 TORCH_VERSION = torch.__version__
 
+
 # helper function
 def _rnn_cell_helper(str_rnn_cell):
     if str_rnn_cell.lower() == 'lstm':
@@ -21,6 +22,7 @@ def _rnn_cell_helper(str_rnn_cell):
         raise ValueError("Unsupported RNN Cell: {0}".format(str_rnn_cell))
 
     return rnn_cell
+
 
 # model
 class Encoder(torch.nn.Module):

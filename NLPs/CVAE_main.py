@@ -13,7 +13,10 @@ print('============ Env Info ===============')
 print('pytorch version : {}\n'.format(TORCH_VERSION))
 print('use gpu: {}'.format(str(USE_GPU)))
 
+
+# ========================================================================
 #  word_level_params
+# ========================================================================
 class word_level_params:
     encoder_params = {
         'rnn_cell_str': 'gru',
@@ -33,7 +36,7 @@ class word_level_params:
     }
 
     params = {
-        'target': 1, # or 0
+        'target': 1,  # or 0
         'n_epochs': 30,
         'lr': 0.001,
         'batch_size': 64,
@@ -47,9 +50,10 @@ class word_level_params:
         'only_rec_loss': False,  # for debug
     }
 
-# ========================================================================
+
 # ========================================================================
 #  char_level_params
+# ========================================================================
 class char_level_params:
     encoder_params = {
         'rnn_cell_str': 'gru',
@@ -69,7 +73,7 @@ class char_level_params:
     }
 
     params = {
-        'target': 0, #0 for char 1 for word
+        'target': 0,  # 0 for char 1 for word
         'n_epochs': 30,
         'lr': 0.001,
         'batch_size': 4,
@@ -83,6 +87,10 @@ class char_level_params:
         'only_rec_loss': True,  # for debug
     }
 
+
+# ========================================================================
+#  corpus_loader_params
+# ========================================================================
 corpus_loader_params = {
     'data_path_prefix': './data/CVAE/',
     'char_lf': 15,  # 低频词

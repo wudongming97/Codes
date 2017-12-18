@@ -3,6 +3,7 @@ from torch.autograd import Variable
 
 USE_GPU = torch.cuda.is_available()
 
+
 def one_hot(size, index):
     """ Creates a matrix of one hot vectors.
     size = (3, 3)

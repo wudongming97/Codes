@@ -1,6 +1,5 @@
-from CVAE import CVAE
-from CorpusLoader import CorpusLoader
-from Utils import USE_GPU, TORCH_VERSION
+from models.CVAE import CVAE, USE_GPU, TORCH_VERSION
+from utils.CorpusLoader import CorpusLoader
 
 # 解决输出报UnicodeEncodeError
 # import sys, codecs
@@ -8,6 +7,7 @@ from Utils import USE_GPU, TORCH_VERSION
 #     sys.stdout = codecs.getwriter('utf-8')(sys.stdout.buffer, 'strict')
 # if sys.stderr.encoding != 'UTF-8':
 #     sys.stderr = codecs.getwriter('utf-8')(sys.stderr.buffer, 'strict')
+
 
 print('============ Env Info ===============')
 print('pytorch version : {}\n'.format(TORCH_VERSION))
@@ -45,6 +45,7 @@ params = {
 }
 
 corpus_loader_params = {
+    'data_path_prefix': './data/CVAE/',
     'lf': 15,  # 低频词
     'keep_seq_lens': [5, 20],
     'shuffle': False,

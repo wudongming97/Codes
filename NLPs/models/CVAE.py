@@ -5,8 +5,11 @@ import random
 import numpy as np
 import torch
 
-from Utils import nll, USE_GPU
+from utils.Nll import nll
 
+# constant
+USE_GPU = torch.cuda.is_available()
+TORCH_VERSION = torch.__version__
 
 # helper function
 def _rnn_cell_helper(str_rnn_cell):
@@ -19,7 +22,7 @@ def _rnn_cell_helper(str_rnn_cell):
 
     return rnn_cell
 
-
+# model
 class Encoder(torch.nn.Module):
     def __init__(self, params):
         super(Encoder, self).__init__()

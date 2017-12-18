@@ -19,8 +19,9 @@ class CorpusLoader:
         self.global_seqs_sort = self.params.get('global_seqs_sort')
         self.train_fraction = self.params.get('train_fraction')
 
-        self.raw_data_file = './data.txt'
-        self.preprocessed_data_path = './preprocessed_data/'
+        self.data_path_prefix = self.params.get('data_path_prefix', './')
+        self.raw_data_file = self.data_path_prefix + './data.txt'
+        self.preprocessed_data_path = self.data_path_prefix +  './preprocessed_data/'
         if not os.path.exists(self.preprocessed_data_path):
             os.makedirs(self.preprocessed_data_path)
         self.data_words_file = self.preprocessed_data_path + 'words.pkl'

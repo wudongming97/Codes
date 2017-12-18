@@ -1,2 +1,2 @@
 #### NLPs
-* cvae
+* cvae      --pytorch 0.2

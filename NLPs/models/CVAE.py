@@ -92,6 +92,8 @@ class CVAE(torch.nn.Module):
         self.encoder_params['vocab_size'] = self.params.get('vocab_size')
         self.decoder_params['vocab_size'] = self.params.get('vocab_size')
 
+        self.target = self.params.get('target')
+
         self.batch_size = self.params.get('batch_size')
         self.vocab_size = self.params.get('vocab_size')
         self.z_size = self.params.get('z_size')
@@ -202,14 +204,14 @@ class CVAE(torch.nn.Module):
 
     def _word_dropout_helper(self, corpus_loader, p, x):
         if np.random.binomial(1, p) == 1:
-            return corpus_loader.word_to_idx[corpus_loader.unk_token]
+            return corpus_loader.vocabs_to_idx[self.target][corpus_loader.unk_token]
         else:
             return x
 
     def fit(self, corpus_loader, display_step=15):
         print('begin fit ...\n')
         for e in range(self.n_epochs):
-            for it, inputs in enumerate(corpus_loader.next_batch(self.batch_size, target='train')):
+            for it, inputs in enumerate(corpus_loader.next_batch(self.batch_size, self.target, train=True)):
                 sentences, encoder_word_input, input_seq_len, decoder_word_input, decoder_word_output, decoder_mask = inputs
 
                 if self.word_dropout_p >= 0:
@@ -231,7 +233,7 @@ class CVAE(torch.nn.Module):
                 if it % display_step == 0:
                     print(
                         "Epoch %d/%d | Batch %d/%d | train_loss: %.3f | rec_loss: %.3f | kl_loss: %.6f | kld_coef: %.6f | kld_coef*kl_loss: %.6f |" % (
-                            e + 1, self.n_epochs, it, corpus_loader.num_line // self.batch_size,
+                            e + 1, self.n_epochs, it, corpus_loader.num_lines[self.target] // self.batch_size,
                             kl_lss * kld_coef + rec_lss, rec_lss, kl_lss, kld_coef, kld_coef * kl_lss))
 
                 if it % (display_step * 20) == 0:
@@ -257,7 +259,8 @@ class CVAE(torch.nn.Module):
 
     def sample_from_encoder(self, corpus_loader, sentence):
         words = sentence.split()
-        e_input = [corpus_loader.word_to_idx.get(w, corpus_loader.word_to_idx[corpus_loader.unk_token]) for w in words]
+        vocab2idx = corpus_loader.vocab2idx(self.target)
+        e_input = [vocab2idx.get(w, vocab2idx[corpus_loader.unk_token]) for w in words]
         e_input_len = [len(e_input)]
         e_input = torch.autograd.Variable(torch.from_numpy(np.atleast_2d(e_input)))
         if USE_GPU:
@@ -270,34 +273,32 @@ class CVAE(torch.nn.Module):
 
     def _sample_from_z(self, corpus_loader, z):
         # 一句一句的采样，所以batch_size都填1
-        decoder_word_input_np = np.array(corpus_loader.go_input(1))
+        decoder_word_input_np = np.array(corpus_loader.go_input(self.target, batch_size=1))
         decoder_word_input = torch.autograd.Variable(torch.from_numpy(decoder_word_input_np).long())
         if USE_GPU: decoder_word_input = decoder_word_input.cuda()
 
-        result = ''
+        result_idx = []
         decoder_hidden = self._stats_from_z(z)
-        for i in range(corpus_loader.keep_seq_lens[1]):
+        for i in range(corpus_loader.max_seq_len(self.target)):
             d_output, decoder_hidden = self._forward_d(decoder_word_input, decoder_hidden)
 
-            # prediction = torch.nn.functional.softmax(d_output)
-            # ix, word = corpus_loader.sample_word_from_distribution(prediction .data.cpu().numpy())
-
             d_output_np = d_output.data.squeeze().cpu().numpy()
-            ixs, words = corpus_loader.top_k(d_output_np, self.top_k)
-            choice = random.randint(0, len(ixs) - 1)
-            ix, word = ixs[choice], words[choice]
+            ixs = d_output_np.argsort()[self.top_k:][::-1].tolist()  # top_k
+            ix = ixs[random.randint(0, len(ixs) - 1)]
 
-            if word == corpus_loader.end_token:
+            result_idx.append(ix)
+
+            if corpus_loader.vocabs[self.target][ix] == corpus_loader.end_token:
                 break
-
-            result += ' ' + word
 
             decoder_word_input_np = np.array([[ix]])
             decoder_word_input = torch.autograd.Variable(torch.from_numpy(decoder_word_input_np).long())
             if USE_GPU:
                 decoder_word_input = decoder_word_input.cuda()
 
-        return result
+        result_str = corpus_loader.decode_idxs_list([result_idx], self.target)[0]
+
+        return result_str
 
     def save(self):
         torch.save(self.state_dict(), self.model_name)

@@ -5,6 +5,7 @@ import random
 import numpy as np
 import torch
 
+from utils.DataLoader import U_TOKEN, E_TOKEN
 from utils.Nll import nll
 
 # constant
@@ -206,36 +207,35 @@ class CVAE(torch.nn.Module):
 
     def _word_dropout_helper(self, corpus_loader, p, x):
         if np.random.binomial(1, p) == 1:
-            return corpus_loader.vocabs_to_idx[self.target][corpus_loader.unk_token]
+            return corpus_loader.vocab.idx[U_TOKEN]
         else:
             return x
 
     def fit(self, corpus_loader, display_step=15):
         print('begin fit ...\n')
         for e in range(self.n_epochs):
-            for it, inputs in enumerate(corpus_loader.next_batch(self.batch_size, self.target, train=True)):
-                sentences, encoder_word_input, input_seq_len, decoder_word_input, decoder_word_output, decoder_mask = inputs
+            for it, data in enumerate(corpus_loader.next_batch(self.batch_size, train=True)):
+                X, X_lengths, Y_i, Y_masks, Y_t = corpus_loader.unpack_for_cvae(data)
+                sentences = corpus_loader.to_seqs(X)
 
                 if self.word_dropout_p >= 0:
                     drop_word_f = lambda x: self._word_dropout_helper(corpus_loader, self.word_dropout_p, x)
-                    decoder_word_input = [list(map(drop_word_f, s)) for s in decoder_word_input]
+                    Y_i = [list(map(drop_word_f, s)) for s in Y_i]
 
-                encoder_word_input = torch.autograd.Variable(torch.Tensor(encoder_word_input).long())
-                decoder_word_input = torch.autograd.Variable(torch.Tensor(decoder_word_input).long())
-                decoder_word_output = torch.autograd.Variable(torch.Tensor(decoder_word_output).long())
+                X = torch.autograd.Variable(torch.Tensor(X).long())
+                Y_i = torch.autograd.Variable(torch.Tensor(Y_i).long())
+                Y_t = torch.autograd.Variable(torch.Tensor(Y_t).long())
 
                 if USE_GPU:
-                    encoder_word_input, decoder_word_input = encoder_word_input.cuda(), decoder_word_input.cuda()
-                    decoder_word_output = decoder_word_output.cuda()
+                    X, Y_i, Y_t = X.cuda(), Y_i.cuda(), Y_t.cuda()
 
                 kld_coef = self._kld_coef(e, it)
-                kl_lss, rec_lss = self.train_bt(encoder_word_input, input_seq_len, decoder_word_input,
-                                                decoder_word_output, decoder_mask, kld_coef)
+                kl_lss, rec_lss = self.train_bt(X, X_lengths, Y_i, Y_t, Y_masks, kld_coef)
 
                 if it % display_step == 0:
                     print(
                         "Epoch %d/%d | Batch %d/%d | train_loss: %.3f | rec_loss: %.3f | kl_loss: %.6f | kld_coef: %.6f | kld_coef*kl_loss: %.6f |" % (
-                            e + 1, self.n_epochs, it, corpus_loader.num_lines[self.target] // self.batch_size,
+                            e + 1, self.n_epochs, it, corpus_loader.num_line // self.batch_size,
                             kl_lss * kld_coef + rec_lss, rec_lss, kl_lss, kld_coef, kld_coef * kl_lss))
 
                 if it % (display_step * 20) == 0:
@@ -254,53 +254,46 @@ class CVAE(torch.nn.Module):
                         print('{}, {}'.format(i, self.sample_from_normal(corpus_loader)))
                     print('\n')
 
-    def sample_from_normal(self, corpus_loader):
+    def sample_from_normal(self, loader):
         z = torch.autograd.Variable(torch.randn(1, self.z_size))
         if USE_GPU: z = z.cuda()
-        return self._sample_from_z(corpus_loader, z)
+        return self._sample_from_z(loader, z)
 
-    def sample_from_encoder(self, corpus_loader, sentence):
+    def sample_from_encoder(self, loader, sentence):
         words = sentence.split()
-        vocab2idx = corpus_loader.vocab2idx(self.target)
-        e_input = [vocab2idx.get(w, vocab2idx[corpus_loader.unk_token]) for w in words]
-        e_input_len = [len(e_input)]
-        e_input = torch.autograd.Variable(torch.from_numpy(np.atleast_2d(e_input)))
+        e_input = loader.to_tensor([words])
+        e_input_len = list(map(len, e_input))
+        e_input = torch.autograd.Variable(torch.from_numpy(np.array(e_input)))
         if USE_GPU:
             e_input = e_input.cuda()
 
         context = self.encoder(e_input, e_input_len).view(1, -1)
         mu, log_var = self.fc_mu(context), self.fc_logvar(context)
         z = self._sample_z(mu, log_var)
-        return self._sample_from_z(corpus_loader, z)
+        return self._sample_from_z(loader, z)
 
-    def _sample_from_z(self, corpus_loader, z):
+    def _sample_from_z(self, loader, z):
         # 一句一句的采样，所以batch_size都填1
-        decoder_word_input_np = np.array(corpus_loader.go_input(self.target, batch_size=1))
-        decoder_word_input = torch.autograd.Variable(torch.from_numpy(decoder_word_input_np).long())
-        if USE_GPU: decoder_word_input = decoder_word_input.cuda()
+        Y_i = np.array(loader.g_input(batch_size=1))
+        Y_i = torch.autograd.Variable(torch.from_numpy(Y_i).long())
 
         result_idx = []
         decoder_hidden = self._stats_from_z(z)
-        for i in range(corpus_loader.max_seq_len(self.target)):
-            d_output, decoder_hidden = self._forward_d(decoder_word_input, decoder_hidden)
+        for i in range(loader.max_seq_len):
+            if USE_GPU: Y_i = Y_i.cuda()
+            d_output, decoder_hidden = self._forward_d(Y_i, decoder_hidden)
 
             d_output_np = d_output.data.squeeze().cpu().numpy()
             ixs = d_output_np.argsort()[self.top_k:][::-1].tolist()  # top_k
             ix = ixs[random.randint(0, len(ixs) - 1)]
 
-            result_idx.append(ix)
-
-            if corpus_loader.vocabs[self.target][ix] == corpus_loader.end_token:
+            if loader.vocab.vocab[ix] == E_TOKEN:
                 break
 
-            decoder_word_input_np = np.array([[ix]])
-            decoder_word_input = torch.autograd.Variable(torch.from_numpy(decoder_word_input_np).long())
-            if USE_GPU:
-                decoder_word_input = decoder_word_input.cuda()
+            result_idx.append(ix)
+            Y_i = torch.autograd.Variable(torch.from_numpy(np.array([[ix]])).long())
 
-        result_str = corpus_loader.decode_idxs_list([result_idx], self.target)[0]
-
-        return result_str
+        return loader.to_seqs([result_idx])[0]
 
     def save(self):
         torch.save(self.state_dict(), self.model_name)
@@ -313,13 +306,11 @@ class CVAE(torch.nn.Module):
     def train_bt(self, encoder_word_input, input_seq_len, decoder_word_input, decoder_word_output, decoder_mask,
                  kld_coef):
         self.optimizer.zero_grad()
-
         d_output, kld_lss = self(encoder_word_input, input_seq_len, decoder_word_input)
         rec_lss = self._rec_loss(d_output, decoder_word_output, decoder_mask)
 
         # update
         lss = kld_coef * kld_lss + rec_lss
-        # lss = rec_lss
         lss.backward()
         torch.nn.utils.clip_grad_norm(self.parameters(), self.max_grad_norm)
         self.optimizer.step()

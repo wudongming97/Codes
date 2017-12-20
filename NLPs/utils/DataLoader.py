@@ -61,9 +61,9 @@ class Vocab:
     def _to_seqs(self, tensor):
         seqs_ = [[self.vocab[ix] for ix in s_] for s_ in tensor]
         if self.level == Level.CHAR:
-            seqs = [reduce(lambda x1, x2: x1 + x2, s_) for s_ in seqs_]
+            seqs = [''.join(s_) for s_ in seqs_]
         else:
-            seqs = [reduce(lambda x1, x2: x1 + ' ' + x2, s_) for s_ in seqs_]
+            seqs = [' '.join(s_) for s_ in seqs_]
         return seqs
 
     def _persist(self):

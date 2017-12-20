@@ -150,8 +150,8 @@ class CVAE(torch.nn.Module):
         kld_loss = (-0.5 * torch.sum(log_var - torch.pow(mu, 2) - torch.exp(log_var) + 1, 1)).mean().squeeze()
         return kld_loss
 
-    def _forward_d(self, d_inputs, decoder_hidden):
-        decoder_output, hidden = self.decoder(d_inputs, decoder_hidden)
+    def _forward_d(self, Y_i, decoder_hidden):
+        decoder_output, hidden = self.decoder(Y_i, decoder_hidden)
         decoder_output = decoder_output.contiguous().view(-1, self.decoder.num_directions * self.decoder.hidden_size)
         output = self.fc_out(decoder_output)
 
@@ -170,8 +170,8 @@ class CVAE(torch.nn.Module):
         else:
             raise ValueError("Unsupported RNN Cell")
 
-    def forward(self, e_inputs, e_inputs_len, d_inputs):
-        context = self.encoder(e_inputs, e_inputs_len)
+    def forward(self, X, X_lengths, Y_i):
+        context = self.encoder(X, X_lengths)
 
         context = context[-self.encoder.num_directions:, :, :].view(self.batch_size, -1)
         mu, log_var = self.fc_mu(context), self.fc_logvar(context)
@@ -180,7 +180,7 @@ class CVAE(torch.nn.Module):
         z = self._sample_z(mu, log_var)
 
         decoder_hidden = self._stats_from_z(z)
-        output, _ = self._forward_d(d_inputs, decoder_hidden)
+        output, _ = self._forward_d(Y_i, decoder_hidden)
 
         return output, kld_loss
 
@@ -199,27 +199,25 @@ class CVAE(torch.nn.Module):
         if self.only_rec_loss:
             return 0
         elif self.kl_lss_anneal:
-            # return math.exp(cur_epoch - self.params['n_epochs'])
-            # return math.tanh(cur_epoch * 8 / self.params['n_epochs'] )
             return scalar_sigmoid(-15 + 20 * cur_epoch / self.n_epochs)
         else:
             return 1
 
-    def _word_dropout_helper(self, corpus_loader, p, x):
+    def _word_dropout_helper(self, loader, p, x):
         if np.random.binomial(1, p) == 1:
-            return corpus_loader.vocab.idx[U_TOKEN]
+            return loader.vocab.idx[U_TOKEN]
         else:
             return x
 
-    def fit(self, corpus_loader, display_step=15):
+    def fit(self, loader, display_step=15):
         print('begin fit ...\n')
         for e in range(self.n_epochs):
-            for it, data in enumerate(corpus_loader.next_batch(self.batch_size, train=True)):
-                X, X_lengths, Y_i, Y_masks, Y_t = corpus_loader.unpack_for_cvae(data)
-                sentences = corpus_loader.to_seqs(X)
+            for it, data in enumerate(loader.next_batch(self.batch_size, train=True)):
+                X, X_lengths, Y_i, Y_masks, Y_t = loader.unpack_for_cvae(data)
+                sentences = loader.to_seqs(X)
 
                 if self.word_dropout_p >= 0:
-                    drop_word_f = lambda x: self._word_dropout_helper(corpus_loader, self.word_dropout_p, x)
+                    drop_word_f = lambda x: self._word_dropout_helper(loader, self.word_dropout_p, x)
                     Y_i = [list(map(drop_word_f, s)) for s in Y_i]
 
                 X = torch.autograd.Variable(torch.Tensor(X).long())
@@ -235,7 +233,7 @@ class CVAE(torch.nn.Module):
                 if it % display_step == 0:
                     print(
                         "Epoch %d/%d | Batch %d/%d | train_loss: %.3f | rec_loss: %.3f | kl_loss: %.6f | kld_coef: %.6f | kld_coef*kl_loss: %.6f |" % (
-                            e + 1, self.n_epochs, it, corpus_loader.num_line // self.batch_size,
+                            e + 1, self.n_epochs, it, loader.num_line // self.batch_size,
                             kl_lss * kld_coef + rec_lss, rec_lss, kl_lss, kld_coef, kld_coef * kl_lss))
 
                 if it % (display_step * 20) == 0:
@@ -245,13 +243,13 @@ class CVAE(torch.nn.Module):
                         if i > 4:
                             break
                         print('-----')
-                        print("Input: {}\nOutput: {} ".format(s, self.sample_from_encoder(corpus_loader, s)))
+                        print("Input: {}\nOutput: {} ".format(s, self.sample_from_encoder(loader, s)))
                     # 查看随机生成情况
                     print('\n------------ sample_from_normal ----------')
                     for i in range(self.batch_size):
                         if i > 4:
                             break
-                        print('{}, {}'.format(i, self.sample_from_normal(corpus_loader)))
+                        print('{}, {}'.format(i, self.sample_from_normal(loader)))
                     print('\n')
 
     def sample_from_normal(self, loader):
@@ -303,11 +301,11 @@ class CVAE(torch.nn.Module):
         self.load_state_dict(torch.load(self.model_name))
         print('model loaded ...')
 
-    def train_bt(self, encoder_word_input, input_seq_len, decoder_word_input, decoder_word_output, decoder_mask,
+    def train_bt(self, X, X_lengths, Y_i, Y_t, Y_mask,
                  kld_coef):
         self.optimizer.zero_grad()
-        d_output, kld_lss = self(encoder_word_input, input_seq_len, decoder_word_input)
-        rec_lss = self._rec_loss(d_output, decoder_word_output, decoder_mask)
+        d_output, kld_lss = self(X, X_lengths, Y_i)
+        rec_lss = self._rec_loss(d_output, Y_t, Y_mask)
 
         # update
         lss = kld_coef * kld_lss + rec_lss

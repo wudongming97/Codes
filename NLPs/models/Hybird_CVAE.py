@@ -19,15 +19,8 @@ PHASE_NAME = 'phase_'
 class Hybird_CVAE(object):
     def __init__(self, flags):
         self.flags = flags
-        self._build_graph()
-
-    def _build_graph(self):
         self._init_once()
-        self._build_train_graph()
-
-        # self._build_sample_graph()
-        # todo
-        self.summary_op = tf.summary.merge_all()
+        self._build_graph()
 
     @U.run_once
     def _init_once(self):
@@ -36,9 +29,8 @@ class Hybird_CVAE(object):
         self._decoder_rnn_cell_init()
         tf.add_to_collection(PHASE_NAME, tf.placeholder(dtype=tf.bool, name='phase'))
 
-    def _get_phase(self):
-        return tf.get_collection(PHASE_NAME)[0]
-
+    def _build_graph(self):
+        self._build_train_graph()
 
     def _build_train_graph(self):
         inputs_ = self._get_train_inputs()
@@ -52,6 +44,7 @@ class Hybird_CVAE(object):
         self.rec_loss = self._rec_loss(rnn_logits, inputs_.Y_t, inputs_.Y_mask, 'rec_loss')
         self.train_loss = self._train_loss(self.kld_loss, self.rec_loss, self.aux_loss, name='train_loss')
         self.train_op = self._train_op(self.train_loss)
+        self.summary_op = tf.summary.merge_all()
 
     def _build_sample_graph(self):
         aux_loss, logits = self._cnn_decoder_subgraph('forward_z_subgraph', self.sample_input, reuse=True)
@@ -238,8 +231,34 @@ class Hybird_CVAE(object):
     def _get_rnn_cell(self):
         return tf.get_collection(RNN_CELL_NAME)[0]
 
-    def fit(self):
-        None
+    def _get_phase(self):
+        return tf.get_collection(PHASE_NAME)[0]
+
+    def fit(self, sess, data_loader, _writer, _saver):
+
+        for data in data_loader.next_batch(self.flags.batch_size, train=True):
+            X, Y_i, Y_lengths, Y_t, Y_masks = data_loader.unpack_for_hybird_cvae(data, self.flags.seq_len)
+            input_ = self._get_train_inputs()
+
+            _, loss_, summery_ = sess.run([self.train_op, self.train_loss, self.summary_op],
+                                          {input_.X: X,
+                                           input_.Y_i: Y_i,
+                                           input_.Y_lengths: Y_lengths,
+                                           input_.Y_t: Y_t,
+                                           input_.Y_mask: Y_masks,
+                                           self._get_phase(): True
+                                           })
+            step_ = sess.run(tf.train.get_global_step())
+            _writer.add_summary(summery_, step_)  # tf.train.get_global_step())
+
+            if step_ % 10 == 0:
+                epoch_ = U.step_to_epoch(step_, data_loader.num_line, self.flags.batch_size)
+                print("Epoch %d | step %d/%d | train_loss: %.3f "
+                      % (epoch_, step_, self.flags.global_steps, loss_))
+            if step_ >= self.flags.global_steps:
+                _saver.save(sess, self.flags.ckpt_path, tf.train.get_global_step(), write_meta_graph=False)
+                print('Training is end ...')
+                break
 
     def infer(self):
         None

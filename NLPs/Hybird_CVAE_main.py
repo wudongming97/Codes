@@ -51,32 +51,7 @@ def main(_):
         summery_writer = tf.summary.FileWriter(FLAGS.log_path, sess.graph)
         sess.run(tf.global_variables_initializer())
         saver.save(sess, FLAGS.ckpt_path, tf.train.get_global_step())
-
-        for data in data_loader_c.next_batch(FLAGS.batch_size, train=True):
-            X, Y_i, Y_lengths, Y_t, Y_masks = data_loader_c.unpack_for_hybird_cvae(data, FLAGS.seq_len)
-            input_ = model._get_train_inputs()
-
-            _, loss_, summery_ = sess.run([model.train_op, model.train_loss, model.summary_op],
-                                          {input_.X: X,
-                                           input_.Y_i: Y_i,
-                                           input_.Y_lengths: Y_lengths,
-                                           input_.Y_t: Y_t,
-                                           input_.Y_mask: Y_masks,
-                                           model._get_phase(): True
-                                           })
-
-            step_ = sess.run(tf.train.get_global_step())
-            summery_writer.add_summary(summery_, step_)  # tf.train.get_global_step())
-
-            if step_ % 10 == 0:
-                epoch_ = U.step_to_epoch(step_, data_loader_c.num_line, FLAGS.batch_size)
-                print("Epoch %d | step %d/%d | train_loss: %.3f "
-                      % (epoch_, step_, FLAGS.global_steps, loss_))
-            if step_ >= FLAGS.global_steps:
-                saver.save(sess, FLAGS.ckpt_path, tf.train.get_global_step(), write_meta_graph=False)
-                print('Training is end ...')
-                break
-
+        model.fit(sess, data_loader_c, summery_writer, saver)
 
 if __name__ == "__main__":
     tf.app.run()

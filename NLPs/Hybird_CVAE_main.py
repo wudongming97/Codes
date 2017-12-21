@@ -45,7 +45,7 @@ def main(_):
     graph = tf.Graph()
     with graph.as_default():
         model = Hybird_CVAE(FLAGS)
-        saver = tf.train.Saver(max_to_keep=5,
+        saver = tf.train.Saver(#max_to_keep=5,
                                keep_checkpoint_every_n_hours=1,
                                pad_step_number=True)
 

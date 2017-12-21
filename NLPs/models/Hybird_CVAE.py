@@ -17,6 +17,7 @@ class Hybird_CVAE(object):
     def __init__(self, flags):
         self.flags = flags
         self.phase = tf.placeholder(dtype=tf.bool, name='phase')
+        self.normal_z = tf.placeholder(dtype=tf.float32, shape=[1, self.flags.z_size], name='normal_z')
         self.embedding = self._embedding_layer_init()
         self.rnn_cell = self._decoder_rnn_cell_init()
         self.train_i = self._train_input_layer_init()
@@ -25,6 +26,7 @@ class Hybird_CVAE(object):
     def build_graph(self):
         tf.train.create_global_step()
         self.losses, self.train_ops = self._build_train_graph()
+        self._build_sample_from_normal_graph()
 
     def _build_train_graph(self):
         mu, log_var = self._cnn_encoder_subgraph(self.train_i.X, 'cnn_encoder', reuse=False)
@@ -44,8 +46,8 @@ class Hybird_CVAE(object):
         return TL(loss, rec_loss, kld_loss, aux_loss), TO(optim_op, train_summery_op)
 
     def _build_sample_from_normal_graph(self):
-        z = tf.random_normal(shape=[])
-        vocab_logits = self._cnn_decoder_subgraph(z, 'cnn_decoder', reuse=True)
+        vocab_logits = self._cnn_decoder_subgraph(self.normal_z, 'cnn_decoder', reuse=True)
+        #self._rnn_infer_layer(vocab_logits)
         # aux_loss, logits = self._cnn_decoder_subgraph('forward_z_subgraph', self.sample_input, reuse=True)
         # todo
         # next_symbol = tf.stop_gradient(tf.argmax(logits, 1))
@@ -77,8 +79,12 @@ class Hybird_CVAE(object):
             rnn_logits = tf.layers.dense(rnn_hidden_output, self.flags.vocab_size, name='rnn_output')
         return rnn_logits
 
-    def _rnn_infer_layer(self, vocab_logits):
-        None
+    def _rnn_infer_layer(self, vocab_logits, go_input):
+        with tf.name_scope('rnn_infer_layer'):
+            U.print_shape(vocab_logits)
+            next_input = tf.nn.embedding_lookup(self.embedding, go_input)
+            for i in range(self.flags.seq_len):
+                rnn_input = tf.concat([])
 
     def _train_op(self, loss):
         with tf.name_scope('train_op'):
@@ -114,12 +120,10 @@ class Hybird_CVAE(object):
         with tf.name_scope(name):
             cl1_output = self._encoder_conv1d_layer(input_embed, filter_shape=(3, self.flags.embed_size, 128), stride=2,
                                                     padding='SAME', name='encoder_conv_layer_1')
-            assert cl1_output.shape == (self.flags.batch_size, int(self.flags.seq_len / 2), 128)
             cl2_output = self._encoder_conv1d_layer(cl1_output, filter_shape=(3, 128, 256), stride=2, padding='SAME',
                                                     name='encoder_conv_layer_2')
-            assert cl2_output.shape == (self.flags.batch_size, int(self.flags.seq_len / 4), 256)
             encoder_cnn_output = tf.reshape(cl2_output,
-                                            shape=[self.flags.batch_size,
+                                            shape=[-1,
                                                    256 * int(self.flags.seq_len / 4)],
                                             name='encoder_cnn_output')
         return encoder_cnn_output
@@ -134,7 +138,7 @@ class Hybird_CVAE(object):
 
     def _decoder_dconv_layer(self, dc_input, name):
         with tf.name_scope(name):
-            dc_input_ = tf.reshape(dc_input, [self.flags.batch_size, 1, int(self.flags.seq_len / 4), 256],
+            dc_input_ = tf.reshape(dc_input, [-1, 1, int(self.flags.seq_len / 4), 256],
                                    name='in_shape')
             dct1_out = self._decoder_conv2d_transpose_layer(input=dc_input_,
                                                             filter_shape=[1, 3, 128, 256],
@@ -151,7 +155,7 @@ class Hybird_CVAE(object):
                                                             padding='SAME',
                                                             name='dct2')
 
-            decoder_cnn_output = tf.reshape(dct2_out, [self.flags.batch_size, self.flags.seq_len, 200])
+            decoder_cnn_output = tf.reshape(dct2_out, [-1, self.flags.seq_len, 200])
         return decoder_cnn_output
 
     def _train_loss(self, kld_loss, rec_loss, aux_loss):
@@ -204,8 +208,7 @@ class Hybird_CVAE(object):
                                          shape=filter_shape,
                                          dtype=tf.float32,
                                          initializer=tf.random_normal_initializer(stddev=0.1))
-                conv1d_transpose = tf.nn.conv2d_transpose(input, filter, out_shape, stride, padding,
-                                                          name='conv2d_transpose')
+                conv1d_transpose = tf.nn.conv2d_transpose(input, filter, out_shape, stride, padding, name='conv2d_t')
                 res = tf.nn.relu(tf.layers.batch_normalization(conv1d_transpose, training=self.phase), name='relu')
         return res
 

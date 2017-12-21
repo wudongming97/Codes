@@ -25,12 +25,12 @@ class Hybird_CVAE(object):
     def _build_train_graph(self):
         mu, log_var = self._cnn_encoder_subgraph('cnn_encoder', self.train_input[0], reuse=False)
         self.kld_loss = self._kld_loss(mu, log_var, 'kld_loss')
-        z = self._sample_z_layer(mu, log_var,'sample_z')
+        z = self._sample_z_layer(mu, log_var, 'sample_z')
         vocab_logits = self._cnn_decoder_subgraph(z, 'cnn_decoder', reuse=False)
         self.aux_loss = self._aux_loss(vocab_logits, self.train_input[0], 'aux_loss')
         rnn_logits = self._rnn_train_layer(vocab_logits, self.train_input[1], self.train_input[2],
-                                           name='rnn_train_layer')
-        self.rec_loss = self._rec_loss(rnn_logits, self.train_input[3], 'rec_loss')
+                                           name='rnn_train')
+        self.rec_loss = self._rec_loss(rnn_logits, self.train_input[3], self.train_input[4], 'rec_loss')
         self.train_loss = self._train_loss(self.kld_loss, self.rec_loss, self.aux_loss, name='train_loss')
         self.train_op = self._train_op(self.train_loss)
 
@@ -88,19 +88,12 @@ class Hybird_CVAE(object):
 
     def _train_input_layer(self, name):
         with tf.name_scope(name):
-            encoder_input = tf.placeholder(tf.int32,
-                                           shape=[self.flags.batch_size, self.flags.seq_len],
-                                           name='encoder_input')
-            rnn_input = tf.placeholder(tf.int32,
-                                       shape=[self.flags.batch_size, self.flags.seq_len],
-                                       name='rnn_input')
-            rnn_input_lengths = tf.placeholder(tf.int32,
-                                               shape=[self.flags.batch_size],
-                                               name='rnn_input_lengths')
-            rnn_target_input = tf.placeholder(tf.int32,
-                                              shape=[self.flags.batch_size, self.flags.seq_len],
-                                              name='rnn_target_input')
-        return encoder_input, rnn_input, rnn_input_lengths, rnn_target_input
+            X = tf.placeholder(tf.int32, shape=[self.flags.batch_size, self.flags.seq_len], name='X')
+            Y_i = tf.placeholder(tf.int32, shape=[self.flags.batch_size, self.flags.seq_len], name='Y_i')
+            Y_lengths = tf.placeholder(tf.int32, shape=[self.flags.batch_size], name='Y_lengths')
+            Y_t = tf.placeholder(tf.int32, shape=[self.flags.batch_size, self.flags.seq_len], name='Y_t')
+            Y_mask = tf.placeholder(tf.int32, shape=[self.flags.batch_size, self.flags.seq_len], name='Y_mask')
+        return X, Y_i, Y_lengths, Y_t, Y_mask
 
     def _sample_input_layer(self, name):
         with tf.name_scope(name):
@@ -128,7 +121,7 @@ class Hybird_CVAE(object):
                                             name='encoder_cnn_output')
         return encoder_cnn_output
 
-    def _sample_z_layer(self, mu, log_var,  name):
+    def _sample_z_layer(self, mu, log_var, name):
         with tf.name_scope(name):
             eps = tf.truncated_normal((self.flags.batch_size, self.flags.z_size), stddev=1.0)
             z = mu + tf.exp(0.5 * log_var) * eps
@@ -163,18 +156,21 @@ class Hybird_CVAE(object):
             train_loss = kld_loss + rec_loss + aux_loss
         return train_loss
 
-    def _kld_loss(self, mu, log_var, name):
+    @staticmethod
+    def _kld_loss(mu, log_var, name):
         with tf.name_scope(name):
             kld_loss = tf.reduce_mean(-0.5 * tf.reduce_sum(log_var - tf.square(mu) - tf.exp(log_var) + 1, axis=1))
         return kld_loss
 
-    def _rec_loss(self, logits, targets, name):
+    @staticmethod
+    def _rec_loss(logits, targets, masks, name):
         with tf.name_scope(name):
             rec_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits, labels=targets)
-            rec_loss = tf.reduce_mean(tf.reduce_sum(rec_loss, axis=1))
+            rec_loss = tf.reduce_mean(tf.reduce_sum(rec_loss * tf.cast(masks, tf.float32), axis=1))
         return rec_loss
 
-    def _aux_loss(self, logits, targets, name):
+    @staticmethod
+    def _aux_loss(logits, targets, name):
         with tf.name_scope(name):
             aux_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits, labels=targets)
             aux_loss = tf.reduce_mean(tf.reduce_sum(aux_loss, axis=1))

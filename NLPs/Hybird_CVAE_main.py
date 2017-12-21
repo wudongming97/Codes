@@ -60,6 +60,7 @@ def main(_):
                                            model.train_input[1]: Y_i,
                                            model.train_input[2]: Y_lengths,
                                            model.train_input[3]: Y_t,
+                                           model.train_input[4]: Y_masks,
                                            model.phase: True
                                            })
 

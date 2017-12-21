@@ -12,7 +12,6 @@ TI = namedtuple('train_inputs', ['X', 'Y_i', 'Y_lengths', 'Y_t', 'Y_mask'])
 TL = namedtuple('train_losses', ['loss', 'rec_loss', 'kld_loss', 'aux_loss'])
 TO = namedtuple('train_ops', ['optim_op', 'train_summery_op'])
 
-
 class Hybird_CVAE(object):
     def __init__(self, flags):
         self.flags = flags
@@ -25,11 +24,11 @@ class Hybird_CVAE(object):
 
     def build_graph(self):
         tf.train.create_global_step()
-        self.losses, self.train_ops = self._build_train_graph()
+        self.losses, self.train_ops = self._train_graph()
         self._build_sample_from_normal_graph()
 
-    def _build_train_graph(self):
-        mu, log_var = self._cnn_encoder_subgraph(self.train_i.X, 'cnn_encoder', reuse=False)
+    def _train_graph(self):
+        mu, log_var = self._cnn_encoder(self.train_i.X, False)
         kld_loss = self._kld_loss(mu, log_var)
 
         z = self._sample_z_layer(mu, log_var)
@@ -54,12 +53,18 @@ class Hybird_CVAE(object):
         # next_input = tf.nn.embedding_lookup(self.embedding, next_symbol)
         None
 
-    def _cnn_encoder_subgraph(self, encoder_input, name, reuse=False):
-        with tf.variable_scope(name, reuse=reuse):
-            embedded_encoder_input = tf.nn.embedding_lookup(self.embedding, encoder_input)
-            encoder_cnn_output = self._encoder_conv_layer(embedded_encoder_input, 'encoder_layers')
-            mu = tf.layers.dense(encoder_cnn_output, name='dense_mu', units=self.flags.z_size)
-            log_var = tf.layers.dense(encoder_cnn_output, name='dense_log_var', units=self.flags.z_size)
+    def _cnn_encoder(self, input, reuse_=False):
+        with tf.name_scope('cnn_encoder'):
+            e1 = tf.nn.embedding_lookup(self.embedding, input)
+            with tf.name_scope('cnn'):
+                c1 = tf.layers.conv1d(e1, 128, 3, strides=2, padding='SAME', name='c1', reuse=reuse_)
+                bn1 = tf.nn.relu(tf.layers.batch_normalization(c1, training=self.phase, name='b1', reuse=reuse_))
+                c2 = tf.layers.conv1d(bn1, 256, 3, strides=2, padding='SAME', name='c2', reuse=reuse_)
+                bn2 = tf.nn.relu(tf.layers.batch_normalization(c2, training=self.phase, name='b2', reuse=reuse_))
+            with tf.name_scope('liner'):
+                cnn_output = tf.reshape(bn2, shape=[-1, 256 * int(self.flags.seq_len / 4)])
+                mu = tf.layers.dense(cnn_output, units=self.flags.z_size, name='dense_mu', reuse=reuse_)
+                log_var = tf.layers.dense(cnn_output, units=self.flags.z_size, name='dense_log_var', reuse=reuse_)
         return mu, log_var
 
     def _cnn_decoder_subgraph(self, z, name, reuse=False):
@@ -115,18 +120,6 @@ class Hybird_CVAE(object):
             Y_t = tf.placeholder(tf.int32, shape=[self.flags.batch_size, self.flags.seq_len], name='Y_t')
             Y_mask = tf.placeholder(tf.int32, shape=[self.flags.batch_size, self.flags.seq_len], name='Y_mask')
         return TI(X, Y_i, Y_lengths, Y_t, Y_mask)
-
-    def _encoder_conv_layer(self, input_embed, name):
-        with tf.name_scope(name):
-            cl1_output = self._encoder_conv1d_layer(input_embed, filter_shape=(3, self.flags.embed_size, 128), stride=2,
-                                                    padding='SAME', name='encoder_conv_layer_1')
-            cl2_output = self._encoder_conv1d_layer(cl1_output, filter_shape=(3, 128, 256), stride=2, padding='SAME',
-                                                    name='encoder_conv_layer_2')
-            encoder_cnn_output = tf.reshape(cl2_output,
-                                            shape=[-1,
-                                                   256 * int(self.flags.seq_len / 4)],
-                                            name='encoder_cnn_output')
-        return encoder_cnn_output
 
     def _sample_z_layer(self, mu, log_var):
         with tf.name_scope('sample_z_layer'):
@@ -188,18 +181,6 @@ class Hybird_CVAE(object):
             aux_loss = tf.nn.sparse_softmax_cross_entropy_with_logits(logits=logits, labels=targets)
             aux_loss = tf.reduce_mean(tf.reduce_sum(aux_loss, axis=1))
         return aux_loss
-
-    def _encoder_conv1d_layer(self, input, filter_shape, stride, padding, name):
-        with tf.name_scope(name):
-            with tf.variable_scope(name):
-                filter = tf.get_variable(name='filter',
-                                         shape=filter_shape,
-                                         dtype=tf.float32,
-                                         initializer=tf.random_normal_initializer(stddev=0.1))
-
-                conv1d = tf.nn.conv1d(input, filter, stride, padding, name='conv1d')
-                res = tf.nn.relu(tf.layers.batch_normalization(conv1d, training=self.phase), name='relu')
-        return res
 
     def _decoder_conv2d_transpose_layer(self, input, filter_shape, out_shape, stride, padding, name):
         with tf.name_scope(name):

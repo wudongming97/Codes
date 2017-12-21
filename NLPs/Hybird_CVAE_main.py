@@ -15,7 +15,7 @@ flags.DEFINE_integer('batch_size', 32, '')
 flags.DEFINE_integer('lr', 0.001, 'learning rate')
 flags.DEFINE_integer('z_size', 32, '')
 flags.DEFINE_integer('seq_len', 60, '')
-flags.DEFINE_integer('aux_loss_alpha', 10, '')
+flags.DEFINE_float('alpha', 0.2, '')
 flags.DEFINE_string('model_name', 'Hybird_CVAE', '')
 flags.DEFINE_string('ckpt_path', './results/Hybird_CVAE/ckpt/', '')
 flags.DEFINE_string('logs_path', './results/Hybird_CVAE/log/', '')
@@ -23,6 +23,8 @@ flags.DEFINE_string('logs_path', './results/Hybird_CVAE/log/', '')
 # encoder
 flags.DEFINE_integer('embed_size', 80, '')
 flags.DEFINE_integer('vocab_size', data_loader_c.vocab_size, '')
+flags.DEFINE_integer('kld_anneal_start', 1000 * 8, '')
+flags.DEFINE_integer('kld_anneal_end', 1000 * 13, '')
 
 #  decoder
 flags.DEFINE_integer('rnn_hidden_size', 512, '')

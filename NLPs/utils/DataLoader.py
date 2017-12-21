@@ -104,23 +104,28 @@ class DataLoader:
         X, X_lengths, _ = self._pad(sorted_tensor)
         Y_i, _, Y_masks = self._pad([[self.vocab.idx[G_TOKEN]] + line for line in sorted_tensor])
         Y_t, _, _ = self._pad([line + [self.vocab.idx[E_TOKEN]] for line in sorted_tensor])
-
         return X, X_lengths, Y_i, Y_masks, Y_t
+
+    def unpack_for_hybird_cvae(self, batch_tensor, seq_len):
+        sorted_tensor = sorted(batch_tensor, key=len, reverse=True)
+        _input, _lengths, _ = self._pad([[self.vocab.idx[G_TOKEN]] + line for line in sorted_tensor], seq_len)
+        Y_t, _, Y_mask = self._pad([line + [self.vocab.idx[E_TOKEN]] for line in sorted_tensor], seq_len)
+        return _input, _input, _lengths, Y_t, Y_mask
 
     def g_input(self, batch_size):
         g_input_ = [[self.vocab.idx[G_TOKEN]] for _ in range(batch_size)]
         return g_input_
 
-    def _pad(self, inputs):
+    def _pad(self, inputs, pad_max_len=None):
         seqs_len = [len(s) for s in inputs]
-        max_len_ = max(seqs_len)
+        seq_max_len_ = max(seqs_len)
+        if (pad_max_len is not None) and (pad_max_len < seq_max_len_):
+            raise ValueError('seq_max_len({}) > pad_max_len({})'.format(seq_max_len_, pad_max_len))
+        pad_max_len_ = seq_max_len_ if pad_max_len is None else pad_max_len
+
         padded, mask = [], []
         for s in inputs:
             len_ = len(s)
-            padded.append(s + [self.vocab.idx[P_TOKEN]] * (max_len_ - len_))
-            mask.append([1] * len_ + [0] * (max_len_ - len_))
+            padded.append(s + [self.vocab.idx[P_TOKEN]] * (pad_max_len_ - len_))
+            mask.append([1] * len_ + [0] * (pad_max_len_ - len_))
         return padded, seqs_len, mask
-
-
-ptb_data_w = DataLoader(Vocab('ptb', Level.WORD))
-ptb_data_c = DataLoader(Vocab('ptb', Level.CHAR))

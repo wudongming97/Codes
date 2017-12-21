@@ -1,5 +1,5 @@
 from models.CVAE import CVAE, USE_GPU
-from utils.DataLoader import ptb_data_w
+from utils.DataLoader import DataLoader, Vocab, Level
 
 
 # ========================================================================
@@ -40,6 +40,8 @@ class word_level_params:
 
 
 if __name__ == '__main__':
+
+    ptb_data_w = DataLoader(Vocab('ptb', Level.WORD))
 
     level = word_level_params()
     level.params['vocab_size'] = ptb_data_w.vocab.vocab_size

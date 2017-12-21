@@ -32,7 +32,7 @@ class Hybird_CVAE(object):
         kld_loss = self._kld_loss(mu, log_var)
 
         z = self._sample_z_layer(mu, log_var)
-        vocab_logits = self._cnn_decoder_subgraph(z, 'cnn_decoder', reuse=False)
+        vocab_logits = self._cnn_decoder(z, reuse=False)
         aux_loss = self._aux_loss(vocab_logits, self.train_i.X)
 
         rnn_logits = self._rnn_train_layer(vocab_logits, self.train_i.Y_i, self.train_i.Y_lengths)
@@ -45,7 +45,7 @@ class Hybird_CVAE(object):
         return TL(loss, rec_loss, kld_loss, aux_loss), TO(optim_op, train_summery_op)
 
     def _build_sample_from_normal_graph(self):
-        vocab_logits = self._cnn_decoder_subgraph(self.normal_z, 'cnn_decoder', reuse=True)
+        vocab_logits = self._cnn_decoder(self.normal_z, reuse=True)
         #self._rnn_infer_layer(vocab_logits)
         # aux_loss, logits = self._cnn_decoder_subgraph('forward_z_subgraph', self.sample_input, reuse=True)
         # todo
@@ -67,8 +67,8 @@ class Hybird_CVAE(object):
                 log_var = tf.layers.dense(cnn_output, units=self.flags.z_size, name='dense_log_var', reuse=reuse_)
         return mu, log_var
 
-    def _cnn_decoder_subgraph(self, z, name, reuse=False):
-        with tf.variable_scope(name, reuse=reuse):
+    def _cnn_decoder(self, z, reuse=False):
+        with tf.name_scope('cnn_decoder'):
             dconv_in = tf.layers.dense(z, 256 * int(self.flags.seq_len / 4), name='dense_dconv_input')
             dconv_out = self._decoder_dconv_layer(dconv_in, name='decoder_dconv_layer')
             vocab_logits = tf.layers.dense(dconv_out, self.flags.vocab_size, name='dc2vocab')

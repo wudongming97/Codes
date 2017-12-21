@@ -8,52 +8,51 @@ import tensorflow as tf
 
 import utils.Utils as U
 
-# GraphKeys 官方的都是大写命名，小写的命名不会冲突
-TRAIN_INPUT_NAME = 'train_inputs_'
-EMBEDDING_NAME = 'embedding_'
-RNN_CELL_NAME = 'rnn_cell_'
-PHASE_NAME = 'phase_'
+TI = namedtuple('train_inputs', ['X', 'Y_i', 'Y_lengths', 'Y_t', 'Y_mask'])
+TL = namedtuple('train_losses', ['loss', 'rec_loss', 'kld_loss', 'aux_loss'])
+TO = namedtuple('train_ops', ['optim_op', 'train_summery_op'])
 
 
 class Hybird_CVAE(object):
     def __init__(self, flags):
         self.flags = flags
+        self.phase = tf.placeholder(dtype=tf.bool, name='phase')
+        self.embedding = self._embedding_layer_init()
+        self.rnn_cell = self._decoder_rnn_cell_init()
+        self.train_i = self._train_input_layer_init()
         self.build_graph()
 
     def build_graph(self):
-        self._init_once()
-        self._build_train_graph()
-
-    def _init_once(self):
         tf.train.create_global_step()
-        self._train_input_layer_init()
-        self._embedding_layer_init()
-        self._decoder_rnn_cell_init()
-        tf.add_to_collection(PHASE_NAME, tf.placeholder(dtype=tf.bool, name='phase'))
+        self.losses, self.train_ops = self._build_train_graph()
 
     def _build_train_graph(self):
-        inputs_ = self._get_train_inputs()
+        mu, log_var = self._cnn_encoder_subgraph('cnn_encoder', self.train_i.X, reuse=False)
+        kld_loss = self._kld_loss(mu, log_var, 'kld_loss')
 
-        mu, log_var = self._cnn_encoder_subgraph('cnn_encoder', inputs_.X, reuse=False)
-        self.kld_loss = self._kld_loss(mu, log_var, 'kld_loss')
         z = self._sample_z_layer(mu, log_var, 'sample_z')
         vocab_logits = self._cnn_decoder_subgraph(z, 'cnn_decoder', reuse=False)
-        self.aux_loss = self._aux_loss(vocab_logits, inputs_.X, 'aux_loss')
-        rnn_logits = self._rnn_train_layer(vocab_logits, inputs_.Y_i, inputs_.Y_lengths, name='rnn_train')
-        self.rec_loss = self._rec_loss(rnn_logits, inputs_.Y_t, inputs_.Y_mask, 'rec_loss')
-        self.train_loss = self._train_loss(self.kld_loss, self.rec_loss, self.aux_loss, name='train_loss')
-        self.train_op = self._train_op(self.train_loss)
-        self.summary_op = tf.summary.merge_all()
+        aux_loss = self._aux_loss(vocab_logits, self.train_i.X, 'aux_loss')
+
+        rnn_logits = self._rnn_train_layer(vocab_logits, self.train_i.Y_i, self.train_i.Y_lengths, name='rnn_train')
+        rec_loss = self._rec_loss(rnn_logits, self.train_i.Y_t, self.train_i.Y_mask, 'rec_loss')
+        loss = self._train_loss(kld_loss, rec_loss, aux_loss, name='train_loss')
+
+        optim_op = self._train_op(loss)
+        train_summery_op = tf.summary.merge_all()
+
+        return TL(loss, rec_loss, kld_loss, aux_loss), TO(optim_op, train_summery_op)
 
     def _build_sample_graph(self):
-        aux_loss, logits = self._cnn_decoder_subgraph('forward_z_subgraph', self.sample_input, reuse=True)
+        # aux_loss, logits = self._cnn_decoder_subgraph('forward_z_subgraph', self.sample_input, reuse=True)
         # todo
         # next_symbol = tf.stop_gradient(tf.argmax(logits, 1))
         # next_input = tf.nn.embedding_lookup(self.embedding, next_symbol)
+        None
 
     def _cnn_encoder_subgraph(self, name, encoder_input, reuse=False):
         with tf.variable_scope(name, reuse=reuse):
-            embedded_encoder_input = tf.nn.embedding_lookup(self._get_embedding(), encoder_input)
+            embedded_encoder_input = tf.nn.embedding_lookup(self.embedding, encoder_input)
             encoder_cnn_output = self._encoder_conv_layer(embedded_encoder_input, 'encoder_layers')
             mu = tf.layers.dense(encoder_cnn_output, name='dense_mu', units=self.flags.z_size)
             log_var = tf.layers.dense(encoder_cnn_output, name='dense_log_var', units=self.flags.z_size)
@@ -69,10 +68,10 @@ class Hybird_CVAE(object):
 
     def _rnn_train_layer(self, vocab_logits, inputs, lengths, name):
         with tf.name_scope(name=name):
-            embed_word_inputs = tf.nn.embedding_lookup(self._get_embedding(), inputs)
+            embed_word_inputs = tf.nn.embedding_lookup(self.embedding, inputs)
             rnn_cated_inputs = tf.concat([embed_word_inputs, vocab_logits], axis=-1)
             rnn_hidden_input = tf.layers.dense(rnn_cated_inputs, self.flags.rnn_hidden_size, name='rnn_input')
-            rnn_hidden_output, _ = tf.nn.dynamic_rnn(self._get_rnn_cell(), rnn_hidden_input, lengths, dtype=tf.float32)
+            rnn_hidden_output, _ = tf.nn.dynamic_rnn(self.rnn_cell, rnn_hidden_input, lengths, dtype=tf.float32)
             rnn_logits = tf.layers.dense(rnn_hidden_output, self.flags.vocab_size, name='rnn_output')
         return rnn_logits
 
@@ -95,28 +94,16 @@ class Hybird_CVAE(object):
                                             shape=[self.flags.vocab_size, self.flags.embed_size],
                                             dtype=tf.float32,
                                             initializer=tf.random_normal_initializer(stddev=0.1))
-        tf.add_to_collection(EMBEDDING_NAME, embedding)
-
-    def _get_embedding(self):
-        return tf.get_collection(EMBEDDING_NAME)[0]
+        return embedding
 
     def _train_input_layer_init(self):
         with tf.name_scope('TrainInputs'):
-            tf.add_to_collection(TRAIN_INPUT_NAME,
-                                 tf.placeholder(tf.int32, shape=[self.flags.batch_size, self.flags.seq_len], name='X'))
-            tf.add_to_collection(TRAIN_INPUT_NAME,
-                                 tf.placeholder(tf.int32, shape=[self.flags.batch_size, self.flags.seq_len], name='Y_i'))
-            tf.add_to_collection(TRAIN_INPUT_NAME,
-                                 tf.placeholder(tf.int32, shape=[self.flags.batch_size], name='Y_lengths'))
-            tf.add_to_collection(TRAIN_INPUT_NAME,
-                                 tf.placeholder(tf.int32, shape=[self.flags.batch_size, self.flags.seq_len], name='Y_t'))
-            tf.add_to_collection(TRAIN_INPUT_NAME,
-                                 tf.placeholder(tf.int32, shape=[self.flags.batch_size, self.flags.seq_len], name='Y_mask'))
-
-    def _get_train_inputs(self):
-        input_ = tf.get_collection(TRAIN_INPUT_NAME)
-        TrainInputs = namedtuple('TrainInputs', ['X', 'Y_i', 'Y_lengths', 'Y_t', 'Y_mask'])
-        return TrainInputs(input_[0], input_[1], input_[2], input_[3], input_[4])
+            X = tf.placeholder(tf.int32, shape=[self.flags.batch_size, self.flags.seq_len], name='X')
+            Y_i = tf.placeholder(tf.int32, shape=[self.flags.batch_size, self.flags.seq_len], name='Y_i')
+            Y_lengths = tf.placeholder(tf.int32, shape=[self.flags.batch_size], name='Y_lengths')
+            Y_t = tf.placeholder(tf.int32, shape=[self.flags.batch_size, self.flags.seq_len], name='Y_t')
+            Y_mask = tf.placeholder(tf.int32, shape=[self.flags.batch_size, self.flags.seq_len], name='Y_mask')
+        return TI(X, Y_i, Y_lengths, Y_t, Y_mask)
 
     def _sample_input_layer(self, name):
         with tf.name_scope(name):
@@ -205,7 +192,7 @@ class Hybird_CVAE(object):
                                          initializer=tf.random_normal_initializer(stddev=0.1))
 
                 conv1d = tf.nn.conv1d(input, filter, stride, padding, name='conv1d')
-                res = tf.nn.relu(tf.layers.batch_normalization(conv1d, training=self._get_phase()), name='relu')
+                res = tf.nn.relu(tf.layers.batch_normalization(conv1d, training=self.phase), name='relu')
         return res
 
     def _decoder_conv2d_transpose_layer(self, name, input, filter_shape, out_shape, stride, padding='SAME'):
@@ -217,7 +204,7 @@ class Hybird_CVAE(object):
                                          initializer=tf.random_normal_initializer(stddev=0.1))
                 conv1d_transpose = tf.nn.conv2d_transpose(input, filter, out_shape, stride, padding,
                                                           name='conv2d_transpose')
-                res = tf.nn.relu(tf.layers.batch_normalization(conv1d_transpose, training=self._get_phase()), name='relu')
+                res = tf.nn.relu(tf.layers.batch_normalization(conv1d_transpose, training=self.phase), name='relu')
         return res
 
     def _decoder_rnn_cell_init(self):
@@ -225,13 +212,7 @@ class Hybird_CVAE(object):
             cell = tf.nn.rnn_cell.BasicLSTMCell(self.flags.rnn_hidden_size, reuse=False)
             cell = tf.nn.rnn_cell.DropoutWrapper(cell, input_keep_prob=0.8, output_keep_prob=0.8)
             cell = tf.nn.rnn_cell.MultiRNNCell([cell] * 2)
-        tf.add_to_collection(RNN_CELL_NAME, cell)
-
-    def _get_rnn_cell(self):
-        return tf.get_collection(RNN_CELL_NAME)[0]
-
-    def _get_phase(self):
-        return tf.get_collection(PHASE_NAME)[0]
+        return cell
 
     def train_is_ok(self, sess):
         return sess.run(tf.train.get_global_step()) >= self.flags.global_steps
@@ -239,15 +220,14 @@ class Hybird_CVAE(object):
     def fit(self, sess, data_loader, _writer, _saver):
         for data in data_loader.next_batch(self.flags.batch_size, train=True):
             X, Y_i, Y_lengths, Y_t, Y_masks = data_loader.unpack_for_hybird_cvae(data, self.flags.seq_len)
-            input_ = self._get_train_inputs()
 
-            _, loss_, summery_ = sess.run([self.train_op, self.train_loss, self.summary_op],
-                                          {input_.X: X,
-                                           input_.Y_i: Y_i,
-                                           input_.Y_lengths: Y_lengths,
-                                           input_.Y_t: Y_t,
-                                           input_.Y_mask: Y_masks,
-                                           self._get_phase(): True
+            _, loss_, summery_ = sess.run([self.train_ops.optim_op, self.losses.loss, self.train_ops.train_summery_op],
+                                          {self.train_i.X: X,
+                                           self.train_i.Y_i: Y_i,
+                                           self.train_i.Y_lengths: Y_lengths,
+                                           self.train_i.Y_t: Y_t,
+                                           self.train_i.Y_mask: Y_masks,
+                                           self.phase: True
                                            })
             step_ = sess.run(tf.train.get_global_step())
             _writer.add_summary(summery_, step_)  # tf.train.get_global_step())
@@ -266,4 +246,7 @@ class Hybird_CVAE(object):
                 break
 
     def infer(self):
+        None
+
+    def eval(self):
         None

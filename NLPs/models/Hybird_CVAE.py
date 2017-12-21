@@ -17,9 +17,9 @@ class Hybird_CVAE(object):
         self.flags = flags
         self.phase = tf.placeholder(dtype=tf.bool, name='phase')
         self.normal_z = tf.placeholder(dtype=tf.float32, shape=[1, self.flags.z_size], name='normal_z')
-        self.embedding = self._embedding_layer_init()
+        self.embedding = self._embedding_init()
         self.rnn_cell = self._decoder_rnn_cell_init()
-        self.train_i = self._train_input_layer_init()
+        self.train_i = self._train_input()
         self.build_graph()
 
     def build_graph(self):
@@ -31,11 +31,11 @@ class Hybird_CVAE(object):
         mu, log_var = self._cnn_encoder(self.train_i.X, False)
         kld_loss = self._kld_loss(mu, log_var)
 
-        z = self._sample_z_layer(mu, log_var)
+        z = self._sample_z(mu, log_var)
         vocab_logits = self._cnn_decoder(z, reuse=False)
         aux_loss = self._aux_loss(vocab_logits, self.train_i.X)
 
-        rnn_logits = self._rnn_train_layer(vocab_logits, self.train_i.Y_i, self.train_i.Y_lengths)
+        rnn_logits = self._rnn_train(vocab_logits, self.train_i.Y_i, self.train_i.Y_lengths)
         rec_loss = self._rec_loss(rnn_logits, self.train_i.Y_t, self.train_i.Y_mask)
         loss = self._train_loss(kld_loss, rec_loss, aux_loss)
 
@@ -75,7 +75,7 @@ class Hybird_CVAE(object):
 
         return vocab_logits
 
-    def _rnn_train_layer(self, vocab_logits, inputs, lengths):
+    def _rnn_train(self, vocab_logits, inputs, lengths):
         with tf.name_scope('rnn_train_layer'):
             embed_word_inputs = tf.nn.embedding_lookup(self.embedding, inputs)
             rnn_cated_inputs = tf.concat([embed_word_inputs, vocab_logits], axis=-1)
@@ -103,7 +103,7 @@ class Hybird_CVAE(object):
                                                      global_step=tf.train.get_global_step())
         return train_op
 
-    def _embedding_layer_init(self):
+    def _embedding_init(self):
         with tf.name_scope('embedding'):
             with tf.variable_scope('embedding', reuse=False):
                 embedding = tf.get_variable(name='embedding',
@@ -112,8 +112,8 @@ class Hybird_CVAE(object):
                                             initializer=tf.random_normal_initializer(stddev=0.1))
         return embedding
 
-    def _train_input_layer_init(self):
-        with tf.name_scope('TrainInputs'):
+    def _train_input(self):
+        with tf.name_scope('train_inputs'):
             X = tf.placeholder(tf.int32, shape=[self.flags.batch_size, self.flags.seq_len], name='X')
             Y_i = tf.placeholder(tf.int32, shape=[self.flags.batch_size, self.flags.seq_len], name='Y_i')
             Y_lengths = tf.placeholder(tf.int32, shape=[self.flags.batch_size], name='Y_lengths')
@@ -121,8 +121,8 @@ class Hybird_CVAE(object):
             Y_mask = tf.placeholder(tf.int32, shape=[self.flags.batch_size, self.flags.seq_len], name='Y_mask')
         return TI(X, Y_i, Y_lengths, Y_t, Y_mask)
 
-    def _sample_z_layer(self, mu, log_var):
-        with tf.name_scope('sample_z_layer'):
+    def _sample_z(self, mu, log_var):
+        with tf.name_scope('sample_z'):
             eps = tf.truncated_normal((self.flags.batch_size, self.flags.z_size), stddev=1.0)
             z = mu + tf.exp(0.5 * log_var) * eps
 

@@ -18,7 +18,7 @@ flags.DEFINE_integer('seq_len', 60, '')
 flags.DEFINE_integer('aux_loss_alpha', 10, '')
 flags.DEFINE_string('model_name', 'Hybird_CVAE', '')
 flags.DEFINE_string('ckpt_path', './results/Hybird_CVAE/ckpt/', '')
-flags.DEFINE_string('log_path', './results/Hybird_CVAE/log/', '')
+flags.DEFINE_string('logs_path', './results/Hybird_CVAE/log/', '')
 
 # encoder
 flags.DEFINE_integer('embed_size', 80, '')
@@ -48,10 +48,19 @@ def main(_):
                                pad_step_number=True)
 
     with tf.Session(graph=graph, config=sess_conf) as sess:
-        summery_writer = tf.summary.FileWriter(FLAGS.log_path, sess.graph)
+        summery_writer = tf.summary.FileWriter(FLAGS.logs_path, sess.graph)
         sess.run(tf.global_variables_initializer())
-        saver.save(sess, FLAGS.ckpt_path, tf.train.get_global_step())
-        model.fit(sess, data_loader_c, summery_writer, saver)
+
+        tf.train.export_meta_graph(FLAGS.ckpt_path + FLAGS.model_name + '.meta')
+        ckpt = tf.train.get_checkpoint_state(FLAGS.ckpt_path)
+        if ckpt and ckpt.model_checkpoint_path:
+            saver.restore(sess, ckpt.model_checkpoint_path)
+
+        if model.train_is_ok(sess):
+            model.infer()
+        else:
+            model.fit(sess, data_loader_c, summery_writer, saver)
+
 
 if __name__ == "__main__":
     tf.app.run()

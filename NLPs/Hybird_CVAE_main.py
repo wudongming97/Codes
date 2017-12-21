@@ -57,8 +57,10 @@ def main(_):
             saver.restore(sess, ckpt.model_checkpoint_path)
 
         if model.train_is_ok(sess):
+            print('begin infer ...')
             model.infer()
         else:
+            print('begin fit ...')
             model.fit(sess, data_loader_c, summery_writer, saver)
 
 

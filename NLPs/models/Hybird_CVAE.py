@@ -151,6 +151,17 @@ class Hybird_CVAE(object):
             decoder_cnn_output = tf.reshape(dct2_out, [-1, self.flags.seq_len, 200])
         return decoder_cnn_output
 
+    def _decoder_conv2d_transpose_layer(self, input, filter_shape, out_shape, stride, padding, name):
+        with tf.name_scope(name):
+            with tf.variable_scope(name):
+                filter = tf.get_variable(name='filter',
+                                         shape=filter_shape,
+                                         dtype=tf.float32,
+                                         initializer=tf.random_normal_initializer(stddev=0.1))
+                conv1d_transpose = tf.nn.conv2d_transpose(input, filter, out_shape, stride, padding, name='conv2d_t')
+                res = tf.nn.relu(tf.layers.batch_normalization(conv1d_transpose, training=self.phase), name='relu')
+        return res
+
     def _train_loss(self, kld_loss, rec_loss, aux_loss):
         with tf.name_scope('loss'):
             train_loss = rec_loss + self.flags.alpha * aux_loss + self._kld_coef() * kld_loss
@@ -182,16 +193,6 @@ class Hybird_CVAE(object):
             aux_loss = tf.reduce_mean(tf.reduce_sum(aux_loss, axis=1))
         return aux_loss
 
-    def _decoder_conv2d_transpose_layer(self, input, filter_shape, out_shape, stride, padding, name):
-        with tf.name_scope(name):
-            with tf.variable_scope(name):
-                filter = tf.get_variable(name='filter',
-                                         shape=filter_shape,
-                                         dtype=tf.float32,
-                                         initializer=tf.random_normal_initializer(stddev=0.1))
-                conv1d_transpose = tf.nn.conv2d_transpose(input, filter, out_shape, stride, padding, name='conv2d_t')
-                res = tf.nn.relu(tf.layers.batch_normalization(conv1d_transpose, training=self.phase), name='relu')
-        return res
 
     def _decoder_rnn_cell_init(self):
         with tf.name_scope('decoder_rnn_cell'):
@@ -235,5 +236,5 @@ class Hybird_CVAE(object):
     def infer(self):
         None
 
-    def eval(self):
+    def valid(self):
         None

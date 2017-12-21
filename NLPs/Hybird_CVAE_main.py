@@ -44,7 +44,7 @@ def main(_):
     with graph.as_default():
         model = Hybird_CVAE(FLAGS)
         saver = tf.train.Saver(max_to_keep=5,
-                               keep_checkpoint_every_n_hours=2,
+                               keep_checkpoint_every_n_hours=1,
                                pad_step_number=True)
 
     with tf.Session(graph=graph, config=sess_conf) as sess:
@@ -54,14 +54,15 @@ def main(_):
 
         for data in data_loader_c.next_batch(FLAGS.batch_size, train=True):
             X, Y_i, Y_lengths, Y_t, Y_masks = data_loader_c.unpack_for_hybird_cvae(data, FLAGS.seq_len)
+            input_ = model._get_train_inputs()
 
             _, loss_, summery_ = sess.run([model.train_op, model.train_loss, model.summary_op],
-                                          {model.train_input[0]: X,
-                                           model.train_input[1]: Y_i,
-                                           model.train_input[2]: Y_lengths,
-                                           model.train_input[3]: Y_t,
-                                           model.train_input[4]: Y_masks,
-                                           model.phase: True
+                                          {input_.X: X,
+                                           input_.Y_i: Y_i,
+                                           input_.Y_lengths: Y_lengths,
+                                           input_.Y_t: Y_t,
+                                           input_.Y_mask: Y_masks,
+                                           model._get_phase(): True
                                            })
 
             step_ = sess.run(tf.train.get_global_step())

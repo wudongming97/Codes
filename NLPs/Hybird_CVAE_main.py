@@ -62,8 +62,10 @@ def main(_):
             print('begin infer ...')
             model.infer()
         else:
-            print('begin fit ...')
+            print('\nbegin fit ...')
             model.fit(sess, data_loader_c, summery_writer, saver)
+            print('\nbegin valid ...')
+            model.valid(sess, data_loader_c)
 
 
 if __name__ == "__main__":

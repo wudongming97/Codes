@@ -25,7 +25,7 @@ class Hybird_CVAE(object):
 
     def build_graph(self):
         tf.train.create_global_step()
-        self.losses, self.train_ops = self._train_graph()
+        self.losses, (self.train_op, self.train_summery_op) = self._train_graph()
         self._build_sample_from_normal_graph()
 
     def _train_graph(self):
@@ -192,21 +192,21 @@ class Hybird_CVAE(object):
     def fit(self, sess, data_loader, _writer, _saver):
         for data in data_loader.next_batch(self.flags.batch_size, train=True):
             X, Y_i, Y_lengths, Y_t, Y_masks = data_loader.unpack_for_hybird_cvae(data, self.flags.seq_len)
-
-            _, summery_, loss_, rec_loss_, kld_loss_, aux_loss_ = sess.run(list(self.train_ops) + list(self.losses),
-                                                                           {self.train_i.X: X,
-                                                                            self.train_i.Y_i: Y_i,
-                                                                            self.train_i.Y_lengths: Y_lengths,
-                                                                            self.train_i.Y_t: Y_t,
-                                                                            self.train_i.Y_mask: Y_masks,
-                                                                            self.phase: True
-                                                                            })
+            _, summery_, loss_, rec_loss_, kld_loss_, aux_loss_ = sess.run(
+                                                            [self.train_op, self.train_summery_op] + list(self.losses),
+                                                            {self.train_i.X: X,
+                                                             self.train_i.Y_i: Y_i,
+                                                             self.train_i.Y_lengths: Y_lengths,
+                                                             self.train_i.Y_t: Y_t,
+                                                             self.train_i.Y_mask: Y_masks,
+                                                             self.phase: True
+                                                             })
             step_ = sess.run(tf.train.get_global_step())
             _writer.add_summary(summery_, step_)  # tf.train.get_global_step())
 
             if step_ % 20 == 0:
                 epoch_ = U.step_to_epoch(step_, data_loader.num_line, self.flags.batch_size)
-                print("Epoch %d | step %d/%d | train_loss: %.3f | rec_loss %.3f | kld_loss %3f | aux_loss %3f |" % (
+                print("TRAIN: | Epoch %d | step %d/%d | train_loss: %.3f | rec_loss %.3f | kld_loss %3f | aux_loss %3f |" % (
                     epoch_, step_, self.flags.global_steps, loss_, rec_loss_, kld_loss_, aux_loss_))
 
             if step_ % 1000 == 0:
@@ -218,8 +218,21 @@ class Hybird_CVAE(object):
                 print('train is end ...')
                 break
 
-    def infer(self):
-        None
+    def valid(self, sess, data_loader):
+        for batch_idx, data in enumerate(data_loader.next_batch(self.flags.batch_size, train=False)):
+            X, Y_i, Y_lengths, Y_t, Y_masks = data_loader.unpack_for_hybird_cvae(data, self.flags.seq_len)
+            loss_, rec_loss_, kld_loss_, aux_loss_ = sess.run(list(self.losses),
+                                                              {self.train_i.X: X,
+                                                               self.train_i.Y_i: Y_i,
+                                                               self.train_i.Y_lengths: Y_lengths,
+                                                               self.train_i.Y_t: Y_t,
+                                                               self.train_i.Y_mask: Y_masks,
+                                                               self.phase: False
+                                                               })
+            print("VALID: | batch_idx %d | train_loss: %.3f | rec_loss %.3f | kld_loss %3f | aux_loss %3f |" % (
+                batch_idx, loss_, rec_loss_, kld_loss_, aux_loss_))
+            if batch_idx >= 10:
+                break
 
-    def valid(self):
+    def infer(self):
         None

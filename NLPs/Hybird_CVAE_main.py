@@ -10,7 +10,7 @@ flags = tf.app.flags
 data_loader_c = D.DataLoader(D.Vocab('hybird_cvae', D.Level.CHAR))
 
 # hybird_cvae config
-flags.DEFINE_integer('global_steps', U.epoch_to_step(15, data_loader_c.num_line, batch_size=32), '')
+flags.DEFINE_integer('global_steps', U.epoch_to_step(20, data_loader_c.num_line, batch_size=32), '')
 flags.DEFINE_integer('batch_size', 32, '')
 flags.DEFINE_integer('lr', 0.001, 'learning rate')
 flags.DEFINE_integer('z_size', 32, '')
@@ -21,10 +21,11 @@ flags.DEFINE_string('ckpt_path', './results/Hybird_CVAE/ckpt/', '')
 flags.DEFINE_string('logs_path', './results/Hybird_CVAE/log/', '')
 
 # encoder
+flags.DEFINE_integer('rnn_num', 2, '')
 flags.DEFINE_integer('embed_size', 80, '')
 flags.DEFINE_integer('vocab_size', data_loader_c.vocab_size, '')
-flags.DEFINE_integer('kld_anneal_start', 1000 * 8, '')
-flags.DEFINE_integer('kld_anneal_end', 1000 * 13, '')
+flags.DEFINE_integer('kld_anneal_start', 1000 * 6, '')
+flags.DEFINE_integer('kld_anneal_end', 1000 * 18, '')
 
 #  decoder
 flags.DEFINE_integer('rnn_hidden_size', 512, '')
@@ -59,11 +60,14 @@ def main(_):
             saver.restore(sess, ckpt.model_checkpoint_path)
 
         if model.train_is_ok(sess):
-            print('begin infer ...')
-            model.infer()
+            print('\nbegin infer ...')
+            for ix in range(100):
+                sentence = model.infer(sess, data_loader_c)
+                print("{}. {}".format(ix, sentence))
         else:
             print('\nbegin fit ...')
             model.fit(sess, data_loader_c, summery_writer, saver)
+
             print('\nbegin valid ...')
             model.valid(sess, data_loader_c)
 

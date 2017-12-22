@@ -4,6 +4,7 @@ from __future__ import print_function
 
 from collections import namedtuple
 
+import numpy as np
 import tensorflow as tf
 
 import utils.Utils as U
@@ -20,13 +21,17 @@ class Hybird_CVAE(object):
         self.normal_z = tf.placeholder(dtype=tf.float32, shape=[1, self.flags.z_size], name='normal_z')
         self.embedding = self._embedding_init()
         self.rnn_cell = self._rnn_cell()
+        self.init_states = self.rnn_cell.zero_state(1, tf.float32)
         self.train_i = self._train_input()
+        self.go = tf.constant(1, shape=[1], dtype=tf.int32)
         self.build_graph()
 
     def build_graph(self):
         tf.train.create_global_step()
         self.losses, (self.train_op, self.train_summery_op) = self._train_graph()
-        self._build_sample_from_normal_graph()
+        t1_ = len(tf.global_variables())
+        self.preds = self._infer_graph()
+        assert t1_ == len(tf.global_variables())
 
     def _train_graph(self):
         mu, log_var = self._cnn_encoder(self.train_i.X, False)
@@ -45,9 +50,10 @@ class Hybird_CVAE(object):
 
         return TL(loss, rec_loss, kld_loss, aux_loss), TO(optim_op, train_summery_op)
 
-    def _build_sample_from_normal_graph(self):
+    def _infer_graph(self):
         vocab_logits = self._cnn_decoder(self.normal_z, ru=True)
-        None
+        preds = self._rnn_decoder(vocab_logits, self.go, None, 'infer')
+        return preds
 
     def _cnn_encoder(self, input, ru=False):
         with tf.variable_scope('cnn_encoder', reuse=ru):
@@ -68,16 +74,14 @@ class Hybird_CVAE(object):
     def _cnn_decoder(self, z, ru=False):
         with tf.variable_scope('cnn_decoder', reuse=ru):
             bz = z.get_shape().as_list()[0]
-            with tf.variable_scope('d_z'):
-                in_ = tf.layers.dense(z, 256 * int(self.flags.seq_len / 4), name='dz')
-                dc_input_ = tf.reshape(in_, [bz, 1, int(self.flags.seq_len / 4), 256])
             with tf.variable_scope('d_conv_1'):
+                in_ = tf.layers.dense(z, 256 * int(self.flags.seq_len / 4))
+                dc_input_ = tf.reshape(in_, [bz, 1, int(self.flags.seq_len / 4), 256])
                 conv2d_t1 = tf.layers.conv2d_transpose(dc_input_, 128, [1, 3], [1, 2], 'SAME')
                 bn1 = tf.nn.relu(tf.layers.batch_normalization(conv2d_t1, training=self.phase))
             with tf.variable_scope('d_conv_2'):
                 conv2d_t2 = tf.layers.conv2d_transpose(bn1, self.flags.embed_size, [1, 3], [1, 2], 'SAME')
                 bn2 = tf.nn.relu(tf.layers.batch_normalization(conv2d_t2, training=self.phase))
-            with tf.variable_scope('d_embed'):
                 dc_output_ = tf.reshape(bn2, [bz, self.flags.seq_len, -1])
                 logits = tf.layers.dense(dc_output_, self.flags.vocab_size)
         return logits
@@ -86,12 +90,9 @@ class Hybird_CVAE(object):
         if target == 'train':  # must run first
             with tf.variable_scope('rnn_decoder'):
                 return self._rnn_train(vocab_logits, inputs, lengths, 'rnn_train')
-        elif target == 'valid':
-            with tf.variable_scope('rnn_decoder', reuse=True):
-                return self._rnn_train(vocab_logits, inputs, lengths, 'rnn_valid')
         elif target == 'infer':
             with tf.variable_scope('rnn_decoder', reuse=True):
-                return self._rnn_infer(vocab_logits, inputs, lengths, 'rnn_infer')
+                return self._rnn_infer(vocab_logits, inputs, 'rnn_infer')
         else:
             raise ValueError('target is unknown: {}'.format(target))
 
@@ -99,17 +100,27 @@ class Hybird_CVAE(object):
         with tf.name_scope(name):
             embed_inputs = tf.nn.embedding_lookup(self.embedding, inputs)
             cated_inputs = tf.concat([embed_inputs, vocab_logits], axis=-1)
-            rnn_input = tf.layers.dense(cated_inputs, self.flags.rnn_hidden_size)
+            rnn_input = tf.layers.dense(cated_inputs, self.flags.rnn_hidden_size, name='dri')
             rnn_output, _ = tf.nn.dynamic_rnn(self.rnn_cell, rnn_input, lengths, dtype=tf.float32)
-            rnn_logits = tf.layers.dense(rnn_output, self.flags.vocab_size)
+            rnn_logits = tf.layers.dense(rnn_output, self.flags.vocab_size, name='dro')
         return rnn_logits
 
-    def _rnn_infer(self, vocab_logits, go_input, lengths, name):
+    def _rnn_infer(self, vocab_logits, go_input, name):
+        next_input = go_input
         with tf.name_scope(name):
-            U.print_shape(vocab_logits)
-            next_input = tf.nn.embedding_lookup(self.embedding, go_input)
+            assert vocab_logits.get_shape().as_list()[1] == self.flags.seq_len
+            preds = []
+            state = self.init_states
             for i in range(self.flags.seq_len):
-                rnn_input = tf.concat([])
+                next_input = tf.nn.embedding_lookup(self.embedding, next_input)
+                cnn_output = vocab_logits[:, i, :]
+                cated_input = tf.concat([next_input, cnn_output], axis=-1)
+                rnn_input = tf.layers.dense(cated_input, self.flags.rnn_hidden_size, name='dri')
+                step_pred, state = self.rnn_cell(rnn_input, state)
+                rnn_logits = tf.layers.dense(step_pred, self.flags.vocab_size, name='dro')
+                next_input = tf.stop_gradient(tf.argmax(rnn_logits, 1))
+                preds.append(next_input)
+            return preds
 
     def _train_op(self, loss):
         with tf.name_scope('train_op'):
@@ -183,7 +194,7 @@ class Hybird_CVAE(object):
         with tf.name_scope('rnn_cell'):
             cell = tf.nn.rnn_cell.BasicLSTMCell(self.flags.rnn_hidden_size)
             cell = tf.nn.rnn_cell.DropoutWrapper(cell, input_keep_prob=0.8, output_keep_prob=0.8)
-            cell = tf.nn.rnn_cell.MultiRNNCell([cell] * 2)
+            cell = tf.nn.rnn_cell.MultiRNNCell([cell] * self.flags.rnn_num)
         return cell
 
     def train_is_ok(self, sess):
@@ -193,14 +204,14 @@ class Hybird_CVAE(object):
         for data in data_loader.next_batch(self.flags.batch_size, train=True):
             X, Y_i, Y_lengths, Y_t, Y_masks = data_loader.unpack_for_hybird_cvae(data, self.flags.seq_len)
             _, summery_, loss_, rec_loss_, kld_loss_, aux_loss_ = sess.run(
-                                                            [self.train_op, self.train_summery_op] + list(self.losses),
-                                                            {self.train_i.X: X,
-                                                             self.train_i.Y_i: Y_i,
-                                                             self.train_i.Y_lengths: Y_lengths,
-                                                             self.train_i.Y_t: Y_t,
-                                                             self.train_i.Y_mask: Y_masks,
-                                                             self.phase: True
-                                                             })
+                [self.train_op, self.train_summery_op] + list(self.losses),
+                {self.train_i.X: X,
+                 self.train_i.Y_i: Y_i,
+                 self.train_i.Y_lengths: Y_lengths,
+                 self.train_i.Y_t: Y_t,
+                 self.train_i.Y_mask: Y_masks,
+                 self.phase: True
+                 })
             step_ = sess.run(tf.train.get_global_step())
             _writer.add_summary(summery_, step_)  # tf.train.get_global_step())
 
@@ -234,5 +245,7 @@ class Hybird_CVAE(object):
             if batch_idx >= 10:
                 break
 
-    def infer(self):
-        None
+    def infer(self, sess, data_loader):
+        z = np.random.normal(0, 1, [1, self.flags.z_size])
+        preds = sess.run(self.preds, {self.normal_z: z, self.phase: False})
+        return data_loader.to_seqs([np.concatenate(preds).tolist()])

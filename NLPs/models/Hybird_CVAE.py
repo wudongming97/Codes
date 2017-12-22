@@ -12,13 +12,14 @@ TI = namedtuple('train_inputs', ['X', 'Y_i', 'Y_lengths', 'Y_t', 'Y_mask'])
 TL = namedtuple('train_losses', ['loss', 'rec_loss', 'kld_loss', 'aux_loss'])
 TO = namedtuple('train_ops', ['optim_op', 'train_summery_op'])
 
+
 class Hybird_CVAE(object):
     def __init__(self, flags):
         self.flags = flags
         self.phase = tf.placeholder(dtype=tf.bool, name='phase')
         self.normal_z = tf.placeholder(dtype=tf.float32, shape=[1, self.flags.z_size], name='normal_z')
         self.embedding = self._embedding_init()
-        self.rnn_cell = self._rnn_cell_init()
+        self.rnn_cell = self._rnn_cell()
         self.train_i = self._train_input()
         self.build_graph()
 
@@ -29,15 +30,15 @@ class Hybird_CVAE(object):
 
     def _train_graph(self):
         mu, log_var = self._cnn_encoder(self.train_i.X, False)
-        kld_loss = self._kld_loss(mu, log_var)
-
         z = self._sample_z(mu, log_var)
-        vocab_logits = self._cnn_decoder(z, reuse=False)
-        aux_loss = self._aux_loss(vocab_logits, self.train_i.X)
+        vocab_logits = self._cnn_decoder(z, False)
+        rnn_logits = self._rnn_decoder(vocab_logits, self.train_i.Y_i, self.train_i.Y_lengths, 'train')
 
-        rnn_logits = self._rnn_train(vocab_logits, self.train_i.Y_i, self.train_i.Y_lengths)
-        rec_loss = self._rec_loss(rnn_logits, self.train_i.Y_t, self.train_i.Y_mask)
-        loss = self._train_loss(kld_loss, rec_loss, aux_loss)
+        with tf.name_scope('train_loss'):
+            kld_loss = self._kld_loss(mu, log_var)
+            aux_loss = self._aux_loss(vocab_logits, self.train_i.X)
+            rec_loss = self._rec_loss(rnn_logits, self.train_i.Y_t, self.train_i.Y_mask)
+            loss = self._train_loss(kld_loss, rec_loss, aux_loss)
 
         optim_op = self._train_op(loss)
         train_summery_op = tf.summary.merge_all()
@@ -45,47 +46,66 @@ class Hybird_CVAE(object):
         return TL(loss, rec_loss, kld_loss, aux_loss), TO(optim_op, train_summery_op)
 
     def _build_sample_from_normal_graph(self):
-        vocab_logits = self._cnn_decoder(self.normal_z, reuse=True)
-        #self._rnn_infer_layer(vocab_logits)
-        # aux_loss, logits = self._cnn_decoder_subgraph('forward_z_subgraph', self.sample_input, reuse=True)
-        # todo
-        # next_symbol = tf.stop_gradient(tf.argmax(logits, 1))
-        # next_input = tf.nn.embedding_lookup(self.embedding, next_symbol)
+        vocab_logits = self._cnn_decoder(self.normal_z, ru=True)
         None
 
-    def _cnn_encoder(self, input, reuse_=False):
-        with tf.name_scope('cnn_encoder'):
+    def _cnn_encoder(self, input, ru=False):
+        with tf.variable_scope('cnn_encoder', reuse=ru):
+            bz = input.get_shape().as_list()[0]
             e1 = tf.nn.embedding_lookup(self.embedding, input)
-            with tf.name_scope('cnn'):
-                c1 = tf.layers.conv1d(e1, 128, 3, strides=2, padding='SAME', name='c1', reuse=reuse_)
-                bn1 = tf.nn.relu(tf.layers.batch_normalization(c1, training=self.phase, name='b1', reuse=reuse_))
-                c2 = tf.layers.conv1d(bn1, 256, 3, strides=2, padding='SAME', name='c2', reuse=reuse_)
-                bn2 = tf.nn.relu(tf.layers.batch_normalization(c2, training=self.phase, name='b2', reuse=reuse_))
-            with tf.name_scope('liner'):
-                cnn_output = tf.reshape(bn2, shape=[-1, 256 * int(self.flags.seq_len / 4)])
-                mu = tf.layers.dense(cnn_output, units=self.flags.z_size, name='dense_mu', reuse=reuse_)
-                log_var = tf.layers.dense(cnn_output, units=self.flags.z_size, name='dense_log_var', reuse=reuse_)
+            with tf.variable_scope('cnn1'):
+                c1 = tf.layers.conv1d(e1, 128, 3, strides=2, padding='SAME')
+                bn1 = tf.nn.relu(tf.layers.batch_normalization(c1, training=self.phase))
+            with tf.variable_scope('cnn2'):
+                c2 = tf.layers.conv1d(bn1, 256, 3, strides=2, padding='SAME')
+                bn2 = tf.nn.relu(tf.layers.batch_normalization(c2, training=self.phase))
+            with tf.variable_scope('mu_and_logvar'):
+                context = tf.reshape(bn2, shape=[bz, -1])
+                mu = tf.layers.dense(context, self.flags.z_size)
+                log_var = tf.layers.dense(context, self.flags.z_size)
         return mu, log_var
 
-    def _cnn_decoder(self, z, reuse=False):
-        with tf.name_scope('cnn_decoder'):
-            dconv_in = tf.layers.dense(z, 256 * int(self.flags.seq_len / 4), name='dense_dconv_input')
-            dconv_out = self._decoder_dconv_layer(dconv_in, name='decoder_dconv_layer')
-            vocab_logits = tf.layers.dense(dconv_out, self.flags.vocab_size, name='dc2vocab')
+    def _cnn_decoder(self, z, ru=False):
+        with tf.variable_scope('cnn_decoder', reuse=ru):
+            bz = z.get_shape().as_list()[0]
+            with tf.variable_scope('d_z'):
+                in_ = tf.layers.dense(z, 256 * int(self.flags.seq_len / 4), name='dz')
+                dc_input_ = tf.reshape(in_, [bz, 1, int(self.flags.seq_len / 4), 256])
+            with tf.variable_scope('d_conv_1'):
+                conv2d_t1 = tf.layers.conv2d_transpose(dc_input_, 128, [1, 3], [1, 2], 'SAME')
+                bn1 = tf.nn.relu(tf.layers.batch_normalization(conv2d_t1, training=self.phase))
+            with tf.variable_scope('d_conv_2'):
+                conv2d_t2 = tf.layers.conv2d_transpose(bn1, self.flags.embed_size, [1, 3], [1, 2], 'SAME')
+                bn2 = tf.nn.relu(tf.layers.batch_normalization(conv2d_t2, training=self.phase))
+            with tf.variable_scope('d_embed'):
+                dc_output_ = tf.reshape(bn2, [bz, self.flags.seq_len, -1])
+                logits = tf.layers.dense(dc_output_, self.flags.vocab_size)
+        return logits
 
-        return vocab_logits
+    def _rnn_decoder(self, vocab_logits, inputs, lengths, target):
+        if target == 'train':  # must run first
+            with tf.variable_scope('rnn_decoder'):
+                return self._rnn_train(vocab_logits, inputs, lengths, 'rnn_train')
+        elif target == 'valid':
+            with tf.variable_scope('rnn_decoder', reuse=True):
+                return self._rnn_train(vocab_logits, inputs, lengths, 'rnn_valid')
+        elif target == 'infer':
+            with tf.variable_scope('rnn_decoder', reuse=True):
+                return self._rnn_infer(vocab_logits, inputs, lengths, 'rnn_infer')
+        else:
+            raise ValueError('target is unknown: {}'.format(target))
 
-    def _rnn_train(self, vocab_logits, inputs, lengths):
-        with tf.name_scope('rnn_train_layer'):
+    def _rnn_train(self, vocab_logits, inputs, lengths, name):
+        with tf.name_scope(name):
             embed_inputs = tf.nn.embedding_lookup(self.embedding, inputs)
             cated_inputs = tf.concat([embed_inputs, vocab_logits], axis=-1)
-            rnn_input = tf.layers.dense(cated_inputs, self.flags.rnn_hidden_size, name='rnn_input')
+            rnn_input = tf.layers.dense(cated_inputs, self.flags.rnn_hidden_size)
             rnn_output, _ = tf.nn.dynamic_rnn(self.rnn_cell, rnn_input, lengths, dtype=tf.float32)
-            rnn_logits = tf.layers.dense(rnn_output, self.flags.vocab_size, name='rnn_output')
+            rnn_logits = tf.layers.dense(rnn_output, self.flags.vocab_size)
         return rnn_logits
 
-    def _rnn_infer(self, vocab_logits, go_input):
-        with tf.name_scope('rnn_infer_layer'):
+    def _rnn_infer(self, vocab_logits, go_input, lengths, name):
+        with tf.name_scope(name):
             U.print_shape(vocab_logits)
             next_input = tf.nn.embedding_lookup(self.embedding, go_input)
             for i in range(self.flags.seq_len):
@@ -128,39 +148,6 @@ class Hybird_CVAE(object):
             tf.summary.histogram('z', z)
         return z
 
-    def _decoder_dconv_layer(self, dc_input, name):
-        with tf.name_scope(name):
-            dc_input_ = tf.reshape(dc_input, [-1, 1, int(self.flags.seq_len / 4), 256],
-                                   name='in_shape')
-            dct1_out = self._decoder_conv2d_transpose_layer(input=dc_input_,
-                                                            filter_shape=[1, 3, 128, 256],
-                                                            out_shape=[self.flags.batch_size, 1,
-                                                                       int(self.flags.seq_len / 2), 128],
-                                                            stride=[1, 1, 2, 1],
-                                                            padding='SAME',
-                                                            name='dct1')
-            dct2_out = self._decoder_conv2d_transpose_layer(input=dct1_out,
-                                                            filter_shape=[1, 3, 200, 128],
-                                                            out_shape=[self.flags.batch_size, 1,
-                                                                       self.flags.seq_len, 200],
-                                                            stride=[1, 1, 2, 1],
-                                                            padding='SAME',
-                                                            name='dct2')
-
-            decoder_cnn_output = tf.reshape(dct2_out, [-1, self.flags.seq_len, 200])
-        return decoder_cnn_output
-
-    def _decoder_conv2d_transpose_layer(self, input, filter_shape, out_shape, stride, padding, name):
-        with tf.name_scope(name):
-            with tf.variable_scope(name):
-                filter = tf.get_variable(name='filter',
-                                         shape=filter_shape,
-                                         dtype=tf.float32,
-                                         initializer=tf.random_normal_initializer(stddev=0.1))
-                conv1d_transpose = tf.nn.conv2d_transpose(input, filter, out_shape, stride, padding, name='conv2d_t')
-                res = tf.nn.relu(tf.layers.batch_normalization(conv1d_transpose, training=self.phase), name='relu')
-        return res
-
     def _train_loss(self, kld_loss, rec_loss, aux_loss):
         with tf.name_scope('loss'):
             train_loss = rec_loss + self.flags.alpha * aux_loss + self._kld_coef() * kld_loss
@@ -192,10 +179,9 @@ class Hybird_CVAE(object):
             aux_loss = tf.reduce_mean(tf.reduce_sum(aux_loss, axis=1))
         return aux_loss
 
-
-    def _rnn_cell_init(self):
-        with tf.name_scope('decoder_rnn_cell'):
-            cell = tf.nn.rnn_cell.BasicLSTMCell(self.flags.rnn_hidden_size, reuse=False)
+    def _rnn_cell(self):
+        with tf.name_scope('rnn_cell'):
+            cell = tf.nn.rnn_cell.BasicLSTMCell(self.flags.rnn_hidden_size)
             cell = tf.nn.rnn_cell.DropoutWrapper(cell, input_keep_prob=0.8, output_keep_prob=0.8)
             cell = tf.nn.rnn_cell.MultiRNNCell([cell] * 2)
         return cell

@@ -10,7 +10,7 @@ flags = tf.app.flags
 data_loader_c = D.DataLoader(D.Vocab('hybird_cvae', D.Level.CHAR))
 
 # hybird_cvae config
-flags.DEFINE_integer('global_steps', U.epoch_to_step(10, data_loader_c.num_line, batch_size=32), '')
+flags.DEFINE_integer('global_steps', U.epoch_to_step(15, data_loader_c.num_line, batch_size=32), '')
 flags.DEFINE_integer('batch_size', 32, '')
 flags.DEFINE_integer('lr', 0.001, 'learning rate')
 flags.DEFINE_integer('z_size', 32, '')
@@ -45,9 +45,9 @@ def main(_):
     graph = tf.Graph()
     with graph.as_default():
         model = Hybird_CVAE(FLAGS)
-        saver = tf.train.Saver(#max_to_keep=5,
-                               keep_checkpoint_every_n_hours=1,
-                               pad_step_number=True)
+        saver = tf.train.Saver(  # max_to_keep=5,
+            keep_checkpoint_every_n_hours=1,
+            pad_step_number=True)
 
     with tf.Session(graph=graph, config=sess_conf) as sess:
         summery_writer = tf.summary.FileWriter(FLAGS.logs_path, sess.graph)

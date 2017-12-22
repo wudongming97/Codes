@@ -18,7 +18,7 @@ class Hybird_CVAE(object):
         self.phase = tf.placeholder(dtype=tf.bool, name='phase')
         self.normal_z = tf.placeholder(dtype=tf.float32, shape=[1, self.flags.z_size], name='normal_z')
         self.embedding = self._embedding_init()
-        self.rnn_cell = self._decoder_rnn_cell_init()
+        self.rnn_cell = self._rnn_cell_init()
         self.train_i = self._train_input()
         self.build_graph()
 
@@ -77,14 +77,14 @@ class Hybird_CVAE(object):
 
     def _rnn_train(self, vocab_logits, inputs, lengths):
         with tf.name_scope('rnn_train_layer'):
-            embed_word_inputs = tf.nn.embedding_lookup(self.embedding, inputs)
-            rnn_cated_inputs = tf.concat([embed_word_inputs, vocab_logits], axis=-1)
-            rnn_hidden_input = tf.layers.dense(rnn_cated_inputs, self.flags.rnn_hidden_size, name='rnn_input')
-            rnn_hidden_output, _ = tf.nn.dynamic_rnn(self.rnn_cell, rnn_hidden_input, lengths, dtype=tf.float32)
-            rnn_logits = tf.layers.dense(rnn_hidden_output, self.flags.vocab_size, name='rnn_output')
+            embed_inputs = tf.nn.embedding_lookup(self.embedding, inputs)
+            cated_inputs = tf.concat([embed_inputs, vocab_logits], axis=-1)
+            rnn_input = tf.layers.dense(cated_inputs, self.flags.rnn_hidden_size, name='rnn_input')
+            rnn_output, _ = tf.nn.dynamic_rnn(self.rnn_cell, rnn_input, lengths, dtype=tf.float32)
+            rnn_logits = tf.layers.dense(rnn_output, self.flags.vocab_size, name='rnn_output')
         return rnn_logits
 
-    def _rnn_infer_layer(self, vocab_logits, go_input):
+    def _rnn_infer(self, vocab_logits, go_input):
         with tf.name_scope('rnn_infer_layer'):
             U.print_shape(vocab_logits)
             next_input = tf.nn.embedding_lookup(self.embedding, go_input)
@@ -105,11 +105,10 @@ class Hybird_CVAE(object):
 
     def _embedding_init(self):
         with tf.name_scope('embedding'):
-            with tf.variable_scope('embedding', reuse=False):
-                embedding = tf.get_variable(name='embedding',
-                                            shape=[self.flags.vocab_size, self.flags.embed_size],
-                                            dtype=tf.float32,
-                                            initializer=tf.random_normal_initializer(stddev=0.1))
+            embedding = tf.get_variable(name='embedding',
+                                        shape=[self.flags.vocab_size, self.flags.embed_size],
+                                        dtype=tf.float32,
+                                        initializer=tf.random_normal_initializer(stddev=0.1))
         return embedding
 
     def _train_input(self):
@@ -194,7 +193,7 @@ class Hybird_CVAE(object):
         return aux_loss
 
 
-    def _decoder_rnn_cell_init(self):
+    def _rnn_cell_init(self):
         with tf.name_scope('decoder_rnn_cell'):
             cell = tf.nn.rnn_cell.BasicLSTMCell(self.flags.rnn_hidden_size, reuse=False)
             cell = tf.nn.rnn_cell.DropoutWrapper(cell, input_keep_prob=0.8, output_keep_prob=0.8)

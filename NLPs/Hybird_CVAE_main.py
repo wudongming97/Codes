@@ -11,7 +11,7 @@ data_loader_c = D.DataLoader(D.Vocab('hybird_cvae', D.Level.CHAR))
 #
 # hybird_cvae config
 flags.DEFINE_integer('batch_size', 32, '')
-flags.DEFINE_integer('steps', U.epoch_to_step(1, data_loader_c.num_line, batch_size=32), '')
+flags.DEFINE_integer('steps', U.epoch_to_step(18, data_loader_c.num_line, batch_size=32), '')
 flags.DEFINE_integer('lr', 0.001, 'learning rate')
 flags.DEFINE_integer('z_size', 32, '')
 flags.DEFINE_integer('seq_len', 60, '')

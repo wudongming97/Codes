@@ -18,20 +18,23 @@ class Hybird_CVAE(object):
     def __init__(self, flags):
         self.flags = flags
         self.phase = tf.placeholder(dtype=tf.bool, name='phase')
-        self.normal_z = tf.placeholder(dtype=tf.float32, shape=[1, self.flags.z_size], name='normal_z')
+        self.normal_z = tf.placeholder(dtype=tf.float32, shape=[self.flags.batch_size, self.flags.z_size], name='normal_z')
         self.embedding = self._embedding_init()
         self.rnn_cell = self._rnn_cell()
-        self.init_states = self.rnn_cell.zero_state(1, tf.float32)
+        self.init_states = self.rnn_cell.zero_state(self.flags.batch_size, tf.float32)
         self.train_i = self._train_input()
-        self.go = tf.constant(1, shape=[1], dtype=tf.int32)
+        self.go = tf.constant(1, shape=[self.flags.batch_size, 1], dtype=tf.int32)
         self.build_graph()
 
     def build_graph(self):
         tf.train.create_global_step()
         self.losses, (self.train_op, self.train_summery_op) = self._train_graph()
         t1_ = len(tf.global_variables())
-        self.preds = self._infer_graph()
-        assert t1_ == len(tf.global_variables())
+        self.preds_z = self._infer_by_z_graph()
+        t2_ = len(tf.global_variables())
+        self.preds_e = self._infer_by_encoder_graph()
+        t3_ = len(tf.global_variables())
+        assert t1_ == t2_ and t1_ == t3_
 
     def _train_graph(self):
         mu, logvar = self._cnn_encoder(self.train_i.X, False)
@@ -61,8 +64,15 @@ class Hybird_CVAE(object):
 
         return TL(loss, rec_loss, kld_loss, aux_loss), TO(optim_op, train_summery_op)
 
-    def _infer_graph(self):
+    def _infer_by_z_graph(self):
         vocab_logits = self._cnn_decoder(self.normal_z, ru=True)
+        preds = self._rnn_decoder(vocab_logits, self.go, None, 'infer')
+        return preds
+
+    def _infer_by_encoder_graph(self):
+        mu, logvar = self._cnn_encoder(self.train_i.X, True)
+        z = self._sample_z(mu, logvar)
+        vocab_logits = self._cnn_decoder(z, True)
         preds = self._rnn_decoder(vocab_logits, self.go, None, 'infer')
         return preds
 
@@ -123,7 +133,7 @@ class Hybird_CVAE(object):
             preds = []
             state = self.init_states
             for i in range(self.flags.seq_len):
-                next_input = tf.nn.embedding_lookup(self.embedding, next_input)
+                next_input = tf.squeeze(tf.nn.embedding_lookup(self.embedding, next_input))
                 cnn_output = vocab_logits[:, i, :]
                 cated_input = tf.concat([next_input, cnn_output], axis=-1)
                 rnn_input = tf.layers.dense(cated_input, self.flags.rnn_hidden_size, name='dri')
@@ -175,8 +185,7 @@ class Hybird_CVAE(object):
 
     def _kld_coef(self):
         with tf.name_scope('kld_coef'):
-            coef = tf.clip_by_value((tf.train.get_global_step() - self.flags.kld_anneal_start) / (
-                    self.flags.kld_anneal_end - self.flags.kld_anneal_start), 0, 1)
+            coef = tf.clip_by_value(tf.sigmoid(-15 + 20 * tf.train.get_global_step() / self.flags.steps), 0, 1)
             return tf.cast(coef, tf.float32)
 
     @staticmethod
@@ -207,7 +216,7 @@ class Hybird_CVAE(object):
         return cell
 
     def train_is_ok(self, sess):
-        return sess.run(tf.train.get_global_step()) >= self.flags.global_steps
+        return sess.run(tf.train.get_global_step()) >= self.flags.steps
 
     def fit(self, sess, data_loader, _writer, _saver):
         for data in data_loader.next_batch(self.flags.batch_size, train=True):
@@ -227,13 +236,13 @@ class Hybird_CVAE(object):
             if step_ % 20 == 0:
                 epoch_ = U.step_to_epoch(step_, data_loader.num_line, self.flags.batch_size)
                 print("TRAIN: | Epoch %d | step %d/%d | train_loss: %.3f | rec_loss %.3f | kld_loss %3f | aux_loss %3f |" % (
-                    epoch_, step_, self.flags.global_steps, loss_, rec_loss_, kld_loss_, aux_loss_))
+                    epoch_, step_, self.flags.steps, loss_, rec_loss_, kld_loss_, aux_loss_))
 
             if step_ % 1000 == 0:
                 _saver.save(sess, self.flags.ckpt_path, global_step=step_, write_meta_graph=False)
                 print('model saved ...')
 
-            if step_ >= self.flags.global_steps:
+            if step_ >= self.flags.steps:
                 _saver.save(sess, self.flags.ckpt_path, global_step=step_, write_meta_graph=False)
                 print('train is end ...')
                 break
@@ -254,7 +263,19 @@ class Hybird_CVAE(object):
             if batch_idx >= 10:
                 break
 
-    def infer(self, sess, data_loader):
-        z = np.random.normal(0, 1, [1, self.flags.z_size])
-        preds = sess.run(self.preds, {self.normal_z: z, self.phase: False})
-        return data_loader.to_seqs([np.concatenate(preds).tolist()])
+    def infer_by_z(self, sess, data_loader):
+        z = np.random.normal(0, 1, [self.flags.batch_size, self.flags.z_size])
+        preds = sess.run(self.preds_z, {self.normal_z: z, self.phase: False})
+        return data_loader.to_seqs(np.array(preds).transpose())
+
+    def infer_by_encoder(self, sess, data_loader, sentences):
+        tensor = data_loader.to_tensor(sentences)
+        X, Y_i, Y_lengths, Y_t, Y_masks = data_loader.unpack_for_hybird_cvae(tensor, self.flags.seq_len)
+        preds = sess.run(self.preds_e, {self.train_i.X: X,
+                                        self.train_i.Y_i: Y_i,
+                                        self.train_i.Y_lengths: Y_lengths,
+                                        self.train_i.Y_t: Y_t,
+                                        self.train_i.Y_mask: Y_masks,
+                                        self.phase: False})
+
+        return data_loader.to_seqs(np.array(preds).transpose())

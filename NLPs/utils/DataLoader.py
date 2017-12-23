@@ -33,7 +33,7 @@ class Vocab:
             self._persist()
 
     def _process(self):
-        seqs = unidecode.unidecode(open(self.r_file, encoding='UTF-8').read().lower()).split('\n')
+        seqs = unidecode.unidecode(open(self.r_file, encoding='UTF-8').read()).split('\n')
         if self.level == Level.CHAR:
             self.vocab = self._build_vocab(seqs)
         elif self.level == Level.WORD:

@@ -1,27 +1,51 @@
-import unidecode
+import string
 
-class T_:
-    keep_line_lens = [5, 100]
-    keep_word_lens = [5, 25]
+import nltk
+from nltk.corpus import stopwords
+from nltk.stem import SnowballStemmer, WordNetLemmatizer
 
+T_ = {
+    'to_lower': True,
+    'remove_punctuations': True,
+    'remove_stop_words': True,
+    'need_stem': True,
+    'need_lemma': True,
 
+    'line_lens': (5, 60),
+    'word_lens': (5, 25),
+}
 
-f1 = lambda x: len(x) >= T_.keep_line_lens[0] and len(x) < T_.keep_line_lens[1] # 保留指定长度字符的行
-f2 = lambda x: len(x.split()) >= T_.keep_word_lens[0] and len(x.split()) < T_.keep_word_lens[1] #保留指定token个数范围的行
-
-F_ = [f1, f2]
+stopwords = set(stopwords.words('english'))
+snowball = SnowballStemmer('english')
+lemmatizer = WordNetLemmatizer()
 
 if __name__ == '__main__':
-    raw_file = '../data/europarl-v7.en'
-    target_file = '../data/europarl-v7.txt'
-    with open(raw_file,'r',encoding='UTF-8') as sf:
-        with open(target_file,'a') as tf:
+    raw_file = '../data/europarl-v7.txt'
+    target_file = '../data/europarl-v7.txt_'
+    with open(raw_file, 'r', encoding='utf-8') as sf:
+        with open(target_file, 'w', encoding='utf-8') as tf:
             for line in sf:
-                line = unidecode.unidecode(line)
-                if f1(line) and f2(line):
-                    tf.write(line)
+                # 以行为单位处理逻辑
+                if T_.get('to_lower'):
+                    line = line.lower()
+                if T_.get('remove_punctuations'):
+                    line = line.translate(str.maketrans("", "", string.punctuation))
 
+                if len(line) < T_.get('line_lens')[0] or len(line) >= T_.get('line_lens')[1]:
+                    continue
 
+                tokens = nltk.word_tokenize(line)
 
+                # 以words为单位进行处理
+                if T_.get('remove_stop_words'):
+                    tokens = [w for w in tokens if w not in stopwords]
+                if T_.get('need_stem'):
+                    tokens = [snowball.stem(w) for w in tokens]
+                if T_.get('need_lemma'):
+                    tokens = [lemmatizer.lemmatize(w) for w in tokens]
 
+                if (len(tokens) < T_.get('word_lens')[0] or len(tokens) >= T_.get('word_lens')[1]):
+                    continue
 
+                processed_line = ' '.join(tokens)
+                tf.write(processed_line + '\n')

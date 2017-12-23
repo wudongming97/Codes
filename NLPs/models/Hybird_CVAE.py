@@ -34,19 +34,30 @@ class Hybird_CVAE(object):
         assert t1_ == len(tf.global_variables())
 
     def _train_graph(self):
-        mu, log_var = self._cnn_encoder(self.train_i.X, False)
-        z = self._sample_z(mu, log_var)
+        mu, logvar = self._cnn_encoder(self.train_i.X, False)
+        z = self._sample_z(mu, logvar)
         vocab_logits = self._cnn_decoder(z, False)
         rnn_logits = self._rnn_decoder(vocab_logits, self.train_i.Y_i, self.train_i.Y_lengths, 'train')
 
         with tf.name_scope('train_loss'):
-            kld_loss = self._kld_loss(mu, log_var)
+            kld_loss = self._kld_loss(mu, logvar)
             aux_loss = self._aux_loss(vocab_logits, self.train_i.X)
             rec_loss = self._rec_loss(rnn_logits, self.train_i.Y_t, self.train_i.Y_mask)
-            loss = self._train_loss(kld_loss, rec_loss, aux_loss)
+            kld_coef = self._kld_coef()
+            loss = self._train_loss(kld_loss, rec_loss, aux_loss, kld_coef)
+
+        with tf.name_scope('train_summery'):
+            tf.summary.histogram('mu', mu)
+            tf.summary.histogram('logvar', logvar)
+            tf.summary.histogram('z', z)
+            tf.summary.scalar('kld_coef', kld_coef)
+            tf.summary.scalar('kld_loss', kld_loss)
+            tf.summary.scalar('rec_loss', rec_loss)
+            tf.summary.scalar('aux_loss', aux_loss)
+            tf.summary.scalar('loss', loss)
+            train_summery_op = tf.summary.merge_all()
 
         optim_op = self._train_op(loss)
-        train_summery_op = tf.summary.merge_all()
 
         return TL(loss, rec_loss, kld_loss, aux_loss), TO(optim_op, train_summery_op)
 
@@ -68,8 +79,8 @@ class Hybird_CVAE(object):
             with tf.variable_scope('mu_and_logvar'):
                 context = tf.reshape(bn2, shape=[bz, -1])
                 mu = tf.layers.dense(context, self.flags.z_size)
-                log_var = tf.layers.dense(context, self.flags.z_size)
-        return mu, log_var
+                logvar = tf.layers.dense(context, self.flags.z_size)
+        return mu, logvar
 
     def _cnn_decoder(self, z, ru=False):
         with tf.variable_scope('cnn_decoder', reuse=ru):
@@ -151,17 +162,15 @@ class Hybird_CVAE(object):
             Y_mask = tf.placeholder(tf.int32, shape=[self.flags.batch_size, self.flags.seq_len], name='Y_mask')
         return TI(X, Y_i, Y_lengths, Y_t, Y_mask)
 
-    def _sample_z(self, mu, log_var):
+    def _sample_z(self, mu, logvar):
         with tf.name_scope('sample_z'):
             eps = tf.truncated_normal((self.flags.batch_size, self.flags.z_size), stddev=1.0)
-            z = mu + tf.exp(0.5 * log_var) * eps
-
-            tf.summary.histogram('z', z)
+            z = mu + tf.exp(0.5 * logvar) * eps
         return z
 
-    def _train_loss(self, kld_loss, rec_loss, aux_loss):
+    def _train_loss(self, kld_loss, rec_loss, aux_loss, kld_coef):
         with tf.name_scope('loss'):
-            train_loss = rec_loss + self.flags.alpha * aux_loss + self._kld_coef() * kld_loss
+            train_loss = rec_loss + self.flags.alpha * aux_loss + kld_coef * kld_loss
         return train_loss
 
     def _kld_coef(self):

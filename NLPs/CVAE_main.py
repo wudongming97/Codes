@@ -1,3 +1,8 @@
+# -*- coding: utf-8 -*-
+from __future__ import absolute_import
+from __future__ import division
+from __future__ import print_function
+
 from models.CVAE import CVAE, USE_GPU
 from utils.DataLoader import DataLoader, Vocab, Level
 

@@ -31,9 +31,6 @@ if __name__ == '__main__':
                 if T_.get('remove_punctuations'):
                     line = line.translate(str.maketrans("", "", string.punctuation))
 
-                if len(line) < T_.get('line_lens')[0] or len(line) >= T_.get('line_lens')[1]:
-                    continue
-
                 tokens = nltk.word_tokenize(line)
 
                 # 以words为单位进行处理
@@ -46,6 +43,8 @@ if __name__ == '__main__':
 
                 if (len(tokens) < T_.get('word_lens')[0] or len(tokens) >= T_.get('word_lens')[1]):
                     continue
+                line = ' '.join(tokens)
+                if len(line) < T_.get('line_lens')[0] or len(line) >= T_.get('line_lens')[1]:
+                    continue
 
-                processed_line = ' '.join(tokens)
-                tf.write(processed_line + '\n')
+                tf.write(line + '\n')

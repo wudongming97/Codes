@@ -34,6 +34,7 @@ FLAGS = flags.FLAGS
 
 
 def main(_):
+    tf.logging.set_verbosity(tf.logging.INFO)
     # gpu memory
     sess_conf = tf.ConfigProto(
         # log_device_placement=True,

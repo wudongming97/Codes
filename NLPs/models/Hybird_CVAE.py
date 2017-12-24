@@ -181,7 +181,7 @@ class Hybird_CVAE(object):
 
     def _train_loss(self, kld_loss, rec_loss, aux_loss, kld_coef):
         with tf.name_scope('loss'):
-            train_loss = rec_loss + self.flags.alpha * aux_loss + kld_coef * kld_loss
+            train_loss = rec_loss + self.flags.alpha * aux_loss + self.flags.beta * kld_coef * kld_loss
         return train_loss
 
     def _kld_coef(self):

@@ -217,7 +217,7 @@ class CVAE(torch.nn.Module):
     def fit(self, loader, display_step=15):
         print('begin fit ...\n')
         for e in range(self.n_epochs):
-            for it, data in enumerate(loader.next_batch(self.batch_size, train=True)):
+            for it, data in enumerate(loader.next_batch(self.batch_size)):
                 X, X_lengths, Y_i, Y_masks, Y_t = loader.unpack_for_cvae(data)
                 sentences = loader.to_seqs(X)
 

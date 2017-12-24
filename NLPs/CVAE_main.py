@@ -46,10 +46,10 @@ class word_level_params:
 
 if __name__ == '__main__':
 
-    ptb_data_w = DataLoader(Vocab('ptb', Level.WORD))
+    ptb_train_loader = DataLoader(Vocab('ptb_train_cvae', Level.WORD))
 
     level = word_level_params()
-    level.params['vocab_size'] = ptb_data_w.vocab.vocab_size
+    level.params['vocab_size'] = ptb_train_loader.vocab.vocab_size
 
     model = CVAE(level.encoder_params, level.decoder_params, level.params)
     if USE_GPU:
@@ -59,9 +59,9 @@ if __name__ == '__main__':
         model.load()
     else:
         # train
-        model.fit(ptb_data_w)
+        model.fit(ptb_train_loader)
         model.save()
 
     # 随机生成1000个句子
     for i in range(1000):
-        print('{}, {}'.format(i, model.sample_from_normal(ptb_data_w)))
+        print('{}, {}'.format(i, model.sample_from_normal(ptb_train_loader)))

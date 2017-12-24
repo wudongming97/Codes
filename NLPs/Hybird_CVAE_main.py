@@ -75,8 +75,8 @@ def main(_):
             # T.infer_by_encoder_test(model, sess, ptb_valid_loader, FLAGS.batch_size)
             # # 4)z空间的线性渐变，查看输出的连续变化
             # T.infer_by_linear_z_test(model, sess, europarl_train_loader, FLAGS.batch_size, FLAGS.z_size)
-            T.infer_by_same_test(sess, europarl_train_loader, 'the vote will take place tomorrow .', FLAGS.batch_size)
-            T.infer_by_same_test(sess, europarl_train_loader, 'i would like to make four point .', FLAGS.batch_size)
+            T.infer_by_same_test(model, sess, europarl_train_loader, 'the vote will take place tomorrow .', FLAGS.batch_size)
+            T.infer_by_same_test(model, sess, europarl_train_loader, 'i would like to make four point .', FLAGS.batch_size)
 
 
         else:

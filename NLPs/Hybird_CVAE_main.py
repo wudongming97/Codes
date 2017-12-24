@@ -5,7 +5,7 @@ from __future__ import print_function
 
 import tensorflow as tf
 
-import tests.Hybird_CVAE_test as T
+import experiments.Hybird_CVAE_test as T
 import utils.DataLoader as D
 import utils.Utils as U
 from models.Hybird_CVAE import Hybird_CVAE

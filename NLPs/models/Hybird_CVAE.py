@@ -240,7 +240,7 @@ class Hybird_CVAE(object):
                     epoch_, step_, self.flags.steps, loss_, rec_loss_, kld_loss_, aux_loss_))
 
             # 每5个epoch存储下模型
-            if step_ % U.epoch_to_step(5) == 0:
+            if step_ % U.epoch_to_step(5, data_loader.num_line, self.flags.batch_size) == 0:
                 _saver.save(sess, self.flags.ckpt_path, global_step=step_, write_meta_graph=False)
                 print('model saved ...')
 

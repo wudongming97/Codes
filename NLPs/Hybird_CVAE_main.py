@@ -13,12 +13,13 @@ from models.Hybird_CVAE import Hybird_CVAE
 flags = tf.app.flags
 
 # data_loader
-europarl_loader_c = D.DataLoader(D.Vocab('europarl-v7_hybird_cvae', D.Level.CHAR))
-ptb_loader_c = D.DataLoader(D.Vocab('ptb_hybird_cvae', D.Level.CHAR))
+europarl_train_loader = D.DataLoader(D.Vocab('europarl_train_hybird_cvae', D.Level.CHAR))
+europarl_valid_loader = D.DataLoader(D.Vocab('europarl_valid_hybird_cvae', D.Level.CHAR))
+ptb_valid_loader = D.DataLoader(D.Vocab('ptb_valid_hybird_cvae', D.Level.CHAR))
 
 # hybird_cvae config
 flags.DEFINE_integer('batch_size', 32, '')
-flags.DEFINE_integer('steps', U.epoch_to_step(15, europarl_loader_c.num_line, batch_size=32), '')
+flags.DEFINE_integer('steps', U.epoch_to_step(15, europarl_train_loader.num_line, batch_size=32), '')
 flags.DEFINE_integer('lr', 0.001, 'learning rate')
 flags.DEFINE_integer('z_size', 32, '')
 flags.DEFINE_integer('seq_len', 60, '')
@@ -31,7 +32,7 @@ flags.DEFINE_string('logs_path', './results/Hybird_CVAE/log/', '')
 # encoder
 flags.DEFINE_integer('rnn_num', 2, '')
 flags.DEFINE_integer('embed_size', 80, '')
-flags.DEFINE_integer('vocab_size', europarl_loader_c.vocab_size, '')
+flags.DEFINE_integer('vocab_size', europarl_train_loader.vocab_size, '')
 
 #  decoder
 flags.DEFINE_integer('rnn_hidden_size', 512, '')
@@ -67,21 +68,21 @@ def main(_):
 
         if model.train_is_ok(sess):
             # 1)用标准正太分布来生成样本
-            T.infer_by_normal_test(model, sess, europarl_loader_c)
+            T.infer_by_normal_test(model, sess, europarl_train_loader)
 
             # 2)infer by encoder, 直接从训练集中取数据
-            T.infer_by_encoder_test(model, sess, europarl_loader_c, FLAGS.batch_size)
+            T.infer_by_encoder_test(model, sess, europarl_train_loader, FLAGS.batch_size)
 
             # 3)infer by encoder，从另外一个不同的数据集取数据
-            T.infer_by_encoder_test(model, sess, ptb_loader_c, FLAGS.batch_size)
+            T.infer_by_encoder_test(model, sess, ptb_valid_loader, FLAGS.batch_size)
 
             # 4)z空间的线性渐变，查看输出的连续变化
-            T.infer_by_linear_z_test(model, sess, europarl_loader_c, FLAGS.batch_size, FLAGS.z_size)
+            T.infer_by_linear_z_test(model, sess, europarl_train_loader, FLAGS.batch_size, FLAGS.z_size)
 
         else:
             print('\nbegin fit ...')
-            model.fit(sess, europarl_loader_c, summery_writer, saver)
-            model.valid(sess, europarl_loader_c)
+            model.fit(sess, europarl_train_loader, summery_writer, saver)
+            model.valid(sess, europarl_valid_loader)
 
 
 if __name__ == "__main__":

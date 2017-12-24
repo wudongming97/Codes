@@ -220,7 +220,7 @@ class Hybird_CVAE(object):
         return sess.run(tf.train.get_global_step()) >= self.flags.steps
 
     def fit(self, sess, data_loader, _writer, _saver):
-        for data in data_loader.next_batch(self.flags.batch_size, train=True):
+        for data in data_loader.next_batch(self.flags.batch_size):
             X, Y_i, Y_lengths, Y_t, Y_masks = data_loader.unpack_for_hybird_cvae(data, self.flags.seq_len)
             _, summery_, loss_, rec_loss_, kld_loss_, aux_loss_ = sess.run(
                 [self.train_op, self.train_summery_op] + list(self.losses),
@@ -250,7 +250,7 @@ class Hybird_CVAE(object):
                 break
 
     def valid(self, sess, data_loader):
-        for batch_idx, data in enumerate(data_loader.next_batch(self.flags.batch_size, train=False)):
+        for batch_idx, data in enumerate(data_loader.next_batch(self.flags.batch_size)):
             X, Y_i, Y_lengths, Y_t, Y_masks = data_loader.unpack_for_hybird_cvae(data, self.flags.seq_len)
             loss_, rec_loss_, kld_loss_, aux_loss_ = sess.run(list(self.losses),
                                                               {self.train_i.X: X,

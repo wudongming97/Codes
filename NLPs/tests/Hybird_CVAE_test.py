@@ -17,7 +17,7 @@ def infer_by_normal_test(model, sess, data_loader):
 
 def infer_by_encoder_test(model, sess, data_loader, batch_size):
     print('\n============begin infer_by_encoder============\n')
-    for i in data_loader.next_batch(batch_size, True):
+    for i in data_loader.next_batch(batch_size):
         input_s_ = data_loader.to_seqs(i)
         out_s_ = model.infer_by_encoder(sess, data_loader, input_s_)
         pair_s_ = zip(input_s_, out_s_)

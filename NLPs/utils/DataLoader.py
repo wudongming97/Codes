@@ -91,16 +91,14 @@ class DataLoader:
         self.vocab_size = self.vocab.vocab_size
         self.num_line = len(self.vocab.idx_t)
         self.max_seq_len = max(map(len, self.vocab.idx_t))
-        self.fra = 0.8  # 训练样本的比例
 
         self.to_seqs = lambda x: self.vocab._to_seqs(x)
         self.to_tensor = lambda x: self.vocab._to_tensor(x)
 
-    def next_batch(self, batch_size, train=True):
-        range_ = range(int(self.num_line * self.fra)) if train else range(int(self.num_line * self.fra),
-                                                                          self.num_line)
+    def next_batch(self, batch_size, shuffle=True):
         while True:
-            index_ = random.sample(range_, batch_size)
+            if shuffle:
+                index_ = random.sample(range(self.num_line), batch_size)
             batch_tensor_ = [self.vocab.idx_t[ix] for ix in index_]
             yield batch_tensor_
 

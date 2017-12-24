@@ -264,8 +264,11 @@ class Hybird_CVAE(object):
             if batch_idx >= 10:
                 break
 
-    def infer_by_z(self, sess, data_loader):
+    def infer_by_normal(self, sess, data_loader):
         z = np.random.normal(0, 1, [self.flags.batch_size, self.flags.z_size])
+        return self.infer_by_z(sess, data_loader, z)
+
+    def infer_by_z(self, sess, data_loader, z):
         preds = sess.run(self.preds_z, {self.normal_z: z, self.phase: False})
         return data_loader.to_seqs(np.array(preds).transpose())
 

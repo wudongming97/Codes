@@ -10,6 +10,7 @@ import random
 import numpy as np
 import torch
 
+import utils.Utils as U
 from utils.DataLoader import U_TOKEN, E_TOKEN
 from utils.Nll import nll
 
@@ -214,46 +215,51 @@ class CVAE(torch.nn.Module):
 
     def fit(self, loader, display_step=15):
         print('begin fit ...\n')
-        for e in range(self.n_epochs):
-            for it, data in enumerate(loader.next_batch(self.batch_size)):
-                X, X_lengths, Y_i, Y_masks, Y_t = loader.unpack_for_cvae(data)
-                sentences = loader.to_seqs(X)
+        for it, data in enumerate(loader.next_batch(self.batch_size)):
+            e = U.step_to_epoch(it, loader.num_line, self.batch_size)
 
-                if self.word_dropout_p >= 0:
-                    drop_word_f = lambda x: self._word_dropout_helper(loader, self.word_dropout_p, x)
-                    Y_i = [list(map(drop_word_f, s)) for s in Y_i]
+            X, X_lengths, Y_i, Y_masks, Y_t = loader.unpack_for_cvae(data)
+            sentences = loader.to_seqs(X)
 
-                X = torch.autograd.Variable(torch.Tensor(X).long())
-                Y_i = torch.autograd.Variable(torch.Tensor(Y_i).long())
-                Y_t = torch.autograd.Variable(torch.Tensor(Y_t).long())
+            if self.word_dropout_p >= 0:
+                drop_word_f = lambda x: self._word_dropout_helper(loader, self.word_dropout_p, x)
+                Y_i = [list(map(drop_word_f, s)) for s in Y_i]
 
-                if USE_GPU:
-                    X, Y_i, Y_t = X.cuda(), Y_i.cuda(), Y_t.cuda()
+            X = torch.autograd.Variable(torch.Tensor(X).long())
+            Y_i = torch.autograd.Variable(torch.Tensor(Y_i).long())
+            Y_t = torch.autograd.Variable(torch.Tensor(Y_t).long())
 
-                kld_coef = self._kld_coef(e, it)
-                kl_lss, rec_lss = self.train_bt(X, X_lengths, Y_i, Y_t, Y_masks, kld_coef)
+            if USE_GPU:
+                X, Y_i, Y_t = X.cuda(), Y_i.cuda(), Y_t.cuda()
 
-                if it % display_step == 0:
-                    print(
-                        "Epoch %d/%d | Batch %d/%d | train_loss: %.3f | rec_loss: %.3f | kl_loss: %.6f | kld_coef: %.6f | kld_coef*kl_loss: %.6f |" % (
-                            e + 1, self.n_epochs, it, loader.num_line // self.batch_size,
-                            kl_lss * kld_coef + rec_lss, rec_lss, kl_lss, kld_coef, kld_coef * kl_lss))
+            kld_coef = self._kld_coef(e, it)
+            kl_lss, rec_lss = self.train_bt(X, X_lengths, Y_i, Y_t, Y_masks, kld_coef)
 
-                if it % (display_step * 20) == 0:
-                    # 查看重构情况
-                    print('\n------------ reconstruction --------------')
-                    for i, s in enumerate(sentences):
-                        if i > 4:
-                            break
-                        print('-----')
-                        print("Input: {}\nOutput: {} ".format(s, self.sample_from_encoder(loader, s)))
-                    # 查看随机生成情况
-                    print('\n------------ sample_from_normal ----------')
-                    for i in range(self.batch_size):
-                        if i > 4:
-                            break
-                        print('{}, {}'.format(i, self.sample_from_normal(loader)))
-                    print('\n')
+            if it % display_step == 0:
+                print(
+                    "Epoch %d/%d | Batch %d/%d | train_loss: %.3f | rec_loss: %.3f | kl_loss: %.6f | kld_coef: %.6f | kld_coef*kl_loss: %.6f |" % (
+                        e + 1, self.n_epochs, it, loader.num_line // self.batch_size,
+                        kl_lss * kld_coef + rec_lss, rec_lss, kl_lss, kld_coef, kld_coef * kl_lss))
+
+            if it % (display_step * 20) == 0:
+                # 查看重构情况
+                print('\n------------ reconstruction --------------')
+                for i, s in enumerate(sentences):
+                    if i > 4:
+                        break
+                    print('-----')
+                    print("Input: {}\nOutput: {} ".format(s, self.sample_from_encoder(loader, s)))
+                # 查看随机生成情况
+                print('\n------------ sample_from_normal ----------')
+                for i in range(self.batch_size):
+                    if i > 4:
+                        break
+                    print('{}, {}'.format(i, self.sample_from_normal(loader)))
+                print('\n')
+
+            # 训练结束
+            if e >= self.n_epochs:
+                break
 
     def sample_from_normal(self, loader):
         z = torch.autograd.Variable(torch.randn(1, self.z_size))

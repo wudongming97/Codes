@@ -34,7 +34,7 @@ def infer_by_same_test(model, sess, data_loader, sentence, batch_size):
     sentences = [sentence] * batch_size
     out_s_ = model.infer_by_encoder(sess, data_loader, sentences)
     for ix, s_ in enumerate(out_s_):
-        print('Out{:3d}: {}'.format(ix, s_))
+        print('Out{:3d}: {}'.format(ix, s_.split(D.E_TOKEN)[0]))
 
 
 # 次测试是为了查看VAE的z空间的连续性

@@ -18,24 +18,23 @@ europarl_valid_loader = D.DataLoader(D.Vocab('europarl_valid_hybird_cvae', D.Lev
 ptb_valid_loader = D.DataLoader(D.Vocab('ptb_valid_hybird_cvae', D.Level.CHAR))
 
 # hybird_cvae config
+flags.DEFINE_string('model_name', 'Hybird_CVAE', '')
+flags.DEFINE_string('ckpt_path', './results/Hybird_CVAE/ckpt/', '')
+flags.DEFINE_string('logs_path', './results/Hybird_CVAE/log/', '')
+
 flags.DEFINE_integer('batch_size', 32, '')
 flags.DEFINE_integer('steps', U.epoch_to_step(20, europarl_train_loader.num_line, batch_size=32), '')
 flags.DEFINE_integer('lr', 0.001, 'learning rate')
 flags.DEFINE_integer('z_size', 32, '')
 flags.DEFINE_integer('seq_len', 60, '')
-flags.DEFINE_float('alpha', 0.2, '')
-flags.DEFINE_float('beta', 0, '')
-flags.DEFINE_string('model_name', 'Hybird_CVAE', '')
-flags.DEFINE_string('ckpt_path', './results/Hybird_CVAE/ckpt/', '')
-flags.DEFINE_string('logs_path', './results/Hybird_CVAE/log/', '')
-
-# encoder
 flags.DEFINE_integer('rnn_num', 2, '')
 flags.DEFINE_integer('embed_size', 80, '')
 flags.DEFINE_integer('vocab_size', europarl_train_loader.vocab_size, '')
-
-#  decoder
 flags.DEFINE_integer('rnn_hidden_size', 512, '')
+flags.DEFINE_float('alpha', 0.2, '')
+flags.DEFINE_float('beta', 1, '')
+flags.DEFINE_float('word_drop', '0.2', 'word dropout probability')
+
 FLAGS = flags.FLAGS
 
 

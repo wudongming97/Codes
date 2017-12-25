@@ -8,6 +8,7 @@ from collections import namedtuple
 import numpy as np
 import tensorflow as tf
 
+import utils.DataLoader as D
 import utils.Utils as U
 
 TI = namedtuple('train_inputs', ['X', 'Y_i', 'Y_lengths', 'Y_t', 'Y_mask'])
@@ -219,9 +220,18 @@ class Hybird_CVAE(object):
     def train_is_ok(self, sess):
         return sess.run(tf.train.get_global_step()) >= self.flags.steps
 
+    def _word_drop(self, Y_i, data_loader):
+        Y_i_np = np.array(Y_i)
+        p_mask_ = np.random.binomial(1, 1 - self.flags.word_drop, Y_i_np.shape)
+        u_mask_ = (1 - p_mask_) * data_loader.vocab.idx[D.U_TOKEN]
+        return Y_i_np * p_mask_ + u_mask_
+
     def fit(self, sess, data_loader, _writer, _saver):
         for data in data_loader.next_batch(self.flags.batch_size):
             X, Y_i, Y_lengths, Y_t, Y_masks = data_loader.unpack_for_hybird_cvae(data, self.flags.seq_len)
+
+            Y_i = self._word_drop(Y_i, data_loader)
+
             _, summery_, loss_, rec_loss_, kld_loss_, aux_loss_ = sess.run(
                 [self.train_op, self.train_summery_op] + list(self.losses),
                 {self.train_i.X: X,

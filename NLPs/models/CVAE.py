@@ -201,7 +201,7 @@ class CVAE(torch.nn.Module):
     def _kld_coef(self, cur_epoch, cur_iter):
         scalar_sigmoid = lambda x: 1 / (1 + math.exp(-x))
         if self.kl_lss_anneal:
-            return scalar_sigmoid(-15 + 20 * cur_epoch / self.n_epochs)
+            return scalar_sigmoid(-10 + 20 * cur_epoch / self.n_epochs)
         else:
             return 1
 
@@ -290,7 +290,7 @@ class CVAE(torch.nn.Module):
             d_output, decoder_hidden = self._forward_d(Y_i, decoder_hidden)
 
             d_output_np = d_output.data.squeeze().cpu().numpy()
-            ixs = d_output_np.argsort()[self.top_k:][::-1].tolist()  # top_k
+            ixs = d_output_np.argsort()[-self.top_k:][::-1].tolist()  # top_k
             ix = ixs[random.randint(0, len(ixs) - 1)]
 
             if loader.vocab.vocab[ix] == E_TOKEN:
@@ -309,8 +309,7 @@ class CVAE(torch.nn.Module):
         self.load_state_dict(torch.load(self.model_name))
         print('model loaded ...')
 
-    def train_bt(self, X, X_lengths, Y_i, Y_t, Y_mask,
-                 kld_coef):
+    def train_bt(self, X, X_lengths, Y_i, Y_t, Y_mask, kld_coef):
         self.optimizer.zero_grad()
         d_output, kld_lss = self(X, X_lengths, Y_i)
         rec_lss = self._rec_loss(d_output, Y_t, Y_mask)

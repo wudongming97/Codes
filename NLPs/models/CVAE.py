@@ -100,8 +100,6 @@ class CVAE(torch.nn.Module):
         self.encoder_params['vocab_size'] = self.params.get('vocab_size')
         self.decoder_params['vocab_size'] = self.params.get('vocab_size')
 
-        self.target = self.params.get('target')
-
         self.batch_size = self.params.get('batch_size')
         self.vocab_size = self.params.get('vocab_size')
         self.z_size = self.params.get('z_size')

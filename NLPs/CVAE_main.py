@@ -29,24 +29,23 @@ class word_level_params:
     }
 
     params = {
-        'target': 1,  # or 0
         'n_epochs': 30,
         'lr': 0.001,
         'batch_size': 64,
         'z_size': 16,
         'max_grad_norm': 5,
-        'top_k': 2,
-        'word_dropout_p': 0.6,
+        'top_k': 1,
+        'word_dropout_p': 0.2,
         'kl_lss_anneal': True,
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         'model_name': 'trained_word_CVAE.model',
-        'only_rec_loss': False,  # for debug
+        'only_rec_loss': True,  # for debug
     }
 
 
 if __name__ == '__main__':
 
-    ptb_train_loader = DataLoader(Vocab('ptb_train_cvae', Level.WORD))
+    ptb_train_loader = DataLoader(Vocab('europarl_train_cvae', Level.WORD))
 
     level = word_level_params()
     level.params['vocab_size'] = ptb_train_loader.vocab.vocab_size

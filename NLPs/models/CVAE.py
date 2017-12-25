@@ -106,7 +106,7 @@ class CVAE(torch.nn.Module):
         self.z_size = self.params.get('z_size')
         self.model_name = self.params.get('model_name')
         self.lr = self.params.get('lr')
-        self.only_rec_loss = self.params.get('only_rec_loss')
+        self.beta = self.params.get('beta')
         self.kl_lss_anneal = self.params.get('kl_lss_anneal')
         self.n_epochs = self.params.get('n_epochs')
         self.word_dropout_p = self.params.get('word_dropout_p')
@@ -200,9 +200,7 @@ class CVAE(torch.nn.Module):
 
     def _kld_coef(self, cur_epoch, cur_iter):
         scalar_sigmoid = lambda x: 1 / (1 + math.exp(-x))
-        if self.only_rec_loss:
-            return 0
-        elif self.kl_lss_anneal:
+        if self.kl_lss_anneal:
             return scalar_sigmoid(-15 + 20 * cur_epoch / self.n_epochs)
         else:
             return 1
@@ -317,7 +315,7 @@ class CVAE(torch.nn.Module):
         rec_lss = self._rec_loss(d_output, Y_t, Y_mask)
 
         # update
-        lss = kld_coef * kld_lss + rec_lss
+        lss = self.beta * kld_coef * kld_lss + rec_lss
         lss.backward()
         torch.nn.utils.clip_grad_norm(self.parameters(), self.max_grad_norm)
         self.optimizer.step()

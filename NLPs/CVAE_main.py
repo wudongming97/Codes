@@ -25,7 +25,7 @@ class word_level_params:
         'hidden_size': 512,
         'n_layers': 1,
         'bidirectional': False,
-        'input_dropout_p': 0.8,
+        'input_dropout_p': 0.0,
     }
 
     params = {
@@ -39,7 +39,7 @@ class word_level_params:
         'kl_lss_anneal': True,
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         'model_name': 'trained_word_CVAE.model',
-        'only_rec_loss': True,  # for debug
+        'beta': 0,  # 在kl_loss前面在添加一个超参数，防止kl_loss坍缩
     }
 
 

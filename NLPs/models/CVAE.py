@@ -235,7 +235,7 @@ class CVAE(torch.nn.Module):
 
             if it % display_step == 0:
                 global_step_ = U.epoch_to_step(self.n_epochs, loader.num_line, self.batch_size)
-                str_ = "Epoch %d/%d | step %d/%d | train_loss: %.3f | rec_loss: %.3f | kl_loss: %.6f | kld_coef: %.6f |"
+                str_ = "Epoch {}/{} | step {}/{} | train_loss: {:.3} | rec_loss: {:.3} | kl_loss: {:.5} | kld_coef: {:.5} |"
                 print(
                     str_.format(e + 1, self.n_epochs, it, global_step_, self.beta * kld_coef * kl_lss + rec_lss, rec_lss, kl_lss,
                                 kld_coef))

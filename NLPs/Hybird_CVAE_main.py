@@ -70,13 +70,13 @@ def main(_):
             # # 1)用标准正太分布来生成样本
             # T.infer_by_normal_test(model, sess, europarl_train_loader)
             # # 2)infer by encoder, 直接从训练集中取数据
-            # T.infer_by_encoder_test(model, sess, europarl_train_loader, FLAGS.batch_size)
+            T.infer_by_encoder_test(model, sess, europarl_train_loader, FLAGS.batch_size)
             # # 3)infer by encoder，从另外一个不同的数据集取数据
             # T.infer_by_encoder_test(model, sess, ptb_valid_loader, FLAGS.batch_size)
             # # 4)z空间的线性渐变，查看输出的连续变化
             # T.infer_by_linear_z_test(model, sess, europarl_train_loader, FLAGS.batch_size, FLAGS.z_size)
             T.infer_by_same_test(model, sess, europarl_train_loader, 'the vote will take place tomorrow .', FLAGS.batch_size)
-            T.infer_by_same_test(model, sess, europarl_train_loader, 'i would like to make four point .', FLAGS.batch_size)
+            # T.infer_by_same_test(model, sess, europarl_train_loader, 'i would like to make four point .', FLAGS.batch_size)
 
 
         else:

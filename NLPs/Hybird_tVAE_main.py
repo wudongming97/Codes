@@ -5,22 +5,22 @@ from __future__ import print_function
 
 import tensorflow as tf
 
-import experiments.Hybird_CVAE_test as T
+import experiments.Hybird_tVAE_test as T
 import utils.DataLoader as D
 import utils.Utils as U
-from models.Hybird_CVAE import Hybird_CVAE
+from models.Hybird_tVAE import Hybird_tVAE
 
 flags = tf.app.flags
 
 # data_loader
-europarl_train_loader = D.DataLoader(D.Vocab('europarl_train_hybird_cvae', D.Level.CHAR))
-europarl_valid_loader = D.DataLoader(D.Vocab('europarl_valid_hybird_cvae', D.Level.CHAR))
-ptb_valid_loader = D.DataLoader(D.Vocab('ptb_valid_hybird_cvae', D.Level.CHAR))
+europarl_train_loader = D.DataLoader(D.Vocab('europarl_train_hybird_tvae', D.Level.CHAR))
+europarl_valid_loader = D.DataLoader(D.Vocab('europarl_valid_hybird_tvae', D.Level.CHAR))
+ptb_valid_loader = D.DataLoader(D.Vocab('ptb_valid_hybird_tvae', D.Level.CHAR))
 
-# hybird_cvae config
-flags.DEFINE_string('model_name', 'Hybird_CVAE', '')
-flags.DEFINE_string('ckpt_path', './results/Hybird_CVAE/ckpt/', '')
-flags.DEFINE_string('logs_path', './results/Hybird_CVAE/log/', '')
+# hybird_tvae config
+flags.DEFINE_string('model_name', 'Hybird_tVAE', '')
+flags.DEFINE_string('ckpt_path', './results/Hybird_tVAE/ckpt/', '')
+flags.DEFINE_string('logs_path', './results/Hybird_tVAE/log/', '')
 
 flags.DEFINE_integer('batch_size', 32, '')
 flags.DEFINE_integer('steps', U.epoch_to_step(20, europarl_train_loader.num_line, batch_size=32), '')
@@ -51,7 +51,7 @@ def main(_):
 
     graph = tf.Graph()
     with graph.as_default():
-        model = Hybird_CVAE(FLAGS)
+        model = Hybird_tVAE(FLAGS)
         saver = tf.train.Saver(  # max_to_keep=5,
             keep_checkpoint_every_n_hours=1,
             pad_step_number=True)

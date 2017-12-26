@@ -90,9 +90,9 @@ class Decoder(torch.nn.Module):
         return output, hidden
 
 
-class CVAE(torch.nn.Module):
+class tVAE(torch.nn.Module):
     def __init__(self, encoder_params, decoder_params, params):
-        super(CVAE, self).__init__()
+        super(tVAE, self).__init__()
 
         self.params = params
         self.encoder_params = encoder_params
@@ -216,7 +216,7 @@ class CVAE(torch.nn.Module):
         for it, data in enumerate(loader.next_batch(self.batch_size)):
             e = U.step_to_epoch(it, loader.num_line, self.batch_size)
 
-            X, X_lengths, Y_i, Y_masks, Y_t = loader.unpack_for_cvae(data)
+            X, X_lengths, Y_i, Y_masks, Y_t = loader.unpack_for_tvae(data)
             sentences = loader.to_seqs(X)
 
             if self.word_dropout_p >= 0:

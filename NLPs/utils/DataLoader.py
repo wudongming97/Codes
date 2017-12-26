@@ -102,14 +102,14 @@ class DataLoader:
             batch_tensor_ = [self.vocab.idx_t[ix] for ix in index_]
             yield batch_tensor_
 
-    def unpack_for_cvae(self, batch_tensor):
+    def unpack_for_tvae(self, batch_tensor):
         sorted_tensor = sorted(batch_tensor, key=len, reverse=True)
         X, X_lengths = self._pad(sorted_tensor)
         Y_i, Y_lengths = self._pad([[self.vocab.idx[G_TOKEN]] + line for line in sorted_tensor])
         Y_t, _ = self._pad([line + [self.vocab.idx[E_TOKEN]] for line in sorted_tensor])
         return X, X_lengths, Y_i, self._mask(Y_lengths), Y_t
 
-    def unpack_for_hybird_cvae(self, batch_tensor, seq_len):
+    def unpack_for_hybird_tvae(self, batch_tensor, seq_len):
         sorted_tensor = sorted(batch_tensor, key=len, reverse=True)
         _input, _lengths= self._pad([[self.vocab.idx[G_TOKEN]] + line for line in sorted_tensor], seq_len)
         Y_t, _ = self._pad([line + [self.vocab.idx[E_TOKEN]] for line in sorted_tensor], seq_len)

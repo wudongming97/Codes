@@ -16,7 +16,7 @@ TL = namedtuple('train_losses', ['loss', 'rec_loss', 'kld_loss', 'aux_loss'])
 TO = namedtuple('train_ops', ['optim_op', 'train_summery_op'])
 
 
-class Hybird_CVAE(object):
+class Hybird_tVAE(object):
     def __init__(self, flags):
         self.flags = flags
         self.phase = tf.placeholder(dtype=tf.bool, name='phase')
@@ -228,7 +228,7 @@ class Hybird_CVAE(object):
 
     def fit(self, sess, data_loader, _writer, _saver):
         for data in data_loader.next_batch(self.flags.batch_size):
-            X, Y_i, Y_lengths, Y_t, Y_masks = data_loader.unpack_for_hybird_cvae(data, self.flags.seq_len)
+            X, Y_i, Y_lengths, Y_t, Y_masks = data_loader.unpack_for_hybird_tvae(data, self.flags.seq_len)
 
             Y_i = self._word_drop(Y_i, data_loader)
 
@@ -261,7 +261,7 @@ class Hybird_CVAE(object):
 
     def valid(self, sess, data_loader):
         for batch_idx, data in enumerate(data_loader.next_batch(self.flags.batch_size)):
-            X, Y_i, Y_lengths, Y_t, Y_masks = data_loader.unpack_for_hybird_cvae(data, self.flags.seq_len)
+            X, Y_i, Y_lengths, Y_t, Y_masks = data_loader.unpack_for_hybird_tvae(data, self.flags.seq_len)
             loss_, rec_loss_, kld_loss_, aux_loss_ = sess.run(list(self.losses),
                                                               {self.train_i.X: X,
                                                                self.train_i.Y_i: Y_i,
@@ -285,7 +285,7 @@ class Hybird_CVAE(object):
 
     def infer_by_encoder(self, sess, data_loader, sentences):
         tensor = data_loader.to_tensor(sentences)
-        X, Y_i, Y_lengths, Y_t, Y_masks = data_loader.unpack_for_hybird_cvae(tensor, self.flags.seq_len)
+        X, Y_i, Y_lengths, Y_t, Y_masks = data_loader.unpack_for_hybird_tvae(tensor, self.flags.seq_len)
         preds = sess.run(self.preds_e, {self.train_i.X: X,
                                         self.train_i.Y_i: Y_i,
                                         self.train_i.Y_lengths: Y_lengths,

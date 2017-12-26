@@ -3,7 +3,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from models.CVAE import CVAE, USE_GPU
+from models.tVAE import tVAE, USE_GPU
 from utils.DataLoader import DataLoader, Vocab, Level
 
 
@@ -38,19 +38,19 @@ class word_level_params:
         'word_dropout_p': 0.2,
         'kl_lss_anneal': True,
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        'model_name': 'trained_word_CVAE.model',
+        'model_name': 'trained_word_tVAE.model',
         'beta': 0,  # 在kl_loss前面在添加一个超参数，防止kl_loss坍缩
     }
 
 
 if __name__ == '__main__':
 
-    ptb_train_loader = DataLoader(Vocab('europarl_train_cvae', Level.WORD))
+    ptb_train_loader = DataLoader(Vocab('europarl_train_tvae', Level.WORD))
 
     level = word_level_params()
     level.params['vocab_size'] = ptb_train_loader.vocab.vocab_size
 
-    model = CVAE(level.encoder_params, level.decoder_params, level.params)
+    model = tVAE(level.encoder_params, level.decoder_params, level.params)
     if USE_GPU:
         model = model.cuda()
 

@@ -45,10 +45,10 @@ class word_level_params:
 
 if __name__ == '__main__':
 
-    ptb_train_loader = DataLoader(Vocab('europarl_train_tvae', Level.WORD))
+    data_loader = DataLoader(Vocab('europarl_tvae', Level.WORD))
 
     level = word_level_params()
-    level.params['vocab_size'] = ptb_train_loader.vocab.vocab_size
+    level.params['vocab_size'] = data_loader.vocab.vocab_size
 
     model = tVAE(level.encoder_params, level.decoder_params, level.params)
     if USE_GPU:
@@ -58,9 +58,9 @@ if __name__ == '__main__':
         model.load()
     else:
         # train
-        model.fit(ptb_train_loader)
+        model.fit(data_loader)
         model.save()
 
     # 随机生成1000个句子
     for i in range(1000):
-        print('{}, {}'.format(i, model.sample_from_normal(ptb_train_loader)))
+        print('{}, {}'.format(i, model.sample_from_normal(data_loader)))

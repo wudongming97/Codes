@@ -5,6 +5,7 @@ from __future__ import print_function
 
 import collections
 import enum
+import math
 import os
 import pickle
 import random
@@ -51,7 +52,7 @@ class Vocab:
         self.idx = dict(zip(self.vocab, range(self.vocab_size)))
         self.idx_t = self._to_tensor(seqs)
 
-    def _build_vocab(self, seqs, lf=1, sz=None):
+    def _build_vocab(self, seqs, lf=10, sz=None):
         flatten_seq = reduce(lambda x1, x2: x1 + x2, seqs)
         counts_ = collections.Counter(flatten_seq).most_common(sz)
         counts_ = [c for c in counts_ if c[1] > lf]
@@ -89,17 +90,29 @@ class DataLoader:
     def __init__(self, vocab):
         self.vocab = vocab
         self.vocab_size = self.vocab.vocab_size
-        self.num_line = len(self.vocab.idx_t)
         self.max_seq_len = max(map(len, self.vocab.idx_t))
-
+        self.sample_size = len(self.vocab.idx_t)
+        self.train_t = self.vocab.idx_t[:math.floor(self.sample_size * 0.85)]
+        self.valid_t = self.vocab.idx_t[math.floor(self.sample_size * 0.85):]
+        self.train_size = len(self.train_t)
+        self.valid_size = len(self.valid_t)
         self.to_seqs = lambda x: self.vocab._to_seqs(x)
         self.to_tensor = lambda x: self.vocab._to_tensor(x)
+        self._show()
 
-    def next_batch(self, batch_size, shuffle=True):
+    def _show(self):
+        print('=================vocab info===================')
+        print(
+            'name: {}, Level: {}, train_size: {}, valid_size: {}'.format(self.vocab.vocab_name, self.vocab.level, self.train_size,
+                                                                         self.valid_size))
+
+    def next_batch(self, batch_size, train=True, shuffle=True):
+        tensor_ = self.train_t if train else self.valid_t
+        num_ = self.train_size if train else self.valid_size
         while True:
             if shuffle:
-                index_ = random.sample(range(self.num_line), batch_size)
-            batch_tensor_ = [self.vocab.idx_t[ix] for ix in index_]
+                index_ = random.sample(range(num_), batch_size)
+            batch_tensor_ = [tensor_[ix] for ix in index_]
             yield batch_tensor_
 
     def unpack_for_tvae(self, batch_tensor):
@@ -111,9 +124,16 @@ class DataLoader:
 
     def unpack_for_hybird_tvae(self, batch_tensor, seq_len):
         sorted_tensor = sorted(batch_tensor, key=len, reverse=True)
-        _input, _lengths= self._pad([[self.vocab.idx[G_TOKEN]] + line for line in sorted_tensor], seq_len)
+        _input, _lengths = self._pad([[self.vocab.idx[G_TOKEN]] + line for line in sorted_tensor], seq_len)
         Y_t, _ = self._pad([line + [self.vocab.idx[E_TOKEN]] for line in sorted_tensor], seq_len)
         return _input, _input, _lengths, Y_t, self._mask(_lengths, seq_len)
+
+    def unpack_for_tvae_tf(self, batch_tensor, seq_len):
+        sorted_tensor = sorted(batch_tensor, key=len, reverse=True)
+        X, X_lengths = self._pad(sorted_tensor, seq_len)
+        Y_i, Y_lengths = self._pad([[self.vocab.idx[G_TOKEN]] + line for line in sorted_tensor], seq_len)
+        Y_t, _ = self._pad([line + [self.vocab.idx[E_TOKEN]] for line in sorted_tensor], seq_len)
+        return X, X_lengths, Y_i, Y_lengths, Y_t, self._mask(Y_lengths, seq_len)
 
     def g_input(self, batch_size):
         g_input_ = [[self.vocab.idx[G_TOKEN]] for _ in range(batch_size)]
@@ -125,7 +145,7 @@ class DataLoader:
         if (pad_max_len is not None) and (pad_max_len < seq_max_len_):
             raise ValueError('seq_max_len({}) > pad_max_len({})'.format(seq_max_len_, pad_max_len))
         pad_max_len_ = seq_max_len_ if pad_max_len is None else pad_max_len
-        padded = [s + [self.vocab.idx[P_TOKEN]] * (pad_max_len_-len(s)) for s in inputs]
+        padded = [s + [self.vocab.idx[P_TOKEN]] * (pad_max_len_ - len(s)) for s in inputs]
         return padded, seq_lengths
 
     def _mask(self, seq_lengths, pad_max_len=None):
@@ -133,5 +153,5 @@ class DataLoader:
         if (pad_max_len is not None) and (pad_max_len < seq_max_len_):
             raise ValueError('_mask param error!')
         pad_max_len_ = seq_max_len_ if pad_max_len is None else pad_max_len
-        mask = [[1]*l_ + [0]*(pad_max_len_ - l_) for l_ in seq_lengths]
+        mask = [[1] * l_ + [0] * (pad_max_len_ - l_) for l_ in seq_lengths]
         return mask

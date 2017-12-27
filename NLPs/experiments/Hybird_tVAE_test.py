@@ -17,16 +17,15 @@ def infer_by_normal_test(model, sess, data_loader):
 
 
 # 此测试是为了查看训练数据或者测试数据重构的情况
-def infer_by_encoder_test(model, sess, data_loader, batch_size):
-    for i in data_loader.next_batch(batch_size):
-        input_s_ = sorted(data_loader.to_seqs(i), key=len, reverse=True)
-        out_s_ = model.infer_by_encoder(sess, data_loader, input_s_)
-        pair_s_ = zip(input_s_, out_s_)
-        for ix, _p in enumerate(pair_s_):
-            print('In {:3d}: {}'.format(ix, _p[0]))
-            t_s_ = _p[1].split(D.E_TOKEN)[0]
-            print('Out{:3d}: {}'.format(ix, t_s_))
-        break
+def infer_by_encoder_test(model, sess, data_loader, batch_size, train=True):
+    data = data_loader.one_batch(batch_size, train)
+    input_s_ = sorted(data_loader.to_seqs(data), key=len, reverse=True)
+    out_s_ = model.infer_by_encoder(sess, data_loader, input_s_)
+    pair_s_ = zip(input_s_, out_s_)
+    for ix, _p in enumerate(pair_s_):
+        print('In {:3d}: {}'.format(ix, _p[0]))
+        t_s_ = _p[1].split(D.E_TOKEN)[0]
+        print('Out{:3d}: {}'.format(ix, t_s_))
 
 
 # 此测试是为了查看VAE（去kl_loss项和不去kl_loss项）的连续性

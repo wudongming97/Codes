@@ -115,6 +115,12 @@ class DataLoader:
             batch_tensor_ = [tensor_[ix] for ix in index_]
             yield batch_tensor_
 
+    # 方便在测试的时候使用
+    def one_batch(self, batch_size, train=True):
+        tensor_ = self.train_t if train else self.valid_t
+        num_ = self.train_size if train else self.valid_size
+        return [tensor_[ix] for ix in random.sample(range(num_), batch_size)]
+
     def unpack_for_tvae(self, batch_tensor):
         sorted_tensor = sorted(batch_tensor, key=len, reverse=True)
         X, X_lengths = self._pad(sorted_tensor)

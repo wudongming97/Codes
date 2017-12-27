@@ -227,7 +227,7 @@ class Hybird_tVAE(object):
         return Y_i_np * p_mask_ + u_mask_
 
     def fit(self, sess, data_loader, _writer, _saver):
-        for data in data_loader.next_batch(self.flags.batch_size):
+        for data in data_loader.next_batch(self.flags.batch_size, True):
             X, Y_i, Y_lengths, Y_t, Y_masks = data_loader.unpack_for_hybird_tvae(data, self.flags.seq_len)
 
             Y_i = self._word_drop(Y_i, data_loader)
@@ -245,12 +245,12 @@ class Hybird_tVAE(object):
             _writer.add_summary(summery_, step_)  # tf.train.get_global_step())
 
             if step_ % 20 == 0:
-                epoch_ = U.step_to_epoch(step_, data_loader.num_line, self.flags.batch_size)
+                epoch_ = U.step_to_epoch(step_, data_loader.train_size, self.flags.batch_size)
                 print("TRAIN: | Epoch %d | step %d/%d | train_loss: %.3f | rec_loss %.3f | kld_loss %3f | aux_loss %3f |" % (
                     epoch_, step_, self.flags.steps, loss_, rec_loss_, kld_loss_, aux_loss_))
 
             # 每5个epoch存储下模型
-            if step_ % U.epoch_to_step(5, data_loader.num_line, self.flags.batch_size) == 0:
+            if step_ % U.epoch_to_step(5, data_loader.train_size, self.flags.batch_size) == 0:
                 _saver.save(sess, self.flags.ckpt_path, global_step=step_, write_meta_graph=False)
                 print('model saved ...')
 
@@ -260,7 +260,7 @@ class Hybird_tVAE(object):
                 break
 
     def valid(self, sess, data_loader):
-        for batch_idx, data in enumerate(data_loader.next_batch(self.flags.batch_size)):
+        for batch_idx, data in enumerate(data_loader.next_batch(self.flags.batch_size, train=False, shuffle=True)):
             X, Y_i, Y_lengths, Y_t, Y_masks = data_loader.unpack_for_hybird_tvae(data, self.flags.seq_len)
             loss_, rec_loss_, kld_loss_, aux_loss_ = sess.run(list(self.losses),
                                                               {self.train_i.X: X,

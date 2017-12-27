@@ -213,8 +213,8 @@ class tVAE(torch.nn.Module):
 
     def fit(self, loader, display_step=15):
         print('begin fit ...\n')
-        for it, data in enumerate(loader.next_batch(self.batch_size)):
-            e = U.step_to_epoch(it, loader.num_line, self.batch_size)
+        for it, data in enumerate(loader.next_batch(self.batch_size, train=True, shuffle=True)):
+            e = U.step_to_epoch(it, loader.train_size, self.batch_size)
 
             X, X_lengths, Y_i, Y_masks, Y_t = loader.unpack_for_tvae(data)
             sentences = loader.to_seqs(X)
@@ -234,7 +234,7 @@ class tVAE(torch.nn.Module):
             kl_lss, rec_lss = self.train_bt(X, X_lengths, Y_i, Y_t, Y_masks, kld_coef)
 
             if it % display_step == 0:
-                global_step_ = U.epoch_to_step(self.n_epochs, loader.num_line, self.batch_size)
+                global_step_ = U.epoch_to_step(self.n_epochs, loader.train_size, self.batch_size)
                 str_ = "Epoch {}/{} | step {}/{} | train_loss: {:.3} | rec_loss: {:.3} | kl_loss: {:.5} | kld_coef: {:.5} |"
                 print(
                     str_.format(e + 1, self.n_epochs, it, global_step_, self.beta * kld_coef * kl_lss + rec_lss, rec_lss, kl_lss,

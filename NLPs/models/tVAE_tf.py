@@ -186,7 +186,7 @@ class tVAE_tf(object):
     def train_is_ok(self, sess):
         return sess.run(tf.train.get_global_step()) >= self.flags.steps
 
-    def fit(self, sess, data_loader, t_writer, v_writer, _saver):
+    def fit(self, sess, data_loader, t_writer, _saver):
         for data in data_loader.next_batch(self.flags.batch_size, train=True, shuffle=True):
             X, X_lengths, Y_i, Y_lengths, Y_t, Y_masks = data_loader.unpack_for_tvae_tf(data, self.flags.max_seq_len)
 

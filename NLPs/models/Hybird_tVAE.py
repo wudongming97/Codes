@@ -13,7 +13,7 @@ import utils.Utils as U
 
 TI = namedtuple('train_inputs', ['X', 'Y_i', 'Y_lengths', 'Y_t', 'Y_mask'])
 TL = namedtuple('train_losses', ['loss', 'rec_loss', 'kld_loss', 'aux_loss'])
-TO = namedtuple('train_ops', ['optim_op', 'train_summery_op'])
+TO = namedtuple('train_ops', ['optim_op', 'summery_op'])
 
 
 class Hybird_tVAE(object):
@@ -30,7 +30,7 @@ class Hybird_tVAE(object):
 
     def build_graph(self):
         tf.train.create_global_step()
-        self.losses, (self.train_op, self.train_summery_op) = self._train_graph()
+        self.losses, (self.train_op, self.summery_op) = self._train_graph()
         t1_ = len(tf.global_variables())
         self.preds_z = self._infer_by_z_graph()
         t2_ = len(tf.global_variables())
@@ -60,11 +60,11 @@ class Hybird_tVAE(object):
             tf.summary.scalar('rec_loss', rec_loss)
             tf.summary.scalar('aux_loss', aux_loss)
             tf.summary.scalar('loss', loss)
-            train_summery_op = tf.summary.merge_all()
+            summery_op = tf.summary.merge_all()
 
         optim_op = self._train_op(loss)
 
-        return TL(loss, rec_loss, kld_loss, aux_loss), TO(optim_op, train_summery_op)
+        return TL(loss, rec_loss, kld_loss, aux_loss), TO(optim_op, summery_op)
 
     def _infer_by_z_graph(self):
         vocab_logits = self._cnn_decoder(self.normal_z, ru=True)
@@ -233,7 +233,7 @@ class Hybird_tVAE(object):
             Y_i = self._word_drop(Y_i, data_loader)
 
             _, summery_, loss_, rec_loss_, kld_loss_, aux_loss_ = sess.run(
-                [self.train_op, self.train_summery_op] + list(self.losses),
+                [self.train_op, self.summery_op] + list(self.losses),
                 {self.train_i.X: X,
                  self.train_i.Y_i: Y_i,
                  self.train_i.Y_lengths: Y_lengths,
@@ -259,17 +259,18 @@ class Hybird_tVAE(object):
                 print('train is end ...')
                 break
 
-    def valid(self, sess, data_loader):
+    def valid(self, sess, data_loader, valid_writer):
         for batch_idx, data in enumerate(data_loader.next_batch(self.flags.batch_size, train=False, shuffle=True)):
             X, Y_i, Y_lengths, Y_t, Y_masks = data_loader.unpack_for_hybird_tvae(data, self.flags.seq_len)
-            loss_, rec_loss_, kld_loss_, aux_loss_ = sess.run(list(self.losses),
-                                                              {self.train_i.X: X,
-                                                               self.train_i.Y_i: Y_i,
-                                                               self.train_i.Y_lengths: Y_lengths,
-                                                               self.train_i.Y_t: Y_t,
-                                                               self.train_i.Y_mask: Y_masks,
-                                                               self.phase: False
-                                                               })
+            summery_, loss_, rec_loss_, kld_loss_, aux_loss_ = sess.run([self.summery_op] + list(self.losses),
+                                                                        {self.train_i.X: X,
+                                                                         self.train_i.Y_i: Y_i,
+                                                                         self.train_i.Y_lengths: Y_lengths,
+                                                                         self.train_i.Y_t: Y_t,
+                                                                         self.train_i.Y_mask: Y_masks,
+                                                                         self.phase: False
+                                                                         })
+            valid_writer.add_summary(summery_)
             print("VALID: | batch_idx %d | train_loss: %.3f | rec_loss %.3f | kld_loss %3f | aux_loss %3f |" % (
                 batch_idx, loss_, rec_loss_, kld_loss_, aux_loss_))
             if batch_idx >= 10:

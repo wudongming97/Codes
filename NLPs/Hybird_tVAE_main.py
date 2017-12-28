@@ -19,7 +19,7 @@ data_loader = D.DataLoader(D.Vocab('europarl_hybird_tvae', D.Level.CHAR))
 # hybird_tvae config
 flags.DEFINE_string('model_name', 'Hybird_tVAE', '')
 flags.DEFINE_string('ckpt_path', './results/Hybird_tVAE/ckpt/', '')
-flags.DEFINE_string('logs_path', './results/Hybird_tVAE/log/', '')
+flags.DEFINE_string('logs_path', './results/Hybird_tVAE/logs/', '')
 
 flags.DEFINE_integer('batch_size', 32, '')
 flags.DEFINE_integer('steps', U.epoch_to_step(5, data_loader.train_size, batch_size=32), '')
@@ -56,7 +56,8 @@ def main(_):
             pad_step_number=True)
 
     with tf.Session(graph=graph, config=sess_conf) as sess:
-        summery_writer = tf.summary.FileWriter(FLAGS.logs_path, sess.graph)
+        train_writer = tf.summary.FileWriter(FLAGS.logs_path + 'train/', sess.graph)
+        valid_writer = tf.summary.FileWriter(FLAGS.logs_path + 'valid/')
         sess.run(tf.global_variables_initializer())
 
         tf.train.export_meta_graph(FLAGS.ckpt_path + FLAGS.model_name + '.meta')
@@ -78,8 +79,8 @@ def main(_):
 
         else:
             print('\nbegin fit ...')
-            model.fit(sess, data_loader, summery_writer, saver)
-            model.valid(sess, europarl_valid_loader)
+            model.fit(sess, data_loader, train_writer, saver)
+            model.valid(sess, data_loader, valid_writer)
 
 
 if __name__ == "__main__":

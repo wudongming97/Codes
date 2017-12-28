@@ -79,7 +79,7 @@ def main(_):
                 print('Out{:3d}: {}'.format(ix, t_s_))
         else:
             print('\nbegin fit ...')
-            model.fit(sess, data_loader, train_writer, valid_writer, saver)
+            model.fit(sess, data_loader, train_writer, saver)
             model.valid(sess, data_loader, valid_writer)
 
 

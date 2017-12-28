@@ -218,7 +218,7 @@ class tVAE_tf(object):
                 print('train is end ...')
                 break
 
-    def valid(self, sess, valid_loader, t_writer):
+    def valid(self, sess, valid_loader, v_writer):
         for batch_idx, data in enumerate(valid_loader.next_batch(self.flags.batch_size, True)):
             X, X_lengths, Y_i, Y_lengths, Y_t, Y_masks = valid_loader.unpack_for_tvae_tf(data, self.flags.max_seq_len)
             loss_, rec_loss_, kld_loss_, v_summery_ = sess.run(list(self.losses) + [self.summery_op],
@@ -229,7 +229,7 @@ class tVAE_tf(object):
                                                                 self.train_i.Y_t: Y_t,
                                                                 self.train_i.Y_mask: Y_masks
                                                                 })
-            t_writer.add_summary(v_summery_)
+            v_writer.add_summary(v_summery_)
             print("VALID: | batch_idx %d | train_loss: %.3f | rec_loss %.3f | kld_loss %3f |" % (
                 batch_idx, loss_, rec_loss_, kld_loss_))
 

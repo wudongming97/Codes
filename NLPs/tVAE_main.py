@@ -39,7 +39,7 @@ class word_level_params:
         'kl_lss_anneal': True,
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         'model_name': 'trained_word_tVAE.model',
-        'beta': 0,  # 在kl_loss前面在添加一个超参数，防止kl_loss坍缩
+        'beta': 1,  # 在kl_loss前面在添加一个超参数，防止kl_loss坍缩
     }
 
 

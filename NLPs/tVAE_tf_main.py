@@ -19,7 +19,7 @@ flags.DEFINE_string('ckpt_path', './results/tVAE_tf/ckpt/', '')
 flags.DEFINE_string('logs_path', './results/tVAE_tf/logs/', '')
 
 flags.DEFINE_integer('batch_size', 32, '')
-flags.DEFINE_integer('steps', U.epoch_to_step(1, data_loader.train_size, batch_size=32), '')
+flags.DEFINE_integer('steps', U.epoch_to_step(5, data_loader.train_size, batch_size=32), '')
 flags.DEFINE_integer('lr', 0.001, 'learning rate')
 flags.DEFINE_integer('z_size', 32, '')
 flags.DEFINE_integer('max_seq_len', 25, '')

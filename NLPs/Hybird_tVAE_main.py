@@ -14,7 +14,7 @@ flags = tf.app.flags
 
 # data_loader
 data_loader = D.DataLoader(D.Vocab('europarl_hybird_tvae', D.Level.CHAR))
-ptb_loader = D.DataLoader(D.Vocab('ptb_hybird_tvae', D.Level.CHAR))
+# ptb_loader = D.DataLoader(D.Vocab('ptb_hybird_tvae', D.Level.CHAR))
 
 # hybird_tvae config
 flags.DEFINE_string('model_name', 'Hybird_tVAE', '')
@@ -22,7 +22,7 @@ flags.DEFINE_string('ckpt_path', './results/Hybird_tVAE/ckpt/', '')
 flags.DEFINE_string('logs_path', './results/Hybird_tVAE/log/', '')
 
 flags.DEFINE_integer('batch_size', 32, '')
-flags.DEFINE_integer('steps', U.epoch_to_step(20, data_loader.train_size, batch_size=32), '')
+flags.DEFINE_integer('steps', U.epoch_to_step(5, data_loader.train_size, batch_size=32), '')
 flags.DEFINE_integer('lr', 0.001, 'learning rate')
 flags.DEFINE_integer('z_size', 32, '')
 flags.DEFINE_integer('seq_len', 60, '')
@@ -66,16 +66,15 @@ def main(_):
 
         if model.train_is_ok(sess):
             # # 1)用标准正太分布来生成样本
-            # T.infer_by_normal_test(model, sess, data_loader)
+            T.infer_by_normal_test(model, sess, data_loader)
             # # 2)infer by encoder, 直接从训练集中取数据
             T.infer_by_encoder_test(model, sess, data_loader, FLAGS.batch_size)
             # # 3)infer by encoder，从另外一个不同的数据集取数据
             # T.infer_by_encoder_test(model, sess, ptb_loader, FLAGS.batch_size)
             # # 4)z空间的线性渐变，查看输出的连续变化
             # T.infer_by_linear_z_test(model, sess, data_loader, FLAGS.batch_size, FLAGS.z_size)
-            T.infer_by_same_test(model, sess, data_loader, 'the vote will take place tomorrow .', FLAGS.batch_size)
+            # T.infer_by_same_test(model, sess, data_loader, 'the vote will take place tomorrow .', FLAGS.batch_size)
             # T.infer_by_same_test(model, sess, data_loader, 'i would like to make four point .', FLAGS.batch_size)
-
 
         else:
             print('\nbegin fit ...')

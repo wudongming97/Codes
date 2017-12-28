@@ -80,18 +80,15 @@ class tVAE_tf(object):
             cell = self._rnn_cell()
             state = self._z_to_state(z)
             if train:  # must run first
-                a = self._decoder_train(cell, state, Y, Y_lengths)
-                return a
+                return self._decoder_train(cell, state, Y, Y_lengths)
             else:
-                b = self._decoder_infer(cell, state)
-                return b
+                return self._decoder_infer(cell, state)
 
     def _decoder_train(self, cell, state, Y, Y_lengths):
         with tf.name_scope('decoder_train'):
             Y_embed = tf.nn.embedding_lookup(self.embedding, Y)
             H_i = tf.layers.dense(Y_embed, self.flags.hidden_size, name='H_i')
             H, _ = tf.nn.dynamic_rnn(cell, H_i, Y_lengths, state, dtype=tf.float32, scope='fuck_tf')
-
             logits = tf.layers.dense(H, self.flags.vocab_size, name='H_o')
         return logits
 

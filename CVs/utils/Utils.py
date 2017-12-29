@@ -13,19 +13,22 @@ def _bytes_feature(value):
 
 
 # 获取目录下所有以suffix为后缀的文件名
-def get_file_name_by_suffix(dir_, suffix):
+def get_file_name_by_suffix(dir_, suffix_):
     return [os.path.join(dir_, name) for name in os.listdir(dir_)
-            if os.path.isfile(os.path.join(dir_, name)) and name.endswith(suffix)]
+            if os.path.isfile(os.path.join(dir_, name)) and name.endswith(suffix_)]
 
+def get_file_name_by_prefix(dir_, prefix_):
+    return [os.path.join(dir_, name) for name in os.listdir(dir_)
+            if os.path.isfile(os.path.join(dir_, name)) and name.startswith(prefix_)]
 
 def get_file_name(dir_):
     return [os.path.join(dir_, name) for name in os.listdir(dir_)
             if os.path.isfile(os.path.join(dir_, name))]
 
 
-def fixed_image_writer(images_path, file_name):
-    writer = tf.python_io.TFRecordWriter(file_name)
-    for path_ in get_file_name(images_path):
+def fixed_image_writer(filename_list, target_file):
+    writer = tf.python_io.TFRecordWriter(target_file)
+    for path_ in filename_list:
         image = imread(path_)
         example = tf.train.Example(features=tf.train.Features(feature={
             'image': _bytes_feature(image.tostring())
@@ -62,4 +65,5 @@ def print_shape(v):
 
 
 if __name__ == '__main__':
-    fixed_image_writer('./raw', 'cifar10.tfrecords')
+    filename_list = get_file_name_by_prefix('./raw', '0_')
+    fixed_image_writer(filename_list, 'cifar10_0.tfrecords')

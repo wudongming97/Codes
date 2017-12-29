@@ -37,7 +37,7 @@ def fixed_image_writer(filename_list, target_file):
     writer.close()
 
 
-def fixed_image_reader(filename_list, shape_=None):
+def fixed_image_reader(filename_list, shape_):
     queue_ = tf.train.string_input_producer(filename_list)
     reader = tf.TFRecordReader()
     _, serialized_example = reader.read(queue_)

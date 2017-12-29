@@ -3,7 +3,7 @@ import tensorflow as tf
 import models.VAE
 
 
-class VAE_katong(models.VAE.VAE):
+class VAE_(models.VAE.VAE):
     def __init__(self, flags, X):
         super().__init__(flags, X)
 

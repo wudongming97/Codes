@@ -6,13 +6,18 @@ from __future__ import print_function
 import tensorflow as tf
 
 import utils.Utils as U
-from configs.VAE_katong_config import FLAGS, SHAPE
-from models.VAE_katong import VAE_katong
+# ======== cifar10 =========
+from configs.VAE_cifar10_config import FLAGS, SHAPE
+from models.VAE_cifar10 import VAE_
+
+
+# ======= katong ===========
+# from configs.VAE_katong_config import FLAGS, SHAPE
+# from models.VAE_katong import VAE_
 
 
 def main(_):
     tf.logging.set_verbosity(tf.logging.INFO)
-    # gpu memory
     sess_conf = tf.ConfigProto(
         # log_device_placement=True,
         gpu_options=tf.GPUOptions(
@@ -29,9 +34,9 @@ def main(_):
                                                   batch_size=FLAGS.batch_size,
                                                   capacity=2000,
                                                   min_after_dequeue=100)
-        model = VAE_katong(FLAGS, batch_images)
+        model = VAE_(FLAGS, batch_images)
 
-        saver = tf.train.Saver(  # max_to_keep=5,
+        saver = tf.train.Saver(
             keep_checkpoint_every_n_hours=1,
             pad_step_number=True)
 

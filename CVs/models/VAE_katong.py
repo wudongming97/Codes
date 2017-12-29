@@ -29,15 +29,3 @@ class VAE_katong(models.VAE.VAE):
             d3 = tf.layers.conv2d_transpose(d2, 64, 3, 2, 'SAME', name='L3')
             d4 = self._dconv_with_bn(d3, 3, 3, 2, 'SAME', 'L4')
         return d4
-
-    def _conv_with_bn(self, input, filters, kernel_size, strides, padding, name):
-        with tf.variable_scope(name):
-            conv = tf.layers.conv2d(input, filters, kernel_size, strides, padding)
-            bn = tf.nn.relu(tf.layers.batch_normalization(conv, training=self.phase))
-        return bn
-
-    def _dconv_with_bn(self, input, filters, kernel_size, strides, padding, name):
-        with tf.variable_scope(name):
-            conv_t = tf.layers.conv2d_transpose(input, filters, kernel_size, strides, padding)
-            bn = tf.nn.relu(tf.layers.batch_normalization(conv_t, training=self.phase))
-            return bn

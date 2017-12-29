@@ -97,6 +97,18 @@ class VAE(object):
                 optim_op = tf.train.AdamOptimizer(learning_rate=self.flags.lr).minimize(loss, tf.train.get_global_step())
         return loss, optim_op
 
+    def _conv_with_bn(self, input, filters, kernel_size, strides, padding, name):
+        with tf.variable_scope(name):
+            conv = tf.layers.conv2d(input, filters, kernel_size, strides, padding)
+            bn = tf.nn.relu(tf.layers.batch_normalization(conv, training=self.phase))
+        return bn
+
+    def _dconv_with_bn(self, input, filters, kernel_size, strides, padding, name):
+        with tf.variable_scope(name):
+            conv_t = tf.layers.conv2d_transpose(input, filters, kernel_size, strides, padding)
+            bn = tf.nn.relu(tf.layers.batch_normalization(conv_t, training=self.phase))
+            return bn
+
     def fit(self, sess, writer, saver):
         coord = tf.train.Coordinator()
         threads = tf.train.start_queue_runners(sess, coord)

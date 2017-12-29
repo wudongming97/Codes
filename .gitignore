@@ -12,3 +12,7 @@ NLPs/data
 NLPs/results
 NLPs/tensorflow_joys.py
 NLPs/experiments/__pycache__
+CVs/results
+CVs/data
+CVs/utils/__pycache__
+CVs/models/__pycache__

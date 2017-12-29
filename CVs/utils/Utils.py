@@ -13,9 +13,14 @@ def _bytes_feature(value):
 
 
 # 获取目录下所有以suffix为后缀的文件名
-def get_file_name(dir_, suffix=None):
+def get_file_name_by_suffix(dir_, suffix):
     return [os.path.join(dir_, name) for name in os.listdir(dir_)
             if os.path.isfile(os.path.join(dir_, name)) and name.endswith(suffix)]
+
+
+def get_file_name(dir_):
+    return [os.path.join(dir_, name) for name in os.listdir(dir_)
+            if os.path.isfile(os.path.join(dir_, name))]
 
 
 def fixed_image_writer(images_path, file_name):
@@ -54,3 +59,7 @@ def train_is_ok(sess, steps):
 
 def print_shape(v):
     print(v.get_shape().as_list())
+
+
+if __name__ == '__main__':
+    fixed_image_writer('./raw', 'cifar10.tfrecords')

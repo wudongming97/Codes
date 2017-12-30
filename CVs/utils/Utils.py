@@ -1,5 +1,7 @@
 import os
+import pickle
 
+import numpy as np
 import tensorflow as tf
 from matplotlib.image import imread
 
@@ -17,23 +19,29 @@ def get_file_name_by_suffix(dir_, suffix_):
     return [os.path.join(dir_, name) for name in os.listdir(dir_)
             if os.path.isfile(os.path.join(dir_, name)) and name.endswith(suffix_)]
 
+
 def get_file_name_by_prefix(dir_, prefix_):
     return [os.path.join(dir_, name) for name in os.listdir(dir_)
             if os.path.isfile(os.path.join(dir_, name)) and name.startswith(prefix_)]
+
 
 def get_file_name(dir_):
     return [os.path.join(dir_, name) for name in os.listdir(dir_)
             if os.path.isfile(os.path.join(dir_, name))]
 
 
+def single_image_writer(writer, image):
+    example = tf.train.Example(features=tf.train.Features(feature={
+        'image': _bytes_feature(image.tostring())
+    }))
+    writer.write(example.SerializeToString())
+
+
 def fixed_image_writer(filename_list, target_file):
     writer = tf.python_io.TFRecordWriter(target_file)
     for path_ in filename_list:
         image = imread(path_)
-        example = tf.train.Example(features=tf.train.Features(feature={
-            'image': _bytes_feature(image.tostring())
-        }))
-        writer.write(example.SerializeToString())
+        single_image_writer(writer, image)
     writer.close()
 
 
@@ -64,6 +72,35 @@ def print_shape(v):
     print(v.get_shape().as_list())
 
 
+def cifar10_unpickle(file):
+    with open(file, 'rb') as fo:
+        dick = pickle.load(fo, encoding='bytes')
+    return dick
+
+
+def cifar10_tfrecord_writer(dir_, target, labels=None):
+    from os.path import join
+    writer = tf.python_io.TFRecordWriter(target)
+    data_names = ['data_batch_1', 'data_batch_2', 'data_batch_3', 'data_batch_4', 'data_batch_5']
+    # label_names = cifar10_unpickle(join(dir_, 'batches.meta'))[b'label_names']
+    files_ = [join(dir_, fi) for fi in data_names]
+    for file in files_:
+        dick = cifar10_unpickle(file)
+        data, lables, filenames = dick[b'data'], dick[b'labels'], dick[b'filenames']
+        for ix, l_ in enumerate(lables):
+            image = np.reshape(np.reshape(data[ix], [3, 1024]).T, [32, 32, 3])
+            if labels is None:
+                single_image_writer(writer, image)
+            elif l_ in labels:
+                single_image_writer(writer, image)
+            else:
+                None
+
+    writer.close()
+
+
 if __name__ == '__main__':
-    filename_list = get_file_name_by_prefix('./raw', '0_')
-    fixed_image_writer(filename_list, 'cifar10_0.tfrecords')
+    # filename_list = get_file_name_by_prefix('./raw', '0_')
+    # fixed_image_writer(filename_list, 'cifar10_0.tfrecords')
+
+    cifar10_tfrecord_writer('E:\\data\\cifar-10-batches-py\\', 'cifar10_0.tfrecords', labels=[0])

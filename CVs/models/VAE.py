@@ -26,7 +26,7 @@ class VAE(object):
         z = self._sample_z(mu, logvar)
         X_ = self._decoder(z)
         kld_loss = self._kld_loss(mu, logvar)
-        rec_loss = self._rec_loss(self.X, X_)
+        rec_loss = self._rec_loss(X_, self.X)
 
         loss, optim_op = self._optim_op(rec_loss, kld_loss)
 
@@ -83,9 +83,9 @@ class VAE(object):
         return kld_loss
 
     @staticmethod
-    def _rec_loss(X, X_):
+    def _rec_loss(logits, labels):
         with tf.name_scope('rec_loss'):
-            rec_loss = tf.nn.sigmoid_cross_entropy_with_logits(logits=X, labels=X_)
+            rec_loss = tf.nn.sigmoid_cross_entropy_with_logits(logits=logits, labels=labels)
             return tf.reduce_mean(rec_loss)
 
     def _optim_op(self, rec_loss, kld_loss):

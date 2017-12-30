@@ -191,9 +191,9 @@ class Hybird_tVAE(object):
             return tf.cast(coef, tf.float32)
 
     @staticmethod
-    def _kld_loss(mu, log_var):
+    def _kld_loss(mu, logvar):
         with tf.name_scope('kld_loss'):
-            kld_loss = tf.reduce_mean(-0.5 * tf.reduce_sum(log_var - tf.square(mu) - tf.exp(log_var) + 1, axis=1))
+            kld_loss = tf.reduce_mean(-0.5 * tf.reduce_sum(logvar - tf.square(mu) - tf.exp(logvar) + 1, axis=1))
         return kld_loss
 
     @staticmethod

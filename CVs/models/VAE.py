@@ -82,8 +82,8 @@ class VAE(object):
             kld_loss = tf.reduce_mean(-0.5 * tf.reduce_sum(log_var - tf.square(mu) - tf.exp(log_var) + 1, axis=1))
         return kld_loss
 
-    # @staticmethod
-    def _rec_loss(self, X, X_):
+    @staticmethod
+    def _rec_loss(X, X_):
         with tf.name_scope('rec_loss'):
             rec_loss = tf.nn.sigmoid_cross_entropy_with_logits(logits=X, labels=X_)
             return tf.reduce_mean(rec_loss)

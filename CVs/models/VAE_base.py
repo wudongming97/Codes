@@ -86,8 +86,7 @@ class VAE(object):
 
     def _aux_loss(self, mu):
         with tf.name_scope('aux_loss'):
-            mu_ = tf.expand_dims(tf.reduce_mean(mu, 1), 1)
-            mu_ = tf.tile(mu_, [1, self.flags.z_size])
+            mu_ = tf.tile(tf.expand_dims(tf.reduce_mean(mu, 1), 1), [1, self.flags.z_size])
             aux_loss = tf.nn.relu(self.flags.gamma - tf.losses.mean_squared_error(mu, mu_))
             return aux_loss
 
@@ -108,13 +107,15 @@ class VAE(object):
 
     def _conv_with_bn(self, input, filters, kernel_size, strides, padding, name):
         with tf.variable_scope(name):
-            conv = tf.layers.conv2d(input, filters, kernel_size, strides, padding)
+            conv = tf.layers.conv2d(input, filters, kernel_size, strides, padding,
+                                    kernel_initializer=tf.contrib.layers.xavier_initializer())
             bn = tf.nn.relu(tf.layers.batch_normalization(conv, training=self.phase))
         return bn
 
     def _dconv_with_bn(self, input, filters, kernel_size, strides, padding, name):
         with tf.variable_scope(name):
-            conv_t = tf.layers.conv2d_transpose(input, filters, kernel_size, strides, padding)
+            conv_t = tf.layers.conv2d_transpose(input, filters, kernel_size, strides,
+                                                padding, kernel_initializer=tf.contrib.layers.xavier_initializer())
             bn = tf.nn.relu(tf.layers.batch_normalization(conv_t, training=self.phase))
             return bn
 

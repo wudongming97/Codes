@@ -6,6 +6,8 @@ flags.DEFINE_integer('z_size', 32, '')
 flags.DEFINE_integer('batch_size', 64, '')
 flags.DEFINE_float('lr', 0.0005, '')
 flags.DEFINE_float('beta', 1.0, '')
+flags.DEFINE_float('alpha', 0.0, 'the frac of aux_loss')
+flags.DEFINE_float('gamma', 5.0, '')
 
 # ================== VAE_katong =======================
 flags.DEFINE_string('model_name', 'VAE_katong', '')

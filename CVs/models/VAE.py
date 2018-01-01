@@ -17,7 +17,7 @@ class VAE(object):
 
     def _build_graph(self):
         tf.train.create_global_step()
-        self.optim_op, self.train_summary_op, self.loss, self.rec_loss, self.kld_loss = self._train_graph()
+        self.optim_op, self.train_summary_op, self.loss, self.rec_loss, self.kld_loss, self.aux_loss = self._train_graph()
         self.infer_samples, self.infer_summary_op = self._infer_graph()
         self.recon_samoles, self.recon_summary_op = self._recon_graph()
 
@@ -27,8 +27,9 @@ class VAE(object):
         X_ = self._decoder(z)
         kld_loss = self._kld_loss(mu, logvar)
         rec_loss = self._rec_loss(X_, self.X)
+        aux_loss = self._aux_loss(mu)
 
-        loss, optim_op = self._optim_op(rec_loss, kld_loss)
+        loss, optim_op = self._optim_op(rec_loss, kld_loss, aux_loss)
 
         with tf.name_scope('train_summary'):
             train_summary_op = tf.summary.merge([
@@ -37,9 +38,10 @@ class VAE(object):
                 tf.summary.histogram('z', z),
                 tf.summary.scalar('loss', loss),
                 tf.summary.scalar('rec_loss', rec_loss),
-                tf.summary.scalar('kld_loss', kld_loss)
+                tf.summary.scalar('kld_loss', kld_loss),
+                tf.summary.scalar('aux_loss', aux_loss)
             ])
-        return optim_op, train_summary_op, loss, rec_loss, kld_loss
+        return optim_op, train_summary_op, loss, rec_loss, kld_loss, aux_loss
 
     def _infer_graph(self):
         samples = self._decoder(self.normal_z, True)
@@ -82,18 +84,25 @@ class VAE(object):
             kld_loss = tf.reduce_mean(-0.5 * tf.reduce_sum(logvar - tf.square(mu) - tf.exp(logvar) + 1, axis=1))
         return kld_loss
 
+    def _aux_loss(self, mu):
+        with tf.name_scope('aux_loss'):
+            mu_ = tf.expand_dims(tf.reduce_mean(mu, 1), 1)
+            mu_ = tf.tile(mu_, [1, self.flags.z_size])
+            aux_loss = tf.nn.relu(self.flags.gamma - tf.losses.mean_squared_error(mu, mu_))
+            return aux_loss
+
     @staticmethod
     def _rec_loss(logits, labels):
         with tf.name_scope('rec_loss'):
             rec_loss = tf.nn.sigmoid_cross_entropy_with_logits(logits=logits, labels=labels)
             return tf.reduce_mean(rec_loss)
 
-    def _optim_op(self, rec_loss, kld_loss):
+    def _optim_op(self, rec_loss, kld_loss, aux_loss):
         with tf.name_scope('optim_op'):
             # for batch_normal to work correct
             update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
             with tf.control_dependencies(update_ops):
-                loss = rec_loss + self.flags.beta * kld_loss
+                loss = rec_loss + self.flags.beta * kld_loss + self.flags.alpha * aux_loss
                 optim_op = tf.train.AdamOptimizer(learning_rate=self.flags.lr).minimize(loss, tf.train.get_global_step())
         return loss, optim_op
 
@@ -113,14 +122,15 @@ class VAE(object):
         coord = tf.train.Coordinator()
         threads = tf.train.start_queue_runners(sess, coord)
         for _ in range(self.flags.steps):
-            _, _summary, loss, rec_loss, kld_loss = sess.run(
-                [self.optim_op, self.train_summary_op, self.loss, self.rec_loss, self.kld_loss], {self.phase: True})
+            _, _summary, loss, rec_loss, kld_loss, aux_loss = sess.run(
+                [self.optim_op, self.train_summary_op, self.loss, self.rec_loss, self.kld_loss, self.aux_loss],
+                {self.phase: True})
             step_ = sess.run(tf.train.get_global_step())
             writer.add_summary(_summary, step_)
 
             if step_ % 5 == 0:
-                print("TRAIN: | step %d/%d | train_loss: %.3f | rec_loss %.3f | kld_loss %.6f|" % (
-                    step_, self.flags.steps, loss, rec_loss, kld_loss))
+                print("TRAIN: | step %d/%d | train_loss: %.3f | rec_loss %.3f | kld_loss %.6f| aux_loss %.6f |" % (
+                    step_, self.flags.steps, loss, rec_loss, kld_loss, aux_loss))
             if step_ % 20 == 0:
                 self.infer_from_normal(sess, writer)
                 self.infer_from_encoder(sess, writer)

@@ -78,7 +78,7 @@ def cifar10_unpickle(file):
     return dick
 
 
-def cifar10_tfrecord_writer(dir_, target, labels=None):
+def cifar10_tfrecord_writer(dir_, target, cls=None):
     from os.path import join
     writer = tf.python_io.TFRecordWriter(target)
     data_names = ['data_batch_1', 'data_batch_2', 'data_batch_3', 'data_batch_4', 'data_batch_5']
@@ -89,13 +89,22 @@ def cifar10_tfrecord_writer(dir_, target, labels=None):
         data, lables, filenames = dick[b'data'], dick[b'labels'], dick[b'filenames']
         for ix, l_ in enumerate(lables):
             image = np.reshape(np.reshape(data[ix], [3, 1024]).T, [32, 32, 3])
-            if labels is None:
+            if cls is None:
                 single_image_writer(writer, image)
-            elif l_ in labels:
+            elif l_ in cls:
                 single_image_writer(writer, image)
             else:
                 None
 
+    writer.close()
+
+def mnist_tfrecord_writer(dir_, target):
+    from tensorflow.examples.tutorials.mnist import input_data
+    mnist = input_data.read_data_sets(dir_, dtype=tf.uint8)
+    writer = tf.python_io.TFRecordWriter(target)
+    for i in range(mnist.train.num_examples):
+        image = mnist.train.images[i]
+        single_image_writer(writer, image)
     writer.close()
 
 
@@ -103,4 +112,5 @@ if __name__ == '__main__':
     # filename_list = get_file_name_by_prefix('./raw', '0_')
     # fixed_image_writer(filename_list, 'cifar10_0.tfrecords')
 
-    cifar10_tfrecord_writer('E:\\data\\cifar-10-batches-py\\', 'cifar10_0.tfrecords', labels=[0])
+    # cifar10_tfrecord_writer('E:\\data\\cifar-10-batches-py\\', 'cifar10_0.tfrecords', cls=[0])
+    mnist_tfrecord_writer('E:\\data\\mnist\\', 'mnist.tfrecords')

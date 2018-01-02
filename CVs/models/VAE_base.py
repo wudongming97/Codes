@@ -19,7 +19,7 @@ class VAE(object):
         tf.train.create_global_step()
         self.optim_op, self.train_summary_op, self.loss, self.rec_loss, self.kld_loss, self.aux_loss = self._train_graph()
         self.infer_samples, self.infer_summary_op = self._infer_graph()
-        self.recon_samoles, self.recon_summary_op = self._recon_graph()
+        self.recon_samples, self.recon_summary_op = self._recon_graph()
 
     def _train_graph(self):
         mu, logvar = self._encoder(self.X)
@@ -44,7 +44,8 @@ class VAE(object):
         return optim_op, train_summary_op, loss, rec_loss, kld_loss, aux_loss
 
     def _infer_graph(self):
-        samples = self._decoder(self.normal_z, True)
+        logits = self._decoder(self.normal_z, True)
+        samples = tf.sigmoid(logits)
         with tf.name_scope('infer_summary'):
             infer_summary_op = tf.summary.merge([
                 tf.summary.image('infer_images', samples, 8)
@@ -54,16 +55,16 @@ class VAE(object):
     def _recon_graph(self):
         mu, logvar = self._encoder(self.X, True)
         z = self._sample_z(mu, logvar)
-        X_ = self._decoder(z, True)
+        samples = tf.sigmoid(self._decoder(z, True))
         with tf.name_scope('recon_summary'):
             recon_summary_op = tf.summary.merge([
                 tf.summary.histogram('mu', mu),
                 tf.summary.histogram('logvar', logvar),
                 tf.summary.histogram('z', z),
                 tf.summary.image('input_X_', self.X, 8),
-                tf.summary.image('recon_X_', X_, 8)
+                tf.summary.image('recon_X_', samples, 8)
             ])
-        return X_, recon_summary_op
+        return samples, recon_summary_op
 
     def _encoder(self, X, ru=False):
         raise NotImplemented
@@ -73,8 +74,7 @@ class VAE(object):
 
     def _sample_z(self, mu, logvar):
         with tf.name_scope('sample_z'):
-            bz = mu.get_shape().as_list()[0]
-            eps = tf.truncated_normal((bz, self.flags.z_size), stddev=1.0)
+            eps = tf.random_normal(tf.shape(mu))
             z = mu + tf.exp(0.5 * logvar) * eps
         return z
 
@@ -86,15 +86,15 @@ class VAE(object):
 
     def _aux_loss(self, mu):
         with tf.name_scope('aux_loss'):
-            mu_ = tf.tile(tf.expand_dims(tf.reduce_mean(mu, 1), 1), [1, self.flags.z_size])
+            mu_ = tf.tile(tf.expand_dims(tf.reduce_mean(mu, 0), 0), [tf.shape(mu)[0], 1])
             aux_loss = tf.nn.relu(self.flags.gamma - tf.losses.mean_squared_error(mu, mu_))
             return aux_loss
 
     @staticmethod
     def _rec_loss(logits, labels):
         with tf.name_scope('rec_loss'):
-            rec_loss = tf.nn.sigmoid_cross_entropy_with_logits(logits=logits, labels=labels)
-            return tf.reduce_mean(rec_loss)
+            rec_loss = tf.reduce_mean(tf.reduce_sum(tf.nn.sigmoid_cross_entropy_with_logits(logits=logits, labels=labels), 1))
+            return rec_loss
 
     def _optim_op(self, rec_loss, kld_loss, aux_loss):
         with tf.name_scope('optim_op'):
@@ -147,6 +147,6 @@ class VAE(object):
         return samples
 
     def infer_from_encoder(self, sess, writer):
-        samples, _summary = sess.run([self.recon_samoles, self.recon_summary_op], {self.phase: False})
+        samples, _summary = sess.run([self.recon_samples, self.recon_summary_op], {self.phase: False})
         writer.add_summary(_summary)
         return samples

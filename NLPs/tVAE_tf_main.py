@@ -9,27 +9,26 @@ import utils.DataLoader as D
 import utils.Utils as U
 from models.tVAE_tf import tVAE_tf
 
+data_loader = D.DataLoader(D.Vocab('europarl_tvae_tf', D.Level.WORD))
+
 flags = tf.app.flags
 
 flags.DEFINE_string('model_name', 'tVAE_tf', '')
 flags.DEFINE_string('ckpt_path', './results/tVAE_tf/ckpt/', '')
 flags.DEFINE_string('logs_path', './results/tVAE_tf/logs/', '')
-
 flags.DEFINE_integer('batch_size', 32, '')
 flags.DEFINE_integer('steps', U.epoch_to_step(5, data_loader.train_size, batch_size=32), '')
 flags.DEFINE_integer('lr', 0.001, 'learning rate')
 flags.DEFINE_integer('z_size', 32, '')
-flags.DEFINE_integer('max_seq_len', 25, '')
-flags.DEFINE_integer('n_layers', 2, '')
-flags.DEFINE_integer('embed_size', 512, '')
+flags.DEFINE_integer('max_seq_len', 15, '')
+flags.DEFINE_integer('n_layers', 1, '')
+flags.DEFINE_integer('embed_size', 256, '')
 flags.DEFINE_integer('vocab_size', data_loader.vocab_size, '')
-flags.DEFINE_integer('hidden_size', 512, '')
-flags.DEFINE_float('beta', 1, '')
+flags.DEFINE_integer('hidden_size', 256, '')
+flags.DEFINE_float('beta', 0, '')
 flags.DEFINE_float('word_drop', '0.2', 'word dropout probability')
 
 FLAGS = flags.FLAGS
-
-data_loader = D.DataLoader(D.Vocab('europarl_tvae_tf_20000', D.Level.WORD))
 
 def main(_):
     tf.logging.set_verbosity(tf.logging.INFO)

@@ -11,13 +11,13 @@ from nltk.stem import SnowballStemmer, WordNetLemmatizer
 
 T_ = {
     'to_lower': True,
-    'remove_punctuations': True,
-    'remove_stop_words': True,
-    'need_stem': True,
+    'remove_punctuations': False,
+    'remove_stop_words': False,
+    'need_stem': False,
     'need_lemma': True,
 
     'line_lens': (5, 60),
-    'word_lens': (5, 25),
+    'word_lens': (10, 15),
 }
 
 stopwords = set(stopwords.words('english'))
@@ -25,7 +25,7 @@ snowball = SnowballStemmer('english')
 lemmatizer = WordNetLemmatizer()
 
 if __name__ == '__main__':
-    raw_file = '../data/europarl-v7.txt'
+    raw_file = '../data/europarl-v7.en'
     target_file = '../data/europarl-v7.txt_'
     with open(raw_file, 'r', encoding='utf-8') as sf:
         with open(target_file, 'w', encoding='utf-8') as tf:
@@ -49,7 +49,7 @@ if __name__ == '__main__':
                 if (len(tokens) < T_.get('word_lens')[0] or len(tokens) >= T_.get('word_lens')[1]):
                     continue
                 line = ' '.join(tokens)
-                if len(line) < T_.get('line_lens')[0] or len(line) >= T_.get('line_lens')[1]:
-                    continue
+                # if len(line) < T_.get('line_lens')[0] or len(line) >= T_.get('line_lens')[1]:
+                #     continue
 
                 tf.write(line + '\n')

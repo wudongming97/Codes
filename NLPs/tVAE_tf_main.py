@@ -11,9 +11,6 @@ from models.tVAE_tf import tVAE_tf
 
 flags = tf.app.flags
 
-data_loader = D.DataLoader(D.Vocab('europarl_tvae_tf', D.Level.WORD))
-
-# hybird_tvae config
 flags.DEFINE_string('model_name', 'tVAE_tf', '')
 flags.DEFINE_string('ckpt_path', './results/tVAE_tf/ckpt/', '')
 flags.DEFINE_string('logs_path', './results/tVAE_tf/logs/', '')
@@ -32,6 +29,7 @@ flags.DEFINE_float('word_drop', '0.2', 'word dropout probability')
 
 FLAGS = flags.FLAGS
 
+data_loader = D.DataLoader(D.Vocab('europarl_tvae_tf_20000', D.Level.WORD))
 
 def main(_):
     tf.logging.set_verbosity(tf.logging.INFO)

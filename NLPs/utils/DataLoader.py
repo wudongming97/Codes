@@ -52,7 +52,7 @@ class Vocab:
         self.idx = dict(zip(self.vocab, range(self.vocab_size)))
         self.idx_t = self._to_tensor(seqs)
 
-    def _build_vocab(self, seqs, lf=20, sz=None):
+    def _build_vocab(self, seqs, lf=2, sz=None):
         flatten_seq = reduce(lambda x1, x2: x1 + x2, seqs)
         counts_ = collections.Counter(flatten_seq).most_common(sz)
         counts_ = [c for c in counts_ if c[1] > lf]

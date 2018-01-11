@@ -229,6 +229,8 @@ class tVAE_tf(object):
             v_writer.add_summary(v_summery_)
             print("VALID: | batch_idx %d | train_loss: %.3f | rec_loss %.3f | kld_loss %3f |" % (
                 batch_idx, loss_, rec_loss_, kld_loss_))
+            if batch_idx >= 100:
+                break
 
     def infer_by_normal(self, sess, data_loader):
         z = np.random.normal(0, 1, [self.flags.batch_size, self.flags.z_size])

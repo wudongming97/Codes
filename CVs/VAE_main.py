@@ -7,14 +7,14 @@ import tensorflow as tf
 
 import utils.Utils as U
 # ======== cifar10 =========
-from configs.VAE_cifar10_config import FLAGS, SHAPE
-from models.VAE_cifar10 import VAE_
+# from configs.VAE_cifar10_config import FLAGS, SHAPE
+# from models.VAE_cifar10 import VAE_
 # ======= katong ===========
 # from configs.VAE_katong_config import FLAGS, SHAPE
 # from models.VAE_katong import VAE_
 #======== mnist ============
-# from configs.VAE_mnist_config import FLAGS, SHAPE
-# from models.VAE_mnist import VAE_
+from configs.VAE_mnist_config import FLAGS, SHAPE
+from models.VAE_mnist import VAE_
 
 
 def main(_):

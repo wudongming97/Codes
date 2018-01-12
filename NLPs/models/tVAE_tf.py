@@ -11,7 +11,7 @@ import tensorflow as tf
 import utils.Utils as U
 
 TI = namedtuple('train_inputs', ['X', 'X_lengths', 'Y_i', 'Y_lengths', 'Y_t', 'Y_mask'])
-TL = namedtuple('train_losses', ['loss', 'rec_loss', 'kld_loss'])
+TL = namedtuple('train_losses', ['loss', 'rec_loss', 'kld_loss', 'aux_loss'])
 TO = namedtuple('train_ops', ['optim_op', 'summery_op'])
 
 
@@ -37,9 +37,11 @@ class tVAE_tf(object):
 
     def _train_graph(self):
         mu, logvar = self._rnn_encoder(self.train_i.X, self.train_i.X_lengths, ru=False)
+        self.debug = [mu, logvar]
         z = self._sample_z(mu, logvar)
         logits = self._rnn_decoder(z, self.train_i.Y_i, self.train_i.Y_lengths, train=True, ru=False)
 
+        aux_loss = self._aux_loss(mu)
         kld_loss = self._kld_loss(mu, logvar)
         rec_loss = self._rec_loss(logits, self.train_i.Y_t, self.train_i.Y_mask)
         loss = self._train_loss(kld_loss, rec_loss)
@@ -50,12 +52,13 @@ class tVAE_tf(object):
             tf.summary.histogram('z', z)
             tf.summary.scalar('kld_loss', kld_loss)
             tf.summary.scalar('rec_loss', rec_loss)
+            tf.summary.scalar('aux_loss', aux_loss)
             tf.summary.scalar('loss', loss)
 
         train_summery_op = tf.summary.merge_all()
         optim_op = self._train_op(loss)
 
-        return TL(loss, rec_loss, kld_loss), TO(optim_op, train_summery_op)
+        return TL(loss, rec_loss, kld_loss, aux_loss), TO(optim_op, train_summery_op)
 
     def _infer_by_z_graph(self):
         return self._rnn_decoder(self.normal_z, None, None, train=False, ru=True)
@@ -148,6 +151,13 @@ class tVAE_tf(object):
             kld_loss = tf.reduce_mean(-0.5 * tf.reduce_sum(log_var - tf.square(mu) - tf.exp(log_var) + 1, axis=1))
         return kld_loss
 
+    def _aux_loss(self, mu):
+        with tf.name_scope('aux_loss'):
+            mu_ = tf.tile(tf.expand_dims(tf.reduce_mean(mu, 0), 0), [tf.shape(mu)[0], 1])
+            aux_loss = tf.nn.relu(self.flags.gamma - tf.reduce_mean(tf.reduce_sum(tf.square(mu - mu_), 1)))
+            #aux_loss = tf.nn.relu(self.flags.gamma - tf.losses.mean_squared_error(mu, mu_, reduction=tf.losses.Reduction.SUM))
+        return aux_loss
+
     @staticmethod
     def _rec_loss(logits, targets, masks):
         with tf.name_scope('rec_loss'):
@@ -187,7 +197,7 @@ class tVAE_tf(object):
         for data in data_loader.next_batch(self.flags.batch_size, train=True, shuffle=True):
             X, X_lengths, Y_i, Y_lengths, Y_t, Y_masks = data_loader.unpack_for_tvae_tf(data, self.flags.max_seq_len)
 
-            _, t_summery_, loss_, rec_loss_, kld_loss_ = sess.run(
+            _, t_summery_, loss_, rec_loss_, kld_loss_, aux_loss_ = sess.run(
                 [self.train_op, self.summery_op] + list(self.losses),
                 {self.train_i.X: X,
                  self.train_i.X_lengths: X_lengths,
@@ -201,8 +211,8 @@ class tVAE_tf(object):
 
             if step_ % 20 == 0:
                 epoch_ = U.step_to_epoch(step_, data_loader.train_size, self.flags.batch_size)
-                print("TRAIN: | Epoch %d | step %d/%d | train_loss: %.4f | rec_loss %.4f | kld_loss %.4f|" % (
-                    epoch_, step_, self.flags.steps, loss_, rec_loss_, kld_loss_))
+                print("TRAIN: | Epoch %d | step %d/%d | train_loss: %.4f | rec_loss %.4f | kld_loss %.4f| aux_loss %.4f |" % (
+                    epoch_, step_, self.flags.steps, loss_, rec_loss_, kld_loss_, aux_loss_))
 
             # 每5个epoch存储下模型
             if step_ % U.epoch_to_step(5, data_loader.train_size, self.flags.batch_size) == 0:
@@ -218,7 +228,7 @@ class tVAE_tf(object):
     def valid(self, sess, valid_loader, v_writer):
         for batch_idx, data in enumerate(valid_loader.next_batch(self.flags.batch_size, True)):
             X, X_lengths, Y_i, Y_lengths, Y_t, Y_masks = valid_loader.unpack_for_tvae_tf(data, self.flags.max_seq_len)
-            loss_, rec_loss_, kld_loss_, v_summery_ = sess.run(list(self.losses) + [self.summery_op],
+            loss_, rec_loss_, kld_loss_, aux_loss_, v_summery_ = sess.run(list(self.losses) + [self.summery_op],
                                                                {self.train_i.X: X,
                                                                 self.train_i.X_lengths: X_lengths,
                                                                 self.train_i.Y_i: Y_i,
@@ -227,8 +237,8 @@ class tVAE_tf(object):
                                                                 self.train_i.Y_mask: Y_masks
                                                                 })
             v_writer.add_summary(v_summery_)
-            print("VALID: | batch_idx %d | train_loss: %.3f | rec_loss %.3f | kld_loss %3f |" % (
-                batch_idx, loss_, rec_loss_, kld_loss_))
+            print("VALID: | batch_idx %d | train_loss: %.3f | rec_loss %.3f | kld_loss %3f | aux_loss %3f |" % (
+                batch_idx, loss_, rec_loss_, kld_loss_, aux_loss_))
             if batch_idx >= 100:
                 break
 

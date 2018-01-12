@@ -187,7 +187,7 @@ class Hybird_tVAE(object):
 
     def _kld_coef(self):
         with tf.name_scope('kld_coef'):
-            coef = tf.clip_by_value(tf.sigmoid(-15 + 20 * tf.train.get_global_step() / self.flags.steps), 0, 1)
+            coef = tf.clip_by_value(tf.sigmoid(-5 + 20 * tf.train.get_global_step() / self.flags.steps), 0, 1)
             return tf.cast(coef, tf.float32)
 
     @staticmethod

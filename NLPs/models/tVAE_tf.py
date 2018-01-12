@@ -18,6 +18,7 @@ TO = namedtuple('train_ops', ['optim_op', 'summery_op'])
 class tVAE_tf(object):
     def __init__(self, flags):
         self.flags = flags
+        self.initializer = tf.contrib.layers.xavier_initializer()
         self.normal_z = tf.placeholder(dtype=tf.float32, shape=[self.flags.batch_size, self.flags.z_size], name='normal_z')
         self.embedding = self._embedding_init()
         self.train_i = self._train_input()
@@ -36,11 +37,10 @@ class tVAE_tf(object):
 
     def _train_graph(self):
         mu, logvar = self._rnn_encoder(self.train_i.X, self.train_i.X_lengths, ru=False)
-        kld_loss = self._kld_loss(mu, logvar)
         z = self._sample_z(mu, logvar)
-
         logits = self._rnn_decoder(z, self.train_i.Y_i, self.train_i.Y_lengths, train=True, ru=False)
 
+        kld_loss = self._kld_loss(mu, logvar)
         rec_loss = self._rec_loss(logits, self.train_i.Y_t, self.train_i.Y_mask)
         loss = self._train_loss(kld_loss, rec_loss)
 
@@ -69,10 +69,10 @@ class tVAE_tf(object):
         with tf.variable_scope('rnn_encoder', reuse=ru):
             cell = self._rnn_cell()
             X_embed = tf.nn.embedding_lookup(self.embedding, X)
-            H_i = tf.layers.dense(X_embed, self.flags.hidden_size, name='H_i')
+            H_i = tf.layers.dense(X_embed, self.flags.hidden_size, kernel_initializer=self.initializer, name='H_i')
             H, _ = tf.nn.dynamic_rnn(cell, H_i, X_lengths, dtype=tf.float32)
-            mu = tf.layers.dense(H[:, -1, :], self.flags.z_size, name='to_mu')
-            logvar = tf.layers.dense(H[:, -1, :], self.flags.z_size, name='to_logvar')
+            mu = tf.layers.dense(H[:, -1, :], self.flags.z_size, kernel_initializer=self.initializer, name='to_mu')
+            logvar = tf.layers.dense(H[:, -1, :], self.flags.z_size, kernel_initializer=self.initializer, name='to_logvar')
         return mu, logvar
 
     def _rnn_decoder(self, z, Y, Y_lengths, train=True, ru=False):
@@ -87,9 +87,9 @@ class tVAE_tf(object):
     def _decoder_train(self, cell, state, Y, Y_lengths):
         with tf.name_scope('decoder_train'):
             Y_embed = tf.nn.embedding_lookup(self.embedding, Y)
-            H_i = tf.layers.dense(Y_embed, self.flags.hidden_size, name='H_i')
+            H_i = tf.layers.dense(Y_embed, self.flags.hidden_size, kernel_initializer=self.initializer, name='H_i')
             H, _ = tf.nn.dynamic_rnn(cell, H_i, Y_lengths, state, dtype=tf.float32, scope='fuck_tf')
-            logits = tf.layers.dense(H, self.flags.vocab_size, name='H_o')
+            logits = tf.layers.dense(H, self.flags.vocab_size, kernel_initializer=self.initializer, name='H_o')
         return logits
 
     def _decoder_infer(self, cell, state):
@@ -99,17 +99,17 @@ class tVAE_tf(object):
             next_input = tf.constant(1, shape=[self.flags.batch_size, 1], dtype=tf.int32)
             for i in range(self.flags.max_seq_len):
                 next_input = tf.squeeze(tf.nn.embedding_lookup(self.embedding, next_input))
-                H_i = tf.layers.dense(next_input, self.flags.hidden_size, name='H_i')
+                H_i = tf.layers.dense(next_input, self.flags.hidden_size, kernel_initializer=self.initializer, name='H_i')
                 with tf.variable_scope('fuck_tf'):
                     step_pred, state = cell(H_i, state)
-                logits = tf.layers.dense(step_pred, self.flags.vocab_size, name='H_o')
+                logits = tf.layers.dense(step_pred, self.flags.vocab_size, kernel_initializer=self.initializer, name='H_o')
                 next_input = tf.stop_gradient(tf.argmax(logits, 1))
                 preds.append(next_input)
             return preds
 
     def _sample_z(self, mu, logvar):
         with tf.name_scope('sample_z'):
-            eps = tf.truncated_normal((self.flags.batch_size, self.flags.z_size), stddev=1.0)
+            eps = tf.random_normal((self.flags.batch_size, self.flags.z_size), stddev=1.0)
             z = mu + tf.exp(0.5 * logvar) * eps
         return z
 
@@ -118,8 +118,8 @@ class tVAE_tf(object):
         with tf.name_scope('z_to_state'):
             for i in range(self.flags.n_layers):
                 hidden_states.append(tf.nn.rnn_cell.LSTMStateTuple(
-                    tf.layers.dense(z, self.flags.hidden_size),
-                    tf.layers.dense(z, self.flags.hidden_size)
+                    tf.layers.dense(z, self.flags.hidden_size, kernel_initializer=self.initializer),
+                    tf.layers.dense(z, self.flags.hidden_size, kernel_initializer=self.initializer)
                 ))
         return tuple(hidden_states)
 
@@ -127,7 +127,7 @@ class tVAE_tf(object):
         with tf.name_scope('train_op'):
             t_vars = tf.trainable_variables()
             grads, _ = tf.clip_by_global_norm(tf.gradients(loss, t_vars), 5)
-            optimizer = tf.train.AdamOptimizer(learning_rate=0.001)
+            optimizer = tf.train.AdamOptimizer(learning_rate=self.flags.lr)
             train_op = optimizer.apply_gradients(zip(grads, t_vars), global_step=tf.train.get_global_step())
         return train_op
 
@@ -201,7 +201,7 @@ class tVAE_tf(object):
 
             if step_ % 20 == 0:
                 epoch_ = U.step_to_epoch(step_, data_loader.train_size, self.flags.batch_size)
-                print("TRAIN: | Epoch %d | step %d/%d | train_loss: %.3f | rec_loss %.3f | kld_loss %3f|" % (
+                print("TRAIN: | Epoch %d | step %d/%d | train_loss: %.4f | rec_loss %.4f | kld_loss %.4f|" % (
                     epoch_, step_, self.flags.steps, loss_, rec_loss_, kld_loss_))
 
             # 每5个epoch存储下模型
@@ -241,7 +241,7 @@ class tVAE_tf(object):
         return data_loader.to_seqs(np.array(preds_z).transpose())
 
     def infer_by_encoder(self, sess, data_loader, sentences):
-        tensor = data_loader.to_tensor(sentences)
+        tensor = data_loader.to_tensor([s.split() for s in sentences])
         X, X_lengths, Y_i, Y_lengths, Y_t, Y_masks = data_loader.unpack_for_tvae_tf(tensor, self.flags.max_seq_len)
         preds_e = sess.run(self.preds_e, {self.train_i.X: X,
                                           self.train_i.X_lengths: X_lengths,

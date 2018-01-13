@@ -73,9 +73,9 @@ class tVAE_tf(object):
             cell = self._rnn_cell()
             X_embed = tf.nn.embedding_lookup(self.embedding, X)
             H_i = tf.layers.dense(X_embed, self.flags.hidden_size, kernel_initializer=self.initializer, name='H_i')
-            H, _ = tf.nn.dynamic_rnn(cell, H_i, X_lengths, dtype=tf.float32)
-            mu = tf.layers.dense(H[:, -1, :], self.flags.z_size, kernel_initializer=self.initializer, name='to_mu')
-            logvar = tf.layers.dense(H[:, -1, :], self.flags.z_size, kernel_initializer=self.initializer, name='to_logvar')
+            _, S_ = tf.nn.dynamic_rnn(cell, H_i, X_lengths, dtype=tf.float32)
+            mu = tf.layers.dense(S_[-1].h, self.flags.z_size, kernel_initializer=self.initializer, name='to_mu')
+            logvar = tf.layers.dense(S_[-1].h, self.flags.z_size, kernel_initializer=self.initializer, name='to_logvar')
         return mu, logvar
 
     def _rnn_decoder(self, z, Y, Y_lengths, train=True, ru=False):
@@ -140,10 +140,12 @@ class tVAE_tf(object):
         return loss
 
     def _kld_coef(self):
-        with tf.name_scope('kld_coef'):
+        if self.flags.kl_anealing:
             coef = tf.clip_by_value(tf.sigmoid(-15 + 20 * tf.train.get_global_step() / self.flags.steps), 0, 1)
             tf.summary.scalar('coef', coef)
             return tf.cast(coef, tf.float32)
+        else:
+            return 1
 
     @staticmethod
     def _kld_loss(mu, log_var):
@@ -154,8 +156,8 @@ class tVAE_tf(object):
     def _aux_loss(self, mu):
         with tf.name_scope('aux_loss'):
             mu_ = tf.tile(tf.expand_dims(tf.reduce_mean(mu, 0), 0), [tf.shape(mu)[0], 1])
-            aux_loss = tf.nn.relu(self.flags.gamma - tf.reduce_mean(tf.reduce_sum(tf.square(mu - mu_), 1)))
-            #aux_loss = tf.nn.relu(self.flags.gamma - tf.losses.mean_squared_error(mu, mu_, reduction=tf.losses.Reduction.SUM))
+            # aux_loss = tf.nn.relu(self.flags.gamma - tf.reduce_mean(tf.reduce_sum(tf.square(mu - mu_), 1)))
+            aux_loss = tf.nn.relu(self.flags.gamma - tf.losses.mean_squared_error(mu, mu_))
         return aux_loss
 
     @staticmethod

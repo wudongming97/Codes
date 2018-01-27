@@ -8,14 +8,14 @@ from collections import namedtuple
 import numpy as np
 import tensorflow as tf
 
-import utils.Utils as U
+import Utils as U
 
 TI = namedtuple('train_inputs', ['X', 'X_lengths', 'Y_i', 'Y_lengths', 'Y_t', 'Y_mask'])
 TL = namedtuple('train_losses', ['loss', 'rec_loss', 'kld_loss', 'aux_loss'])
 TO = namedtuple('train_ops', ['optim_op', 'summery_op'])
 
 
-class tVAE_tf(object):
+class VRAE_tf(object):
     def __init__(self, flags):
         self.flags = flags
         self.initializer = tf.contrib.layers.xavier_initializer()

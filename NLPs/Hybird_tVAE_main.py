@@ -7,7 +7,7 @@ import tensorflow as tf
 
 import experiments.Hybird_tVAE_test as T
 import utils.DataLoader as D
-import utils.Utils as U
+import VRAE_tf.Utils as U
 from models.Hybird_tVAE import Hybird_tVAE
 
 flags = tf.app.flags

@@ -10,7 +10,7 @@ import random
 import numpy as np
 import torch
 
-import utils.Utils as U
+import VRAE_tf.Utils as U
 from utils.DataLoader import U_TOKEN, E_TOKEN
 from utils.Nll import nll
 

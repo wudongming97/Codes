@@ -9,7 +9,7 @@ import numpy as np
 import tensorflow as tf
 
 import utils.DataLoader as D
-import utils.Utils as U
+import VRAE_tf.Utils as U
 
 TI = namedtuple('train_inputs', ['X', 'Y_i', 'Y_lengths', 'Y_t', 'Y_mask'])
 TL = namedtuple('train_losses', ['loss', 'rec_loss', 'kld_loss', 'aux_loss'])

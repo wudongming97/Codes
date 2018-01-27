@@ -5,9 +5,9 @@ from __future__ import print_function
 
 import tensorflow as tf
 
-import utils.DataLoader as D
-import utils.Utils as U
-from models.MixVRAE import MixVRAE
+import DataLoader as D
+import Utils as U
+from MixVRAE import MixVRAE
 
 data_loader = D.DataLoader(D.Vocab('europarl_tvae_tf', D.Level.WORD))
 

@@ -129,7 +129,7 @@ class VAE(object):
             step_ = sess.run(tf.train.get_global_step())
             writer.add_summary(_summary, step_)
 
-            if step_ % 5 == 0:
+            if step_ % 1 == 0:
                 print("TRAIN: | step %d/%d | train_loss: %.3f | rec_loss %.3f | kld_loss %.6f| aux_loss %.6f |" % (
                     step_, self.flags.steps, loss, rec_loss, kld_loss, aux_loss))
             if step_ % 20 == 0:

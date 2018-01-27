@@ -7,9 +7,8 @@ from collections import namedtuple
 
 import numpy as np
 import tensorflow as tf
-import math
 
-import utils.Utils as U
+import Utils as U
 
 TI = namedtuple('train_inputs', ['X', 'X_lengths', 'Y_t', 'Y_mask'])
 TL = namedtuple('train_losses', ['loss', 'rec_loss', 'kld_loss'])

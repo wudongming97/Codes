@@ -5,17 +5,17 @@ from __future__ import print_function
 
 import tensorflow as tf
 
-import utils.DataLoader as D
-import utils.Utils as U
-from models.tVAE_tf import tVAE_tf
+import DataLoader as D
+import Utils as U
+from RealVRAE import tVAE_tf
 
 data_loader = D.DataLoader(D.Vocab('europarl_tvae_tf', D.Level.WORD))
 
 flags = tf.app.flags
 
-flags.DEFINE_string('model_name', 'tVAE_tf', '')
-flags.DEFINE_string('ckpt_path', './results/tVAE_tf/ckpt/', '')
-flags.DEFINE_string('logs_path', './results/tVAE_tf/logs/', '')
+flags.DEFINE_string('model_name', 'RealVRAE', '')
+flags.DEFINE_string('ckpt_path', './results/RealVRAE/ckpt/', '')
+flags.DEFINE_string('logs_path', './results/RealVRAE/logs/', '')
 flags.DEFINE_integer('batch_size', 32, '')
 flags.DEFINE_integer('steps', U.epoch_to_step(3, data_loader.train_size, batch_size=32), '')
 flags.DEFINE_integer('lr', 0.001, 'learning rate')

@@ -13,7 +13,7 @@ data_loader = D.DataLoader(D.Vocab('europarl_tvae_tf', D.Level.WORD))
 
 flags = tf.app.flags
 
-flags.DEFINE_string('model_name', 'tVAE_tf', '')
+flags.DEFINE_string('model_name', 'MixVRAE', '')
 flags.DEFINE_string('ckpt_path', './results/MixVRAE/ckpt/', '')
 flags.DEFINE_string('logs_path', './results/MixVRAE/logs/', '')
 flags.DEFINE_integer('batch_size', 64, '')

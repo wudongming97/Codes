@@ -1,20 +1,6 @@
-*/.idea/
-*/__pycache__
-.vscode/
+*.idea
+*.__pycache__
+*.vscode
+*.pyc
+*results
 
-NLPs/res_samples/*
-NLPs/CVAE2/data.txt
-NLPs/CVAE/.idea/*
-NLPs/Hybrid_CVAE/.idea/*
-NLPs/models/__pycache__
-NLPs/utils/__pycache__
-NLPs/data
-NLPs/results
-NLPs/tensorflow_joys.py
-NLPs/experiments/__pycache__
-CVs/results
-CVs/data
-CVs/utils/__pycache__
-CVs/models/__pycache__
-CVs/configs/__pycache__
-Failures/MixVRAE/.idea/*

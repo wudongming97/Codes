@@ -5,16 +5,13 @@ from __future__ import print_function
 
 import tensorflow as tf
 
-import experiments.Hybird_tVAE_test as T
-import utils.DataLoader as D
-import VRAE_tf.Utils as U
-from models.Hybird_tVAE import Hybird_tVAE
+from utils import Utils as U, DataLoader as D
+from Hybird_tVAE import Hybird_tVAE
 
 flags = tf.app.flags
 
 # data_loader
 data_loader = D.DataLoader(D.Vocab('europarl_hybird_tvae', D.Level.CHAR))
-# ptb_loader = D.DataLoader(D.Vocab('ptb_hybird_tvae', D.Level.CHAR))
 
 # hybird_tvae config
 flags.DEFINE_string('model_name', 'Hybird_tVAE', '')
@@ -67,15 +64,19 @@ def main(_):
 
         if model.train_is_ok(sess):
             # # 1)用标准正太分布来生成样本
-            T.infer_by_normal_test(model, sess, data_loader)
+            sentences = model.infer_by_normal(sess, data_loader)
+            for ix in range(len(sentences)):
+                t_s_ = sentences[ix].split(D.E_TOKEN)[0]
+                print("{:3d}. {}".format(ix, t_s_))
             # # 2)infer by encoder, 直接从训练集中取数据
-            T.infer_by_encoder_test(model, sess, data_loader, FLAGS.batch_size)
-            # # 3)infer by encoder，从另外一个不同的数据集取数据
-            # T.infer_by_encoder_test(model, sess, ptb_loader, FLAGS.batch_size)
-            # # 4)z空间的线性渐变，查看输出的连续变化
-            # T.infer_by_linear_z_test(model, sess, data_loader, FLAGS.batch_size, FLAGS.z_size)
-            # T.infer_by_same_test(model, sess, data_loader, 'the vote will take place tomorrow .', FLAGS.batch_size)
-            # T.infer_by_same_test(model, sess, data_loader, 'i would like to make four point .', FLAGS.batch_size)
+            data = data_loader.one_batch(batch_size, train)
+            input_s_ = sorted(data_loader.to_seqs(data), key=len, reverse=True)
+            out_s_ = model.infer_by_encoder(sess, data_loader, input_s_)
+            pair_s_ = zip(input_s_, out_s_)
+            for ix, _p in enumerate(pair_s_):
+                print('In {:3d}: {}'.format(ix, _p[0]))
+                t_s_ = _p[1].split(D.E_TOKEN)[0]
+                print('Out{:3d}: {}'.format(ix, t_s_))
 
         else:
             print('\nbegin fit ...')

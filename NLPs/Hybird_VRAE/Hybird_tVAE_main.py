@@ -69,7 +69,7 @@ def main(_):
                 t_s_ = sentences[ix].split(D.E_TOKEN)[0]
                 print("{:3d}. {}".format(ix, t_s_))
             # # 2)infer by encoder, 直接从训练集中取数据
-            data = data_loader.one_batch(batch_size, train)
+            data = data_loader.one_batch(FLAGS.batch_size)
             input_s_ = sorted(data_loader.to_seqs(data), key=len, reverse=True)
             out_s_ = model.infer_by_encoder(sess, data_loader, input_s_)
             pair_s_ = zip(input_s_, out_s_)

@@ -1,11 +1,11 @@
 import tensorflow as tf
 
 flags = tf.app.flags
-flags.DEFINE_integer('steps', 20000, '')
-flags.DEFINE_integer('z_size', 16, '')
-flags.DEFINE_integer('batch_size', 64, '')
-flags.DEFINE_float('lr', 0.001, '')
-flags.DEFINE_float('beta', 0.1, '')
+flags.DEFINE_integer('steps', 200000, '')
+flags.DEFINE_integer('z_size', 20, '')
+flags.DEFINE_integer('batch_size', 60, '')
+flags.DEFINE_float('lr', 0.0005, '')
+flags.DEFINE_float('beta', 1.0, '')
 
 # ================== VAE_mnist =======================
 flags.DEFINE_string('model_name', 'VAE_mnist', '')

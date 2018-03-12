@@ -13,7 +13,7 @@ import Utils as U
 
 #======== mnist ============
 from VAE_mnist_config import FLAGS, SHAPE
-from VAE_mnist import VAE_
+from VAE_mnist import VAE_mnist
 
 
 def main(_):
@@ -34,7 +34,7 @@ def main(_):
                                                   batch_size=FLAGS.batch_size,
                                                   capacity=2000,
                                                   min_after_dequeue=100)
-        model = VAE_(FLAGS, batch_images)
+        model = VAE_mnist(FLAGS, batch_images)
 
         saver = tf.train.Saver(
             keep_checkpoint_every_n_hours=1,

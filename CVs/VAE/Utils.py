@@ -113,4 +113,4 @@ if __name__ == '__main__':
     # fixed_image_writer(filename_list, 'cifar10_0.tfrecords')
 
     # cifar10_tfrecord_writer('E:\\data\\cifar-10-batches-py\\', 'cifar10_0.tfrecords', cls=[0])
-    mnist_tfrecord_writer('E:\\data\\mnist\\', 'mnist.tfrecords')
+    mnist_tfrecord_writer('/home/yx/Datasets/MNIST/', 'mnist.tfrecords')

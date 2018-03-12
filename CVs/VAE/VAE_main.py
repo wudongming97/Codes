@@ -6,12 +6,11 @@ from __future__ import print_function
 import tensorflow as tf
 
 import Utils as U
+
 # ======== cifar10 =========
 # from configs.VAE_cifar10_config import FLAGS, SHAPE
 # from models.VAE_cifar10 import VAE_
-# ======= katong ===========
-# from configs.VAE_katong_config import FLAGS, SHAPE
-# from models.VAE_katong import VAE_
+
 #======== mnist ============
 from VAE_mnist_config import FLAGS, SHAPE
 from VAE_mnist import VAE_

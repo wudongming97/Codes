@@ -9,7 +9,7 @@ class VAE_(VAE_base.VAE):
 
     def _encoder(self, X, ru=False):
         with tf.variable_scope('cnn_encoder', reuse=ru):
-            c1 = self._conv_with_bn(X, 128, 3, 2, 'SAME', name='L1')
+            c1 = tf.layers.conv2d(X, 128, 3, 2, padding='SAME', name='L1')
             c2 = tf.layers.conv2d(c1, 64, 3, 2, padding='SAME', name='L2',
                                   activation=tf.nn.relu,
                                   kernel_initializer=tf.contrib.layers.xavier_initializer())
@@ -33,5 +33,7 @@ class VAE_(VAE_base.VAE):
             d2 = tf.layers.conv2d_transpose(d1, 64, 3, 2, padding='SAME', name='L2',
                                             activation=tf.nn.relu,
                                             kernel_initializer=tf.contrib.layers.xavier_initializer())
-            d3 = self._dconv_with_bn(d2, 3, 3, 2, 'SAME', 'L3')
+            d3 = tf.layers.conv2d_transpose(d2, 3, 3, 2, padding='SAME', name='L3',
+                                            activation=tf.nn.relu,
+                                            kernel_initializer=tf.contrib.layers.xavier_initializer())
         return d3

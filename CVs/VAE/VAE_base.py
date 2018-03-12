@@ -128,3 +128,6 @@ class VAE(object):
         samples, _summary = sess.run([self.recon_samples, self.recon_summary_op], {self.phase: False})
         writer.add_summary(_summary)
         return samples
+
+    def train_is_ok(self, sess):
+        return sess.run(tf.train.get_global_step()) >= self.flags.steps

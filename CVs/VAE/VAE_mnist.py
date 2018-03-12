@@ -24,6 +24,6 @@ class VAE_(VAE_base.VAE):
         with tf.variable_scope('mlp_decoder', reuse=ru):
             dc1 = tf.layers.dense(z, 256, activation=tf.nn.elu, kernel_initializer=self.initializer, name='D1')
             # dc2 = tf.layers.dense(dc1, 512, activation=tf.nn.elu, kernel_initializer=self.initializer, name='D2')
-            dc3 = tf.layers.dense(dc1, 784, activation=tf.nn.sigmoid, kernel_initializer=self.initializer, name='D4')
+            dc3 = tf.layers.dense(dc1, 784, kernel_initializer=self.initializer, name='D4')
             dc4 = tf.reshape(dc3, [-1, 28, 28, 1])
         return dc4

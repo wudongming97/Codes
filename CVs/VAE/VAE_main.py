@@ -50,7 +50,8 @@ def main(_):
             saver.restore(sess, ckpt.model_checkpoint_path)
 
         print('\nbegin fit ...')
-        model.fit(sess, _writer, saver)
+        if not model.train_is_ok(sess):
+            model.fit(sess, _writer, saver)
 
 
 if __name__ == "__main__":

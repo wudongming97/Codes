@@ -13,7 +13,6 @@ class VAE_mnist(object):
         self.X = X
         self.phase = tf.placeholder(dtype=tf.bool, name='phase')
         self.normal_z = tf.placeholder(dtype=tf.float32, shape=[None, self.flags.z_size], name='normal_z')
-        self.initializer = tf.contrib.layers.xavier_initializer()
         self._build_graph()
 
     def _build_graph(self):
@@ -68,27 +67,22 @@ class VAE_mnist(object):
     def _encoder(self, X, ru=False):
         with tf.variable_scope('mlp_encoder', reuse=ru):
             fc0 = tf.layers.flatten(X)
-            fc1 = tf.layers.dense(fc0, 784, activation=tf.nn.relu, kernel_initializer=self.initializer, name='L1')
-            fc2 = tf.layers.dense(fc1, 256, activation=tf.nn.relu, kernel_initializer=self.initializer, name='L2')
-            fc3 = tf.layers.dense(fc2, 64, activation=tf.nn.relu, kernel_initializer=self.initializer, name='L3')
+            fc1 = tf.layers.dense(fc0, 784, activation=tf.nn.relu, name='L1')
+            fc2 = tf.layers.dense(fc1, 256, activation=tf.nn.relu, name='L2')
+            fc3 = tf.layers.dense(fc2, 64, activation=tf.nn.relu, name='L3')
 
-            mu = tf.layers.dense(fc3, self.flags.z_size, kernel_initializer=self.initializer, name='fc_mu')
-            logvar = tf.layers.dense(fc3, self.flags.z_size, kernel_initializer=self.initializer, name='fc_logvar')
+            mu = tf.layers.dense(fc3, self.flags.z_size, name='fc_mu')
+            logvar = tf.layers.dense(fc3, self.flags.z_size, name='fc_logvar')
 
         return mu, logvar
 
     def _decoder(self, z, ru=False):
         with tf.variable_scope('mlp_decoder', reuse=ru):
-            dc0 = tf.layers.dense(z, 64, activation=tf.nn.relu, kernel_initializer=self.initializer, name='D1')
-            dc1 = tf.layers.dense(dc0, 256, activation=tf.nn.relu, kernel_initializer=self.initializer, name='D2')
-            dc3 = tf.layers.dense(dc1, 784, kernel_initializer=self.initializer, name='D4')
+            dc0 = tf.layers.dense(z, 64, activation=tf.nn.relu, name='D1')
+            dc1 = tf.layers.dense(dc0, 256, activation=tf.nn.relu, name='D2')
+            dc3 = tf.layers.dense(dc1, 784, name='D4')
             dc4 = tf.reshape(dc3, [-1, 28, 28, 1])
         return dc4
-    # def _encoder(self, X, ru=False):
-    #     raise NotImplemented
-
-    # def _decoder(self, z, ru=False):
-    #     raise NotImplemented
 
     def _sample_z(self, mu, logvar):
         with tf.name_scope('sample_z'):
@@ -110,11 +104,8 @@ class VAE_mnist(object):
 
     def _optim_op(self, rec_loss, kld_loss):
         with tf.name_scope('optim_op'):
-            # for batch_normal to work correct
-            update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-            with tf.control_dependencies(update_ops):
-                loss = rec_loss + self.flags.beta * kld_loss
-                optim_op = tf.train.AdamOptimizer(learning_rate=self.flags.lr).minimize(loss, tf.train.get_global_step())
+            loss = rec_loss + self.flags.beta * kld_loss
+            optim_op = tf.train.AdamOptimizer(learning_rate=self.flags.lr).minimize(loss, tf.train.get_global_step())
         return loss, optim_op
 
     def fit(self, sess, writer, saver):

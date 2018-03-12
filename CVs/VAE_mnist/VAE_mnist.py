@@ -99,7 +99,9 @@ class VAE_mnist(object):
     @staticmethod
     def _rec_loss(logits, labels):
         with tf.name_scope('rec_loss'):
-            rec_loss = tf.reduce_mean(tf.reduce_sum(tf.nn.sigmoid_cross_entropy_with_logits(logits=logits, labels=labels), 1))
+            flatten_logits = tf.layers.flatten(logits)
+            flatten_labels = tf.layers.flatten(labels)
+            rec_loss = tf.reduce_mean(tf.reduce_sum(tf.nn.sigmoid_cross_entropy_with_logits(logits=flatten_logits, labels=flatten_labels), 1))
             return rec_loss
 
     def _optim_op(self, rec_loss, kld_loss):

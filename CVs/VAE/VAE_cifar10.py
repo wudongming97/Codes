@@ -1,9 +1,9 @@
 import tensorflow as tf
 
-import models.VAE_base
+import VAE_base
 
 
-class VAE_(models.VAE_base.VAE):
+class VAE_(VAE_base.VAE):
     def __init__(self, flags, X):
         super().__init__(flags, X)
 

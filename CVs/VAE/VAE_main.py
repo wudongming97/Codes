@@ -5,7 +5,7 @@ from __future__ import print_function
 
 import tensorflow as tf
 
-import utils.Utils as U
+import Utils as U
 # ======== cifar10 =========
 # from configs.VAE_cifar10_config import FLAGS, SHAPE
 # from models.VAE_cifar10 import VAE_
@@ -13,8 +13,8 @@ import utils.Utils as U
 # from configs.VAE_katong_config import FLAGS, SHAPE
 # from models.VAE_katong import VAE_
 #======== mnist ============
-from configs.VAE_mnist_config import FLAGS, SHAPE
-from models.VAE_mnist import VAE_
+from VAE_mnist_config import FLAGS, SHAPE
+from VAE_mnist import VAE_
 
 
 def main(_):

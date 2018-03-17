@@ -71,8 +71,8 @@ class VAE_mnist(object):
             fc2 = tf.layers.dense(fc1, 256, activation=tf.nn.relu, name='L2')
             fc3 = tf.layers.dense(fc2, 64, activation=tf.nn.relu, name='L3')
 
-            mu = tf.layers.dense(fc3, self.flags.z_size, name='fc_mu')
-            logvar = tf.layers.dense(fc3, self.flags.z_size, name='fc_logvar')
+            mu = tf.layers.dense(fc3, self.flags.z_size, activation=tf.nn.relu, name='fc_mu')
+            logvar = tf.layers.dense(fc3, self.flags.z_size, activation=tf.nn.sigmoid, name='fc_logvar')
 
         return mu, logvar
 

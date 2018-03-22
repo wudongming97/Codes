@@ -16,8 +16,8 @@ data_loader = D.DataLoader(D.Vocab('train128', D.Level.CHAR))
 
 # hybird_tvae config
 flags.DEFINE_string('model_name', 'Hybird_tVAE', '')
-flags.DEFINE_string('ckpt_path', './results/Hybird_tVAE/ckpt/', '')
-flags.DEFINE_string('logs_path', './results/Hybird_tVAE/logs/', '')
+flags.DEFINE_string('ckpt_path', './results/Hybird_tVAE/ckpt_f8_1/', '')
+flags.DEFINE_string('logs_path', './results/Hybird_tVAE/logs_f8_1/', '')
 
 flags.DEFINE_integer('batch_size', 32, '')
 flags.DEFINE_integer('steps', U.epoch_to_step(5, data_loader.train_size, batch_size=64), '')
@@ -28,10 +28,10 @@ flags.DEFINE_integer('rnn_num', 2, '')
 flags.DEFINE_integer('embed_size', 80, '')
 flags.DEFINE_integer('vocab_size', data_loader.vocab_size, '')
 flags.DEFINE_integer('rnn_hidden_size', 512, '')
-flags.DEFINE_float('alpha', 0.2, '')  # 额外的重构误差的权重
+flags.DEFINE_float('alpha', 0.0, '')  # 额外的重构误差的权重
 flags.DEFINE_float('beta', 1.0, '')
-flags.DEFINE_float('mu_foring', 0.0, '') # 不用mu_foring
-flags.DEFINE_float('gamma', 2.0, '')
+flags.DEFINE_float('mu_foring', 12.0, '') # 不用mu_foring
+flags.DEFINE_float('gamma', 8.0, '')
 flags.DEFINE_float('word_drop', '0.2', 'word dropout probability')
 
 FLAGS = flags.FLAGS

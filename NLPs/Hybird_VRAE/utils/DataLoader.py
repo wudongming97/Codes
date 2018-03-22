@@ -92,8 +92,8 @@ class DataLoader:
         self.vocab_size = self.vocab.vocab_size
         self.max_seq_len = max(map(len, self.vocab.idx_t))
         self.sample_size = len(self.vocab.idx_t)
-        self.train_t = self.vocab.idx_t[:math.floor(self.sample_size * 0.95)]
-        self.valid_t = self.vocab.idx_t[math.floor(self.sample_size * 0.95):]
+        self.train_t = self.vocab.idx_t[:math.floor(self.sample_size * 0.50)]
+        self.valid_t = self.vocab.idx_t[math.floor(self.sample_size * 0.50):]
         self.train_size = len(self.train_t)
         self.valid_size = len(self.valid_t)
         self.to_seqs = lambda x: self.vocab._to_seqs(x)

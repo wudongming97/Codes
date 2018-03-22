@@ -11,7 +11,7 @@ import tensorflow as tf
 from utils import Utils as U, DataLoader as D
 
 TI = namedtuple('train_inputs', ['X', 'Y_i', 'Y_lengths', 'Y_t', 'Y_mask'])
-TL = namedtuple('train_losses', ['loss', 'rec_loss', 'kld_loss', 'aux_loss'])
+TL = namedtuple('train_losses', ['loss', 'rec_loss', 'kld_loss', 'aux_loss', 'mu_foring_loss'])
 TO = namedtuple('train_ops', ['optim_op', 'summery_op'])
 
 
@@ -48,7 +48,9 @@ class Hybird_tVAE(object):
             aux_loss = self._aux_loss(vocab_logits, self.train_i.X)
             rec_loss = self._rec_loss(rnn_logits, self.train_i.Y_t, self.train_i.Y_mask)
             kld_coef = self._kld_coef()
-            loss = self._train_loss(kld_loss, rec_loss, aux_loss, kld_coef)
+            mu_foring_loss = self._mu_forcing_loss(mu)
+            nll_loss = kld_loss + rec_loss
+            loss = self._train_loss(kld_loss, rec_loss, aux_loss, kld_coef, mu_foring_loss)
 
         with tf.name_scope('train_summery'):
             tf.summary.histogram('mu', mu)
@@ -58,12 +60,14 @@ class Hybird_tVAE(object):
             tf.summary.scalar('kld_loss', kld_loss)
             tf.summary.scalar('rec_loss', rec_loss)
             tf.summary.scalar('aux_loss', aux_loss)
+            tf.summary.scalar('mu_foring_loss', mu_foring_loss)
+            tf.summary.scalar('nll_loss', nll_loss)
             tf.summary.scalar('loss', loss)
             summery_op = tf.summary.merge_all()
 
         optim_op = self._train_op(loss)
 
-        return TL(loss, rec_loss, kld_loss, aux_loss), TO(optim_op, summery_op)
+        return TL(loss, rec_loss, kld_loss, aux_loss, mu_foring_loss), TO(optim_op, summery_op)
 
     def _infer_by_z_graph(self):
         vocab_logits = self._cnn_decoder(self.normal_z, ru=True)
@@ -85,12 +89,15 @@ class Hybird_tVAE(object):
                 c1 = tf.layers.conv1d(e1, 128, 3, strides=2, padding='SAME')
                 bn1 = tf.nn.relu(tf.layers.batch_normalization(c1, training=self.phase))
             with tf.variable_scope('cnn2'):
-                c2 = tf.layers.conv1d(bn1, 256, 3, strides=2, padding='SAME')
+                c2 = tf.layers.conv1d(bn1, 512, 3, strides=2, padding='SAME')
                 bn2 = tf.nn.relu(tf.layers.batch_normalization(c2, training=self.phase))
+            with tf.variable_scope('cnn3'):
+                c3 = tf.layers.conv1d(bn2, 512, 3, strides=1, padding='SAME')
+                bn3 = tf.nn.relu(tf.layers.batch_normalization(c3, training=self.phase))
             with tf.variable_scope('mu_and_logvar'):
-                context = tf.reshape(bn2, shape=[bz, -1])
-                mu = tf.layers.dense(context, self.flags.z_size)
-                logvar = tf.layers.dense(context, self.flags.z_size)
+                context = tf.reshape(bn3, shape=[bz, -1])
+                mu = tf.layers.dense(context, self.flags.z_size, activation=tf.nn.relu)
+                logvar = tf.layers.dense(context, self.flags.z_size, activation=tf.nn.sigmoid)
         return mu, logvar
 
     def _cnn_decoder(self, z, ru=False):
@@ -99,12 +106,15 @@ class Hybird_tVAE(object):
             with tf.variable_scope('d_conv_1'):
                 in_ = tf.layers.dense(z, 256 * int(self.flags.seq_len / 4))
                 dc_input_ = tf.reshape(in_, [bz, 1, int(self.flags.seq_len / 4), 256])
-                conv2d_t1 = tf.layers.conv2d_transpose(dc_input_, 128, [1, 3], [1, 2], 'SAME')
+                conv2d_t1 = tf.layers.conv2d_transpose(dc_input_, 256, [1, 3], [1, 2], 'SAME')
                 bn1 = tf.nn.relu(tf.layers.batch_normalization(conv2d_t1, training=self.phase))
             with tf.variable_scope('d_conv_2'):
-                conv2d_t2 = tf.layers.conv2d_transpose(bn1, self.flags.embed_size, [1, 3], [1, 2], 'SAME')
+                conv2d_t2 = tf.layers.conv2d_transpose(bn1, 512, [1, 3], [1, 2], 'SAME')
                 bn2 = tf.nn.relu(tf.layers.batch_normalization(conv2d_t2, training=self.phase))
-                dc_output_ = tf.reshape(bn2, [bz, self.flags.seq_len, -1])
+            with tf.variable_scope('d_conv_3'):
+                conv2d_t3 = tf.layers.conv2d_transpose(bn2, self.flags.embed_size, [1, 2], [1, 1], 'VALID')
+                bn3 = tf.layers.batch_normalization(conv2d_t3, training=self.phase)
+                dc_output_ = tf.reshape(bn3, [bz, self.flags.seq_len, -1])
                 logits = tf.layers.dense(dc_output_, self.flags.vocab_size)
         return logits
 
@@ -179,14 +189,14 @@ class Hybird_tVAE(object):
             z = mu + tf.exp(0.5 * logvar) * eps
         return z
 
-    def _train_loss(self, kld_loss, rec_loss, aux_loss, kld_coef):
+    def _train_loss(self, kld_loss, rec_loss, aux_loss, kld_coef, mu_foring_loss):
         with tf.name_scope('loss'):
-            train_loss = rec_loss + self.flags.alpha * aux_loss + self.flags.beta * kld_coef * kld_loss
+            train_loss = rec_loss + self.flags.alpha * aux_loss + self.flags.beta * kld_coef * kld_loss + self.flags.mu_foring * mu_foring_loss
         return train_loss
 
     def _kld_coef(self):
         with tf.name_scope('kld_coef'):
-            coef = tf.clip_by_value(tf.sigmoid(-5 + 20 * tf.train.get_global_step() / self.flags.steps), 0, 1)
+            coef = tf.clip_by_value((tf.train.get_global_step() - 4000) / 8000, 0, 1)
             return tf.cast(coef, tf.float32)
 
     @staticmethod
@@ -194,6 +204,12 @@ class Hybird_tVAE(object):
         with tf.name_scope('kld_loss'):
             kld_loss = tf.reduce_mean(-0.5 * tf.reduce_sum(logvar - tf.square(mu) - tf.exp(logvar) + 1, axis=1))
         return kld_loss
+
+    def _mu_forcing_loss(self, mu):
+        with tf.name_scope('mu'):
+            mu_ = tf.tile(tf.expand_dims(tf.reduce_mean(mu, 0), 0), [tf.shape(mu)[0], 1])
+            mu_forcing_loss = tf.nn.relu(self.flags.gamma - tf.losses.mean_squared_error(mu, mu_))
+        return mu_forcing_loss
 
     @staticmethod
     def _rec_loss(logits, targets, masks):
@@ -231,7 +247,7 @@ class Hybird_tVAE(object):
 
             Y_i = self._word_drop(Y_i, data_loader)
 
-            _, summery_, loss_, rec_loss_, kld_loss_, aux_loss_ = sess.run(
+            _, summery_, loss_, rec_loss_, kld_loss_, aux_loss_, mu_foring_loss_ = sess.run(
                 [self.train_op, self.summery_op] + list(self.losses),
                 {self.train_i.X: X,
                  self.train_i.Y_i: Y_i,
@@ -245,8 +261,8 @@ class Hybird_tVAE(object):
 
             if step_ % 20 == 0:
                 epoch_ = U.step_to_epoch(step_, data_loader.train_size, self.flags.batch_size)
-                print("TRAIN: | Epoch %d | step %d/%d | train_loss: %.3f | rec_loss %.3f | kld_loss %3f | aux_loss %3f |" % (
-                    epoch_, step_, self.flags.steps, loss_, rec_loss_, kld_loss_, aux_loss_))
+                print("TRAIN: | Epoch %d | step %d/%d | train_loss: %.3f | rec_loss %.3f | kld_loss %3f | aux_loss %3f | mu_foring_loss %3f |" % (
+                    epoch_, step_, self.flags.steps, loss_, rec_loss_, kld_loss_, aux_loss_, mu_foring_loss_))
 
             # 每5个epoch存储下模型
             if step_ % U.epoch_to_step(5, data_loader.train_size, self.flags.batch_size) == 0:
@@ -261,7 +277,7 @@ class Hybird_tVAE(object):
     def valid(self, sess, data_loader, valid_writer):
         for batch_idx, data in enumerate(data_loader.next_batch(self.flags.batch_size, train=False, shuffle=True)):
             X, Y_i, Y_lengths, Y_t, Y_masks = data_loader.unpack_for_hybird_tvae(data, self.flags.seq_len)
-            summery_, loss_, rec_loss_, kld_loss_, aux_loss_ = sess.run([self.summery_op] + list(self.losses),
+            summery_, loss_, rec_loss_, kld_loss_, aux_loss_ , mu_foring_loss_ = sess.run([self.summery_op] + list(self.losses),
                                                                         {self.train_i.X: X,
                                                                          self.train_i.Y_i: Y_i,
                                                                          self.train_i.Y_lengths: Y_lengths,
@@ -270,8 +286,8 @@ class Hybird_tVAE(object):
                                                                          self.phase: False
                                                                          })
             valid_writer.add_summary(summery_)
-            print("VALID: | batch_idx %d | train_loss: %.3f | rec_loss %.3f | kld_loss %3f | aux_loss %3f |" % (
-                batch_idx, loss_, rec_loss_, kld_loss_, aux_loss_))
+            print("VALID: | batch_idx %d | train_loss: %.3f | rec_loss %.3f | kld_loss %3f | aux_loss %3f | mu_foring_loss %3f |" % (
+                batch_idx, loss_, rec_loss_, kld_loss_, aux_loss_, mu_foring_loss_))
             if batch_idx >= 10:
                 break
 

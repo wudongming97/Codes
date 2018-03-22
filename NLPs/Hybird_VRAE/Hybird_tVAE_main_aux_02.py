@@ -16,8 +16,8 @@ data_loader = D.DataLoader(D.Vocab('train128', D.Level.CHAR))
 
 # hybird_tvae config
 flags.DEFINE_string('model_name', 'Hybird_tVAE', '')
-flags.DEFINE_string('ckpt_path', './results/Hybird_tVAE/ckpt/', '')
-flags.DEFINE_string('logs_path', './results/Hybird_tVAE/logs/', '')
+flags.DEFINE_string('ckpt_path', './results/Hybird_tVAE/ckpt_aux02_1/', '')
+flags.DEFINE_string('logs_path', './results/Hybird_tVAE/logs_aux02_1/', '')
 
 flags.DEFINE_integer('batch_size', 32, '')
 flags.DEFINE_integer('steps', U.epoch_to_step(5, data_loader.train_size, batch_size=64), '')

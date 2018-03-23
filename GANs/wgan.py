@@ -16,11 +16,12 @@ class wgan(object):
         self.fake = self.G(self.z)
 
         self.g_loss = tf.reduce_mean(self.D(self.fake, reuse=False))
-        self.d_loss = tf.reduce_mean(self.D(self.real)) - tf.reduce_mean(self.D(self.fake)) + self._dx()
+        self.d_loss = tf.reduce_mean(self.D(self.real)) - tf.reduce_mean(self.D(self.fake))
+        self.d_clip = [v.assign(tf.clip_by_value(v, -0.01, 0.01)) for v in self.D.vars]
         with tf.control_dependencies(tf.get_collection(tf.GraphKeys.UPDATE_OPS)):
-            self.d_adam = tf.train.AdamOptimizer(1e-4, beta1=0.5, beta2=0.9).minimize(self.d_loss, var_list=self.D.vars)
-            self.g_adam = tf.train.AdamOptimizer(1e-4, beta1=0.5, beta2=0.9).minimize(self.g_loss, var_list=self.G.vars,
-                                                                                      global_step=tf.train.get_or_create_global_step())
+            self.d_rmsprop = tf.train.RMSPropOptimizer(1e-4).minimize(self.d_loss, var_list=self.D.vars)
+            self.g_rmsprop = tf.train.RMSPropOptimizer(1e-4).minimize(self.g_loss, var_list=self.G.vars,
+                                                                      global_step=tf.train.get_or_create_global_step())
         with tf.name_scope('train_summary'):
             self.train_summary = tf.summary.merge([
                 tf.summary.scalar('g_loss', self.g_loss),
@@ -28,15 +29,6 @@ class wgan(object):
                 tf.summary.image('X', self.real, 16),
                 tf.summary.image('fake', self.fake, 16)
             ])
-
-    def _dx(self):
-        eps = tf.random_uniform([], 0.0, 1.0)
-        x_hat = eps * self.real + (1 - eps) * self.fake
-        d_hat = self.D(x_hat)
-        dx = tf.layers.flatten(tf.gradients(d_hat, x_hat)[0])
-        dx = tf.sqrt(tf.reduce_sum(tf.square(dx), axis=1))
-        dx = tf.reduce_mean(tf.square(dx-1.0) * self.flags.scale)
-        return dx
 
     def gen(self, sess, bz, it):
         images = sess.run(self.fake, feed_dict={self.z: self.data.z_sample_(bz, self.z_dim)})
@@ -47,8 +39,9 @@ class wgan(object):
         bz = self.flags.batch_sz
         for bx in self.data.next_batch_(bz, 'fashion'):
             for _ in range(self.flags.d_iters):
-                sess.run(self.d_adam, feed_dict={self.real: bx, self.z: self.data.z_sample_(bz, self.z_dim)})
-            sess.run(self.g_adam, feed_dict={self.real: bx, self.z: self.data.z_sample_(bz, self.z_dim)})
+                sess.run(self.d_rmsprop, feed_dict={self.real: bx, self.z: self.data.z_sample_(bz, self.z_dim)})
+                sess.run(self.d_clip)
+            sess.run(self.g_rmsprop, feed_dict={self.real: bx, self.z: self.data.z_sample_(bz, self.z_dim)})
             step_ = sess.run(tf.train.get_global_step())
 
             if step_ >= self.flags.steps:
@@ -62,7 +55,6 @@ class wgan(object):
                 writer.add_summary(summary, step_)
                 saver.save(sess, self.flags.ckpt_path, step_, write_meta_graph=False)
                 print('Step [%d/%d] d_loss [%.4f] g_loss [%.4f]' % (step_, self.flags.steps, d_loss, g_loss))
-
 
 
 

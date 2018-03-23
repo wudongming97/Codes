@@ -5,7 +5,6 @@ import tensorflow as tf
 
 class D(object):
     def __init__(self):
-        self.x_dim = 784
         self.name = 'mnist/dcgan/d_net'
 
     def __call__(self, x, reuse=True):

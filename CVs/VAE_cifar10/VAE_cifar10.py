@@ -65,24 +65,30 @@ class VAE_cifar10(object):
         return samples, recon_summary_op
 
     def _encoder(self, X, ru=False):
-        with tf.variable_scope('mlp_encoder', reuse=ru):
-            fc0 = tf.layers.flatten(X)
-            fc1 = tf.layers.dense(fc0, 784, activation=tf.nn.relu, name='L1')
-            fc2 = tf.layers.dense(fc1, 256, activation=tf.nn.relu, name='L2')
-            fc3 = tf.layers.dense(fc2, 64, activation=tf.nn.relu, name='L3')
+        with tf.variable_scope('encoder', reuse=ru):
+            c0 = tf.layers.conv2d(X, 128, [3, 3], [2, 2], 'SAME', activation=tf.nn.relu, reuse=ru, name='C_0')
+            c0 = tf.layers.batch_normalization(c0, training=self.phase, reuse=ru, name='NC0')
+            c1 = tf.layers.conv2d(c0, 128, [3, 3], [2, 2], 'SAME', activation=tf.nn.relu, reuse=ru, name='C_1')
+            c1 = tf.layers.batch_normalization(c1, training=self.phase, reuse=ru, name='NC1')
+            c2 = tf.layers.conv2d(c1, 16, [3, 3], [2, 2], 'SAME', activation=tf.nn.relu, reuse=ru, name='C_2')
 
-            mu = tf.layers.dense(fc3, self.flags.z_size, name='fc_mu')
-            logvar = tf.layers.dense(fc3, self.flags.z_size, name='fc_logvar')
+            fc0 = tf.layers.flatten(c2)
+            mu = tf.layers.dense(fc0, self.flags.z_size, name='fc_mu')
+            logvar = tf.layers.dense(fc0, self.flags.z_size, name='fc_logvar')
 
         return mu, logvar
 
     def _decoder(self, z, ru=False):
-        with tf.variable_scope('mlp_decoder', reuse=ru):
-            dc0 = tf.layers.dense(z, 64, activation=tf.nn.relu, name='D1')
-            dc1 = tf.layers.dense(dc0, 256, activation=tf.nn.relu, name='D2')
-            dc3 = tf.layers.dense(dc1, 784, name='D4')
-            dc4 = tf.reshape(dc3, [-1, 28, 28, 1])
-        return dc4
+        with tf.variable_scope('decoder', reuse=ru):
+            f1 = tf.layers.dense(z, 8*8*16, activation=tf.nn.relu, name='f1')
+            f1 = tf.reshape(f1, [-1, 4, 4, 64])
+
+            dc1 = tf.layers.conv2d_transpose(f1, 128, [3, 3], [2, 2], 'SAME', activation=tf.nn.relu, reuse=ru, name='DC1')
+            dc1 = tf.layers.batch_normalization(dc1, training=self.phase, reuse=ru, name='NDC1')
+            dc2 = tf.layers.conv2d_transpose(dc1, 128, [3, 3], [2, 2], 'SAME', activation=tf.nn.relu, reuse=ru, name='DC2')
+            dc2 = tf.layers.batch_normalization(dc2, training=self.phase, reuse=ru, name='NDC2')
+            dc3 = tf.layers.conv2d_transpose(dc2, 3, [3, 3], [2, 2], 'SAME', reuse=ru, name='DC3')
+        return dc3
 
     def _sample_z(self, mu, logvar):
         with tf.name_scope('sample_z'):
@@ -107,7 +113,9 @@ class VAE_cifar10(object):
     def _optim_op(self, rec_loss, kld_loss):
         with tf.name_scope('optim_op'):
             loss = rec_loss + self.flags.beta * kld_loss
-            optim_op = tf.train.AdamOptimizer(learning_rate=self.flags.lr).minimize(loss, tf.train.get_global_step())
+            update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+            with tf.control_dependencies(update_ops):
+                optim_op = tf.train.AdamOptimizer(learning_rate=self.flags.lr).minimize(loss, tf.train.get_global_step())
         return loss, optim_op
 
     def fit(self, sess, writer, saver):

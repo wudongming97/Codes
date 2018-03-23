@@ -3,7 +3,7 @@
 import tensorflow as tf
 
 
-class Discriminator(object):
+class D(object):
     def __init__(self):
         self.x_dim = 784
         self.name = 'mnist/dcgan/d_net'
@@ -25,7 +25,7 @@ class Discriminator(object):
         return [var for var in tf.global_variables() if self.name in var.name]
 
 
-class Generator(object):
+class G(object):
     def __init__(self):
         self.z_dim = 100
         self.imshape = [28, 28, 1]

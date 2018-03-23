@@ -1,13 +1,15 @@
 # -*- coding: utf-8 -*-
 import tensorflow as tf
+# ----------- mnist ---------
 from mnist.data import data_
-from mnist.dcgan import Discriminator, Generator
-from wgan_gp import wgan
+from mnist.dcgan import D, G
+# ----------- mnist ---------
+import wgan_gp as wgan_gp
 
+type_ = 'wgan-gp'
 flags = tf.app.flags
-
-flags.DEFINE_string('ckpt_path', './results/wgan/ckpt/', '')
-flags.DEFINE_string('logs_path', './results/wgan/logs/', '')
+flags.DEFINE_string('ckpt_path', './results/{}/ckpt/'.format(type_), '')
+flags.DEFINE_string('logs_path', './results/{}/logs/'.format(type_), '')
 
 flags.DEFINE_integer('steps', 10000, '')
 flags.DEFINE_integer('batch_sz', 32, '')
@@ -15,6 +17,12 @@ flags.DEFINE_float('lr', 0.001, '')
 flags.DEFINE_float('scale', 10.0, '')
 flags.DEFINE_integer('d_iters', 3, '')
 FLAGS = flags.FLAGS
+
+
+def model_(t):
+    return {
+        'wgan-gp': wgan_gp.wgan(G(), D(), data_, FLAGS)
+    }.get(t)
 
 
 def main(_):
@@ -28,7 +36,7 @@ def main(_):
 
     graph = tf.Graph()
     with graph.as_default():
-        model = wgan(Generator(), Discriminator(), data_, FLAGS)
+        model = model_(type_)
         saver = tf.train.Saver(  # max_to_keep=5,
             keep_checkpoint_every_n_hours=1,
             pad_step_number=True)

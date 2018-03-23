@@ -3,17 +3,17 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tensorflow.examples.tutorials.mnist import input_data
 
-
 mnist = input_data.read_data_sets('./data/mnist')
-
+fashion = input_data.read_data_sets('./data/fashion')
 
 
 class data_(object):
 
     @staticmethod
-    def next_batch_(batch_sz):
+    def next_batch_(batch_sz, ds='mnist'):
+        ds_ = mnist if ds=='mnist' else fashion
         while True:
-            yield np.reshape(mnist.train.next_batch(batch_sz)[0], [batch_sz, 28, 28, 1])
+            yield np.reshape(ds_.train.next_batch(batch_sz)[0], [batch_sz, 28, 28, 1])
 
     @staticmethod
     def z_sample_(bz, z_dim):

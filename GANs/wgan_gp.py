@@ -46,11 +46,15 @@ class wgan(object):
 
     def train(self, sess, writer, saver):
         bz = self.flags.batch_sz
-        for bx in self.data.next_batch_(bz):
+        for bx in self.data.next_batch_(bz, 'fashion'):
             for _ in range(self.flags.d_iters):
                 sess.run(self.d_adam, feed_dict={self.real: bx, self.z: self.data.z_sample_(bz, self.z_dim)})
             sess.run(self.g_adam, feed_dict={self.real: bx, self.z: self.data.z_sample_(bz, self.z_dim)})
             step_ = sess.run(tf.train.get_global_step())
+
+            if step_ >= self.flags.steps:
+                print('Train is ok ...')
+                break
 
             if step_ % 20 == 0:
                 d_loss, g_loss, summary = sess.run([self.d_loss, self.g_loss, self.train_summary],
@@ -59,6 +63,8 @@ class wgan(object):
                 writer.add_summary(summary, step_)
                 saver.save(sess, self.flags.ckpt_path, step_, write_meta_graph=False)
                 print('Step [%d/%d] d_loss [%.4f] g_loss [%.4f]' % (step_, self.flags.steps, d_loss, g_loss))
+
+
 
 
 

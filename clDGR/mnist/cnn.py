@@ -22,8 +22,6 @@ class cl(object):
         for t in range(its):
             _, loss, logits = sess.run([self.optim, self.loss, self.logits],
                                        {self.x: data[0], self.y: data[1]})
-            # acc = np.mean(np.argmax(logits, 1) == np.argmax(data[1], 1))
-            # print('Train: [%d/%d] loss [%.4f] acc [%.4f]' % (t, its, loss, acc))
 
     def pred(self, sess, old):
         return sess.run(self.logits, {self.x: old})

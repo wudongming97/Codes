@@ -85,4 +85,3 @@ class wgan(object):
             for _ in range(3):
                 sess.run(self.d_adam, feed_dict={self.real: bx, self.z: self._z_sample(bz)})
             sess.run(self.g_adam, feed_dict={self.real: bx, self.z: self._z_sample(bz)})
-

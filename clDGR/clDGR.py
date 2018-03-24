@@ -1,6 +1,8 @@
 import math
+
 import numpy as np
 import tensorflow as tf
+
 from mnist.cnn import cl
 from mnist.data import imsave_, imcomb_, implot_, data_
 from mnist.wgan_gp import wgan

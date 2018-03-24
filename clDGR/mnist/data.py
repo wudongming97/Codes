@@ -1,6 +1,7 @@
 import math
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
 from tensorflow.examples.tutorials.mnist import input_data
 
 mnist = input_data.read_data_sets('./data/mnist')
@@ -54,7 +55,7 @@ class data_(object):
 
 
 if __name__ == '__main__':
-    a = np.array([0,1,1,2,1,2])
+    a = np.array([0, 1, 1, 2, 1, 2])
     b = one_hot_(a, 3)
     print(b)
     print(b.shape)

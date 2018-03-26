@@ -10,8 +10,8 @@ class D(object):
         with tf.variable_scope(self.name) as vs:
             if reuse:
                 vs.reuse_variables()
-            conv1 = tf.layers.conv2d(x, 64, [4, 4], [2, 2], activation=tf.nn.leaky_relu)
-            conv2 = tf.layers.conv2d(conv1, 128, [4, 4], [2, 2], activation=tf.nn.leaky_relu)
+            conv1 = tf.layers.conv2d(x, 128, [4, 4], [2, 2], activation=tf.nn.leaky_relu)
+            conv2 = tf.layers.conv2d(conv1, 64, [4, 4], [2, 2], activation=tf.nn.leaky_relu)
             fc1 = tf.layers.dense(tf.layers.flatten(conv2), 1024, activation=tf.nn.leaky_relu)
             fc2 = tf.layers.dense(fc1, 1)
             return fc2
@@ -32,13 +32,13 @@ class G(object):
             bs = tf.shape(z)[0]
             fc1 = tf.layers.dense(z, 7 * 7 * 128, activation=tf.nn.relu)
             conv1 = tf.reshape(fc1, [bs, 7, 7, 128])
-            conv1 = tf.layers.conv2d_transpose(conv1, 64, [4, 4], [2, 2],
+            conv1 = tf.layers.conv2d_transpose(conv1, 128, [4, 4], [2, 2],
                                                kernel_regularizer=tf.contrib.layers.l2_regularizer(2.5e-5),
                                                activation=tf.nn.relu)
-            conv2 = tf.layers.conv2d_transpose(conv1, 1, [4, 4], [2, 2],
+            conv2 = tf.layers.conv2d_transpose(conv1, 32, [4, 4], [2, 2],
                                                kernel_regularizer=tf.contrib.layers.l2_regularizer(2.5e-5),
                                                activation=tf.nn.relu)
-            fc2 = tf.layers.dense(tf.layers.flatten(conv2), 784, activation=tf.nn.sigmoid)
+            fc2 = tf.layers.dense(tf.layers.flatten(conv2), 784, activation=tf.nn.relu)
             fake = tf.reshape(fc2, [bs] + self.imshape)
             return fake
 
@@ -79,9 +79,9 @@ class wgan(object):
     def gen(self, sess, bz):
         return sess.run(self.fake, feed_dict={self.z: self._z_sample(bz)})
 
-    def fit(self, sess, bx, its):
+    def fit(self, sess, bx, step):
         bz = bx.shape[0]
-        for t in range(its):
+        for t in range(step):
             for _ in range(3):
                 sess.run(self.d_adam, feed_dict={self.real: bx, self.z: self._z_sample(bz)})
             sess.run(self.g_adam, feed_dict={self.real: bx, self.z: self._z_sample(bz)})

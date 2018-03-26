@@ -8,8 +8,8 @@ from tensorflow.examples.tutorials.mnist import input_data
 mnist = input_data.read_data_sets('./data/mnist')
 fashion = input_data.read_data_sets('./data/fashion')
 
-pairs = sorted(zip(mnist.train.labels, mnist.train.images), key=lambda x: x[0])
-pairs.extend(sorted(zip(fashion.train.labels, fashion.train.images), key=lambda x: x[0]))
+Pairs = sorted(zip(mnist.train.labels, mnist.train.images), key=lambda x: x[0])
+Pairs.extend(sorted(zip(fashion.train.labels, fashion.train.images), key=lambda x: x[0]))
 
 
 def imcomb_(images):
@@ -40,11 +40,27 @@ def one_hot_(targets, nb_classes):
 # print(len(pairs)) # 110000
 class dataset(object):
     def __init__(self):
-        self.num = len(pairs)
-        self.start = 0
+        self.num = len(Pairs)
+        self.start = 5000
 
     def next_bt(self, bz=100, shuffle=False):
-        self.start = 0 if self.start + bz > self.num else self.start + bz
-        slice_ = random.sample(pairs, bz) if shuffle else pairs[self.start: self.start + bz]
+        if self.start + bz > self.num:
+            self.start = 0
+        slice_ = random.sample(Pairs, bz) if shuffle else Pairs[self.start: self.start + bz]
+        self.start = self.start + bz
         labels, images = list(zip(*slice_))
         return np.reshape(np.array(images), [bz, 28, 28, 1]), one_hot_(np.array(labels), 10)
+
+    def pre_bt(self, bz=1000):
+        if self.start >= bz:
+            slice_ = Pairs[self.start - bz:self.start]
+        else:
+            slice_ = Pairs[:self.start]
+        random.shuffle(slice_)
+        labels, images = list(zip(*slice_))
+        return np.reshape(np.array(images), [-1, 28, 28, 1]), one_hot_(np.array(labels), 10)
+
+
+if __name__ == '__main__':
+    datas = dataset().next_bt()
+    imsave_('./images/test.png', imcomb_(datas[0]))

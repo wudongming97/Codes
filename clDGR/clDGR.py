@@ -7,25 +7,18 @@ from mnist.cnn import cl
 from mnist.data import imsave_, imcomb_, implot_, dataset
 from mnist.wgan_gp import wgan
 
-Gi = 16  # 生成器每轮迭代次数
-Di = 16  # Solver每轮迭代次数
+LocalStep = 8
 Bz = 100  # 每批次数据的大小
-Mem = 2  # 记忆力，过去记忆与新到数据的比例
+Mem = 4  # 记忆力，过去记忆与新到数据的比例
 Mnist = dataset()
-Tn = 5 * math.floor(Mnist.num / Bz)  # 总的数据批次
+Tn = int(math.floor(Mnist.num / Bz))  # 总的数据批次
 LogPath = './results/'
 
 
 class scholar(object):
     def __init__(self):
-        tf.train.create_global_step()
-        self.add1 = tf.assign_add(tf.train.get_global_step(), tf.constant(1, dtype=tf.int64))
         self.generator = wgan()
         self.solver = cl()
-
-    @staticmethod
-    def current(ss_):
-        return ss_.run(tf.train.get_global_step())
 
     def replay(self, ss_, bz):
         return self.generator.gen(ss_, bz)
@@ -33,20 +26,24 @@ class scholar(object):
     def teach(self, ss_, old):
         return self.solver.pred(ss_, old)
 
-    def fit(self, ss_, nd):
+    def pre_train(self, ss, nd_):
+        scholar.generator.fit(ss, nd_[0], 400)  # 先对generator进行预训练
+        scholar.solver.fit(ss, nd_)
+
+    def fit(self, ss_, nd_, ti_):
         ox = self.replay(ss_, Mem * Bz)
         oy = self.teach(ss_, ox)
-        md = self._mix((ox, oy), nd)
-        self.generator.fit(ss_, md[0], Gi)
-        self.solver.fit(ss_, md, Di)
-        ss_.run(self.add1)
+        md = self._mix((ox, oy), nd_)
+        imsave_(LogPath + "mix_{}_{}.png".format(ti_, _local), imcomb_(md[0]))
+        self.generator.fit(ss_, md[0], 36)
+        loss, acc = self.solver.fit(ss_, md)
+        print('Train [%d] loss [%4f] acc [%4f]' % (ti_, loss, acc))
 
-    def valid(self, ss_, da, tn):
-        image = imcomb_(self.generator.gen(ss_, da))
-        imsave_(LogPath + "{}.png".format(tn), image)
-        implot_(image)
-        loss, acc = self.solver.valid(ss_, da)
-        print('Valid [%3d\%3d] loss [%4f] acc [%4f]' % (tn, Tn, loss, acc))
+    def valid(self, ss_, da_, ti_):
+        image = imcomb_(self.generator.gen(ss_, da_[0].shape[0]))
+        imsave_(LogPath + "{}.png".format(ti_), image)
+        loss, acc = self.solver.valid(ss_, da_)
+        print(' --Valid [%d\%d] loss [%4f] acc [%4f]' % (ti_, Tn, loss, acc))
 
     def _mix(self, old, new):
         import random
@@ -59,19 +56,18 @@ class scholar(object):
 
 
 if __name__ == '__main__':
+    _conf = tf.ConfigProto(gpu_options=tf.GPUOptions(
+        allow_growth=True, per_process_gpu_memory_fraction=0.6))
     scholar = scholar()
     saver = tf.train.Saver(pad_step_number=True)
-    with tf.Session() as ss:
+    with tf.Session(config=_conf) as ss:
         ss.run(tf.global_variables_initializer())
         tf.train.export_meta_graph(LogPath + 'clDGR.meta')
         ckpt = tf.train.get_checkpoint_state(LogPath)
         if ckpt and ckpt.model_checkpoint_path:
             saver.restore(ss, ckpt.model_checkpoint_path)
-        while True:
-            ti = scholar.current(ss)
-            if ti > Tn:
-                break
-            data = Mnist.next_bt(Bz)
-            scholar.fit(ss, data)
-            scholar.valid(ss, Mnist.next_bt(10000, True), ti)
-            saver.save(ss, LogPath, ti, write_meta_graph=False)
+        scholar.pre_train(ss, Mnist.next_bt(Bz))
+        for ti in range(Tn):
+            scholar.fit(ss, Mnist.next_bt(Bz), ti)
+            scholar.valid(ss, Mnist.pre_bt(), ti)
+            saver.save(ss, LogPath, write_meta_graph=False) if ti % 200 == 0 else None

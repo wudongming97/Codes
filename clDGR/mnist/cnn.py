@@ -9,6 +9,7 @@ class cl(object):
         self.logits = self.net_(self.x, False)
         self.loss = tf.reduce_mean(tf.nn.softmax_cross_entropy_with_logits(labels=self.y, logits=self.logits))
         self.optim = tf.train.AdamOptimizer(1e-4).minimize(self.loss)
+        # self.optim = tf.train.GradientDescentOptimizer(1e-4).minimize(self.loss)
 
     def net_(self, x, reuse=True):
         with tf.variable_scope('net_', reuse):
@@ -18,11 +19,18 @@ class cl(object):
             logits = tf.layers.dense(fc1, 10)
         return logits
 
-    def fit(self, sess, data, its):
-        for t in range(its):
+    def fit(self, sess, data):
+        _step = 0
+        while True:
+            _step = _step + 1
             _, loss, logits = sess.run([self.optim, self.loss, self.logits],
                                        {self.x: data[0], self.y: data[1]})
-
+            acc = np.mean(np.argmax(logits, 1) == np.argmax(data[1], 1))
+            if _step > 100:
+                break
+            # if acc - 0.90 >= 1e-5:
+            #     break
+        return loss, acc
 
     def pred(self, sess, old):
         return sess.run(self.logits, {self.x: old})

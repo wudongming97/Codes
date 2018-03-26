@@ -1,4 +1,5 @@
 import math
+import random
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -37,25 +38,13 @@ def one_hot_(targets, nb_classes):
 
 
 # print(len(pairs)) # 110000
-class data_(object):
+class dataset(object):
     def __init__(self):
         self.num = len(pairs)
         self.start = 0
-        self.end = 0
 
-    def next_bt(self, ti=0, bz=100):
-        self.start = ti * bz
-        if self.end + self.start > self.num:
-            self.end = self.num
-        else:
-            self.end = self.start + bz
-        labels, images = list(zip(*pairs[self.start: self.end]))
-        self.start = self.end % (self.num - 1)
+    def next_bt(self, bz=100, shuffle=False):
+        self.start = 0 if self.start + bz > self.num else self.start + bz
+        slice_ = random.sample(pairs, bz) if shuffle else pairs[self.start: self.start + bz]
+        labels, images = list(zip(*slice_))
         return np.reshape(np.array(images), [bz, 28, 28, 1]), one_hot_(np.array(labels), 10)
-
-
-if __name__ == '__main__':
-    a = np.array([0, 1, 1, 2, 1, 2])
-    b = one_hot_(a, 3)
-    print(b)
-    print(b.shape)

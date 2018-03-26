@@ -23,6 +23,7 @@ class cl(object):
             _, loss, logits = sess.run([self.optim, self.loss, self.logits],
                                        {self.x: data[0], self.y: data[1]})
 
+
     def pred(self, sess, old):
         return sess.run(self.logits, {self.x: old})
 

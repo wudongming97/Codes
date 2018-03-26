@@ -4,15 +4,15 @@ import numpy as np
 import tensorflow as tf
 
 from mnist.cnn import cl
-from mnist.data import imsave_, imcomb_, implot_, data_
+from mnist.data import imsave_, imcomb_, implot_, dataset
 from mnist.wgan_gp import wgan
 
-Gi = 10  # 生成器每轮迭代次数
-Di = 4  # Solver每轮迭代次数
+Gi = 16  # 生成器每轮迭代次数
+Di = 16  # Solver每轮迭代次数
 Bz = 100  # 每批次数据的大小
-mem = 2  # 记忆力，过去记忆与新到数据的比例
-Data = data_()
-Tn = math.floor(Data.num / Bz)  # 总的数据批次
+Mem = 2  # 记忆力，过去记忆与新到数据的比例
+Mnist = dataset()
+Tn = 5 * math.floor(Mnist.num / Bz)  # 总的数据批次
 LogPath = './results/'
 
 
@@ -34,7 +34,7 @@ class scholar(object):
         return self.solver.pred(ss_, old)
 
     def fit(self, ss_, nd):
-        ox = self.replay(ss_, mem * Bz)
+        ox = self.replay(ss_, Mem * Bz)
         oy = self.teach(ss_, ox)
         md = self._mix((ox, oy), nd)
         self.generator.fit(ss_, md[0], Gi)
@@ -42,12 +42,11 @@ class scholar(object):
         ss_.run(self.add1)
 
     def valid(self, ss_, da, tn):
-        images = self.generator.gen(ss_, 16)
-        img = imcomb_(images)
-        imsave_(LogPath + "{}.png".format(tn), img)
-        implot_(img)
+        image = imcomb_(self.generator.gen(ss_, da))
+        imsave_(LogPath + "{}.png".format(tn), image)
+        implot_(image)
         loss, acc = self.solver.valid(ss_, da)
-        print('Valid [%3d\%3d] loss [%4f] acc [%4d]' % (tn, Tn, loss, acc))
+        print('Valid [%3d\%3d] loss [%4f] acc [%4f]' % (tn, Tn, loss, acc))
 
     def _mix(self, old, new):
         import random
@@ -72,7 +71,7 @@ if __name__ == '__main__':
             ti = scholar.current(ss)
             if ti > Tn:
                 break
-            data = Data.next_bt(ti, Bz)
+            data = Mnist.next_bt(Bz)
             scholar.fit(ss, data)
-            scholar.valid(ss, data, ti)
+            scholar.valid(ss, Mnist.next_bt(10000, True), ti)
             saver.save(ss, LogPath, ti, write_meta_graph=False)

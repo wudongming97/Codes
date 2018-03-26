@@ -5,7 +5,7 @@ from mnist.data import data_
 from mnist.dcgan import D, G
 # ----------- mnist ---------
 
-type_ = 'wgan'
+type_ = 'wgan-gp'
 flags = tf.app.flags
 flags.DEFINE_string('ckpt_path', './results/{}/ckpt/'.format(type_), '')
 flags.DEFINE_string('logs_path', './results/{}/logs/'.format(type_), '')
@@ -22,7 +22,7 @@ def model_(t):
     import wgan_gp as wgan_gp
     import wgan as wgan
     if t == 'wgan-gp':
-        return wgan_gp.wgan(G(), D(), data_, FLAGS),
+        return wgan_gp.wgan(G(), D(), data_, FLAGS)
     elif t == 'wgan':
         return wgan.wgan(G(), D(), data_, FLAGS)
 

@@ -55,12 +55,12 @@ class wgan(object):
                 print('Train is ok ...')
                 break
 
+            saver.save(sess, self.flags.ckpt_path, step_, write_meta_graph=False) if step_ % 1000 == 0 else None
             if step_ % 20 == 0:
                 d_loss, g_loss, summary = sess.run([self.d_loss, self.g_loss, self.train_summary],
                                                    feed_dict={self.real: bx, self.z: self.data.z_sample_(bz, self.z_dim)})
                 self.gen(sess, 64, step_)
                 writer.add_summary(summary, step_)
-                saver.save(sess, self.flags.ckpt_path, step_, write_meta_graph=False)
                 print('Step [%d/%d] d_loss [%.4f] g_loss [%.4f]' % (step_, self.flags.steps, d_loss, g_loss))
 
 

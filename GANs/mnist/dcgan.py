@@ -26,7 +26,7 @@ class D(object):
 
 class G(object):
     def __init__(self):
-        self.z_dim = 100
+        self.z_dim = 64
         self.imshape = [28, 28, 1]
         self.name = 'mnist/dcgan/g_net'
 

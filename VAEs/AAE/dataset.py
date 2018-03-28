@@ -45,8 +45,9 @@ def embedding_viz_(x, y, ti, path):
     from sklearn.manifold import TSNE
     # from sklearn.decomposition import PCA
 
+    y = [i*2 for i in y]
     x_tsne = TSNE().fit_transform(x)
-    plt.scatter(x_tsne[:, 0], x_tsne[:, 1], c=y)
+    plt.scatter(x_tsne[:, 0], x_tsne[:, 1], c=y, marker=".")
     plt.savefig(path + 'z_tsne_{}.png'.format(ti))
     # x_pca = PCA(2).fit_transform(x)
     # plt.scatter(x_pca[:, 0], x_pca[:, 1], c=y)

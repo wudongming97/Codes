@@ -8,6 +8,6 @@ flags.DEFINE_integer('z_dim', 16, '')
 flags.DEFINE_float('alpha', 10, 'wgan 惩罚正则项的权重')
 
 flags.DEFINE_string('datasets', 'fashion', '')
-flags.DEFINE_string('log_path', './fashion_results/', '')
+flags.DEFINE_string('log_path', './fashion_results1/', '')
 
 FLAGS = flags.FLAGS

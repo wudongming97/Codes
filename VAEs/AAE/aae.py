@@ -97,7 +97,7 @@ def main(_):
             imsave_(LogPath + 'train{}.png'.format(_step), imcombind_(images))
 
             if _step % 500 == 0:
-                latent_z, y = _model.latent_z(sess, 1000)
+                latent_z, y = _model.latent_z(sess, 2000)
                 embedding_viz_(latent_z, y, _step, LogPath)
 
 

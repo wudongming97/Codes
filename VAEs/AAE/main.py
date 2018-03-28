@@ -22,10 +22,10 @@ def main(_):
 
         ckpt = tf.train.get_checkpoint_state(FLAGS.log_path)
         if ckpt and ckpt.model_checkpoint_path:
-            _saver.restore(sess, ckpt.model_checkpoint_path)
+            _saver.restore(sess, FLAGS.log_path)
 
         _step = tf.train.get_global_step().eval()
-        for _step in range(_step, FLAGS.steps // 20):
+        for _step in range(_step // 20, FLAGS.steps // 20):
             a_loss, g_loss, d_loss, fit_summary = _model.fit(sess, 20)
             _writer.add_summary(fit_summary, _step)
             _saver.save(sess, FLAGS.log_path)

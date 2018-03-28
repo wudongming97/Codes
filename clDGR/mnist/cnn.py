@@ -19,17 +19,14 @@ class cl(object):
             logits = tf.layers.dense(fc1, 10)
         return logits
 
-    def fit(self, sess, data):
-        _step = 0
-        while True:
-            _step = _step + 1
+    def fit(self, sess, data, step_=64):
+        loss, acc = 0, 0
+        for ti in range(step_):
             _, loss, logits = sess.run([self.optim, self.loss, self.logits],
                                        {self.x: data[0], self.y: data[1]})
             acc = np.mean(np.argmax(logits, 1) == np.argmax(data[1], 1))
-            if _step > 100:
+            if acc - 0.90 >= 1e-5:
                 break
-            # if acc - 0.90 >= 1e-5:
-            #     break
         return loss, acc
 
     def pred(self, sess, old):

@@ -7,9 +7,8 @@ from mnist.cnn import cl
 from mnist.data import imsave_, imcomb_, implot_, dataset
 from mnist.wgan_gp import wgan
 
-LocalStep = 8
 Bz = 100  # 每批次数据的大小
-Mem = 4  # 记忆力，过去记忆与新到数据的比例
+Mem = 2  # 记忆力，过去记忆与新到数据的比例
 Mnist = dataset()
 Tn = int(math.floor(Mnist.num / Bz))  # 总的数据批次
 LogPath = './results/'
@@ -28,15 +27,15 @@ class scholar(object):
 
     def pre_train(self, ss, nd_):
         scholar.generator.fit(ss, nd_[0], 400)  # 先对generator进行预训练
-        scholar.solver.fit(ss, nd_)
+        scholar.solver.fit(ss, nd_, 100)
 
     def fit(self, ss_, nd_, ti_):
         ox = self.replay(ss_, Mem * Bz)
         oy = self.teach(ss_, ox)
         md = self._mix((ox, oy), nd_)
-        imsave_(LogPath + "mix_{}_{}.png".format(ti_, _local), imcomb_(md[0]))
-        self.generator.fit(ss_, md[0], 36)
-        loss, acc = self.solver.fit(ss_, md)
+        imsave_(LogPath + "mix_{}.png".format(ti_), imcomb_(md[0]))
+        self.generator.fit(ss_, md[0], 100)
+        loss, acc = self.solver.fit(ss_, md, 16)
         print('Train [%d] loss [%4f] acc [%4f]' % (ti_, loss, acc))
 
     def valid(self, ss_, da_, ti_):
@@ -66,8 +65,8 @@ if __name__ == '__main__':
         ckpt = tf.train.get_checkpoint_state(LogPath)
         if ckpt and ckpt.model_checkpoint_path:
             saver.restore(ss, ckpt.model_checkpoint_path)
-        scholar.pre_train(ss, Mnist.next_bt(Bz))
+        scholar.pre_train(ss, Mnist.next_bt(Bz, shuffle=True))
         for ti in range(Tn):
-            scholar.fit(ss, Mnist.next_bt(Bz), ti)
-            scholar.valid(ss, Mnist.pre_bt(), ti)
+            scholar.fit(ss, Mnist.next_bt(Bz, shuffle=True), ti)
+            scholar.valid(ss, Mnist.next_bt(10*Bz, shuffle=True), ti)
             saver.save(ss, LogPath, write_meta_graph=False) if ti % 200 == 0 else None

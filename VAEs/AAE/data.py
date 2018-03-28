@@ -1,7 +1,10 @@
 import math
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
 from tensorflow.examples.tutorials.mnist import input_data
+
+from config import FLAGS
 
 mnist = input_data.read_data_sets('./data/mnist')
 fashion = input_data.read_data_sets('./data/fashion')
@@ -9,7 +12,8 @@ fashion = input_data.read_data_sets('./data/fashion')
 
 def next_batch_(bz, ds='mnist'):
     ds_ = mnist if ds == 'mnist' else fashion
-    return np.reshape(ds_.train.next_batch(bz, shuffle=True)[0], [bz, 28, 28, 1])
+    data = ds_.train.next_batch(bz, shuffle=True)
+    return np.reshape(data[0], [bz, 28, 28, 1]), data[1]
 
 
 def z_real_(bz, z_dim):
@@ -35,3 +39,16 @@ def imsave_(path, img):
 
 def implot_(img):
     plt.imshow(img)
+
+
+def embedding_viz_(x, y, ti):
+    from sklearn.manifold import TSNE
+    # from sklearn.decomposition import PCA
+
+    x_tsne = TSNE().fit_transform(x)
+    plt.scatter(x_tsne[:, 0], x_tsne[:, 1], c=y)
+    plt.savefig(FLAGS.log_path + 'z_tsne_{}.png'.format(ti))
+    # x_pca = PCA(2).fit_transform(x)
+    # plt.scatter(x_pca[:, 0], x_pca[:, 1], c=y)
+    # plt.savefig(FLAGS.log_path + 'z_pca_{}.png'.format(ti))
+    plt.close()

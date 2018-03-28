@@ -2,7 +2,7 @@ import tensorflow as tf
 
 from aae import aae
 from config import FLAGS
-from data import imcombind_, imsave_
+from data import imcombind_, imsave_, embedding_viz_
 
 SESS_CONF = tf.ConfigProto(
     gpu_options=tf.GPUOptions(
@@ -28,10 +28,9 @@ def main(_):
         while True:
             if _step >= FLAGS.steps:
                 break
-            else:
-                _step = _step + 1
+            a_loss, g_loss, d_loss, fit_summary = _model.fit(sess, 100)
 
-            a_loss, g_loss, d_loss, fit_summary = _model.fit(sess, 50)
+            _step = _step + 100
             _writer.add_summary(fit_summary, _step)
             _saver.save(sess, FLAGS.log_path)
             print("Train [%d\%d] g_loss [%3f] d_loss [%3f] a_loss [%3f]" % (_step, FLAGS.steps, g_loss, d_loss, a_loss))
@@ -39,6 +38,10 @@ def main(_):
             images, gen_summary = _model.gen(sess, 100)
             _writer.add_summary(gen_summary)
             imsave_(FLAGS.log_path + 'train{}.png'.format(_step), imcombind_(images))
+
+            if _step % 500 == 0:
+                latent_z, y = _model.latent_z(sess, 1000)
+                embedding_viz_(latent_z, y, _step)
 
 
 if __name__ == "__main__":

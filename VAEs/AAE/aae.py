@@ -40,17 +40,22 @@ class aae:
 
     def fit(self, sess, local_):
         for _ in range(local_):
-            x_real = next_batch_(FLAGS.bz)
+            x_real, _ = next_batch_(FLAGS.bz)
             sess.run(self.a_optim, {self.x: x_real})
             for _ in range(3):
                 sess.run(self.d_optim, {self.x: x_real, self.real_z: z_real_(FLAGS.bz, FLAGS.z_dim)})
             sess.run(self.g_optim, {self.x: x_real})
 
+        x_real, _ = next_batch_(FLAGS.bz * 5)
         return sess.run([self.a_loss, self.g_loss, self.d_loss, self.fit_summary], {
-                    self.x: next_batch_(FLAGS.bz * 5), self.real_z: z_real_(FLAGS.bz * 5, FLAGS.z_dim)})
+                    self.x: x_real, self.real_z: z_real_(FLAGS.bz * 5, FLAGS.z_dim)})
 
     def gen(self, sess, bz):
         return sess.run([self.gen_x, self.gen_summary], {self.real_z: z_real_(bz, FLAGS.z_dim)})
+
+    def latent_z(self, sess, bz):
+        x, y = next_batch_(bz)
+        return sess.run(self.fake_z, {self.x: x}), y
 
     def _dd(self):
         eps = tf.random_uniform([], 0.0, 1.0)

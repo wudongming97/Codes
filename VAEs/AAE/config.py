@@ -4,9 +4,10 @@ flags = tf.app.flags
 flags.DEFINE_integer('steps', 20000, '')
 flags.DEFINE_integer('bz', 64, '')
 flags.DEFINE_integer('z_dim', 16, '')
+
 flags.DEFINE_float('alpha', 10, 'wgan 惩罚正则项的权重')
 
 flags.DEFINE_string('datasets', 'fashion', '')
-flags.DEFINE_string('log_path', './results_fashion/', '')
+flags.DEFINE_string('log_path', './fashion_results/', '')
 
 FLAGS = flags.FLAGS

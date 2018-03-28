@@ -25,8 +25,13 @@ def main(_):
             _saver.restore(sess, FLAGS.log_path)
 
         _step = tf.train.get_global_step().eval()
-        for _step in range(_step // 20, FLAGS.steps // 20):
-            a_loss, g_loss, d_loss, fit_summary = _model.fit(sess, 20)
+        while True:
+            if _step >= FLAGS.steps:
+                break
+            else:
+                _step = _step + 1
+
+            a_loss, g_loss, d_loss, fit_summary = _model.fit(sess, 50)
             _writer.add_summary(fit_summary, _step)
             _saver.save(sess, FLAGS.log_path)
             print("Train [%d\%d] g_loss [%3f] d_loss [%3f] a_loss [%3f]" % (_step, FLAGS.steps, g_loss, d_loss, a_loss))

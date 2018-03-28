@@ -1,4 +1,5 @@
 import tensorflow as tf
+
 from config import FLAGS
 
 
@@ -33,7 +34,7 @@ class decoder:
             logits = tf.layers.conv2d_transpose(dconv2, 1, [4, 4], [1, 1], 'SAME')
             out = tf.nn.sigmoid(logits)
 
-            return out
+            return out, logits
 
     @property
     def vars(self):
@@ -54,6 +55,3 @@ class discriminator:
     @property
     def vars(self):
         return [var for var in tf.global_variables() if self.name in var.name]
-
-
-

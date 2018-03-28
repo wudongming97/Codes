@@ -10,8 +10,8 @@ mnist = input_data.read_data_sets('./data/mnist')
 fashion = input_data.read_data_sets('./data/fashion')
 
 
-def next_batch_(bz, ds='mnist'):
-    ds_ = mnist if ds == 'mnist' else fashion
+def next_batch_(bz):
+    ds_ = mnist if FLAGS.datasets == 'mnist' else fashion
     data = ds_.train.next_batch(bz, shuffle=True)
     return np.reshape(data[0], [bz, 28, 28, 1]), data[1]
 

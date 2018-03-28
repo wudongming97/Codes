@@ -64,7 +64,7 @@ if __name__ == '__main__':
         tf.train.export_meta_graph(LogPath + 'clDGR.meta')
         ckpt = tf.train.get_checkpoint_state(LogPath)
         if ckpt and ckpt.model_checkpoint_path:
-            saver.restore(ss, ckpt.model_checkpoint_path)
+            saver.restore(ss, LogPath)
         scholar.pre_train(ss, Mnist.next_bt(Bz, shuffle=True))
         for ti in range(Tn):
             scholar.fit(ss, Mnist.next_bt(Bz, shuffle=True), ti)

@@ -15,6 +15,10 @@ def next_batch_(bz):
     return np.reshape(data[0], [bz, 28, 28, 1]), data[1]
 
 
+def one_hot_(targets, nb_classes):
+    return np.eye(nb_classes)[np.array(targets).reshape(-1)]
+
+
 def imcombind_(images):
     num = images.shape[0]
     width = int(math.sqrt(num))

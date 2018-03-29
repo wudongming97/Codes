@@ -100,3 +100,19 @@ def supervised_swiss_roll(batchsize, ndim, label_indices, num_labels):
         for zi in range(ndim // 2):
             z[batch, zi * 2:zi * 2 + 2] = sample(label_indices[batch], num_labels)
     return z
+
+
+if __name__ == '__main__':
+    import matplotlib.pyplot as plt
+    # z = gaussian_mixture(1000, 2, 10)
+    # print(z.shape)
+    # plt.scatter(z[:, 0], z[:, 1], marker='.')
+    # plt.show()
+    label = np.random.randint(10, size=1000)
+    z = supervised_gaussian_mixture(1000, 2, label, 10)
+    plt.scatter(z[:, 0], z[:, 1], marker='.', c=label)
+    plt.show()
+    z = supervised_swiss_roll(1000, 2, label, 10)
+    plt.scatter(z[:, 0], z[:, 1], marker='.', c=label)
+    plt.show()
+

@@ -96,7 +96,7 @@ def main(_):
             _writer.add_summary(gen_summary)
             imsave_(FLAGS.log_path + 'train{}.png'.format(_step), imcombind_(images))
 
-            if _step % 500 == 0:
+            if _step % 1500 == 0:
                 latent_z, y = _model.latent_z(sess, 2000)
                 plot_q_z(latent_z, y, FLAGS.log_path + 'vae_z_{}.png'.format(_step))
 

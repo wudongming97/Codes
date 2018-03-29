@@ -1,15 +1,33 @@
 import tensorflow as tf
 
-from config import FLAGS
-from dataset import next_batch_, z_real_, imcombind_, imsave_, embedding_viz_
+from dataset import next_batch_, imcombind_, imsave_, embedding_viz_
 from particle import encoder, decoder, discriminator
+from sampler import gaussian_mixture, gaussian, swiss_roll
 
-LogPath = FLAGS.log_path + 'AAE/'
+flags = tf.app.flags
+flags.DEFINE_integer('steps', 20000, '')
+flags.DEFINE_integer('bz', 64, '')
+flags.DEFINE_integer('z_dim', 16, '')
+flags.DEFINE_float('alpha', 2, 'wgan 惩罚正则项的权重')
+
+flags.DEFINE_string('z_dist', 'mg', '')
+flags.DEFINE_string('datasets', 'mnist', '')
+flags.DEFINE_string('log_path', './results_aae/', '')
+FLAGS = flags.FLAGS
+
+
+def z_real_(bz):
+    if FLAGS.z_dist == 'g':
+        return gaussian(bz, FLAGS.z_dim, 0, 2)
+    elif FLAGS.z_dist == 'mg':
+        return gaussian_mixture(bz, FLAGS.z_dim, 10)
+    else:
+        return swiss_roll(bz, FLAGS.z_dim, 10)
 
 
 class aae:
     def __init__(self):
-        self.en = encoder()
+        self.en = encoder(FLAGS.z_dim)
         self.de = decoder()
         self.di = discriminator()
 
@@ -45,15 +63,15 @@ class aae:
             x_real, _ = next_batch_(FLAGS.bz)
             sess.run(self.a_optim, {self.x: x_real})
             for _ in range(3):
-                sess.run(self.d_optim, {self.x: x_real, self.real_z: z_real_(FLAGS.bz, FLAGS.z_dim)})
+                sess.run(self.d_optim, {self.x: x_real, self.real_z: z_real_(FLAGS.bz)})
             sess.run(self.g_optim, {self.x: x_real})
 
         x_real, _ = next_batch_(FLAGS.bz * 5)
         return sess.run([self.a_loss, self.g_loss, self.d_loss, self.fit_summary], {
-            self.x: x_real, self.real_z: z_real_(FLAGS.bz * 5, FLAGS.z_dim)})
+            self.x: x_real, self.real_z: z_real_(FLAGS.bz * 5)})
 
     def gen(self, sess, bz):
-        return sess.run([self.gen_x, self.gen_summary], {self.real_z: z_real_(bz, FLAGS.z_dim)})
+        return sess.run([self.gen_x, self.gen_summary], {self.real_z: z_real_(bz)})
 
     def latent_z(self, sess, bz):
         x, y = next_batch_(bz)
@@ -74,12 +92,12 @@ def main(_):
     _gpu = tf.GPUOptions(allow_growth=True)
     _saver = tf.train.Saver(pad_step_number=True)
     with tf.Session(config=tf.ConfigProto(gpu_options=_gpu)) as sess:
-        _writer = tf.summary.FileWriter(LogPath, sess.graph)
+        _writer = tf.summary.FileWriter(FLAGS.log_path, sess.graph)
         tf.global_variables_initializer().run()
 
-        ckpt = tf.train.get_checkpoint_state(LogPath)
+        ckpt = tf.train.get_checkpoint_state(FLAGS.log_path)
         if ckpt and ckpt.model_checkpoint_path:
-            _saver.restore(sess, LogPath)
+            _saver.restore(sess, FLAGS.log_path)
 
         _step = tf.train.get_global_step().eval()
         while True:
@@ -89,16 +107,16 @@ def main(_):
 
             _step = _step + 100
             _writer.add_summary(fit_summary, _step)
-            _saver.save(sess, LogPath)
+            _saver.save(sess, FLAGS.log_path)
             print("Train [%d\%d] g_loss [%3f] d_loss [%3f] a_loss [%3f]" % (_step, FLAGS.steps, g_loss, d_loss, a_loss))
 
             images, gen_summary = _model.gen(sess, 100)
             _writer.add_summary(gen_summary)
-            imsave_(LogPath + 'train{}.png'.format(_step), imcombind_(images))
+            imsave_(FLAGS.log_path + 'train{}.png'.format(_step), imcombind_(images))
 
             if _step % 500 == 0:
                 latent_z, y = _model.latent_z(sess, 2000)
-                embedding_viz_(latent_z, y, _step, LogPath)
+                embedding_viz_(latent_z, y, _step, FLAGS.log_path)
 
 
 if __name__ == "__main__":

@@ -1,18 +1,17 @@
 import tensorflow as tf
 
-from config import FLAGS
-
 
 class encoder:
-    def __init__(self):
+    def __init__(self, z_dim):
         self.name = 'mnist/encoder'
+        self.z_dim = z_dim
 
     def __call__(self, x):
         with tf.variable_scope(self.name):
             conv1 = tf.layers.conv2d(x, 128, [4, 4], [2, 2], 'SAME', activation=tf.nn.leaky_relu)
             conv2 = tf.layers.conv2d(conv1, 32, [4, 4], [2, 2], 'SAME', activation=tf.nn.leaky_relu)
             fc0 = tf.layers.flatten(conv2)
-            latent_variable = tf.layers.dense(fc0, FLAGS.z_dim, activation=tf.nn.leaky_relu)
+            latent_variable = tf.layers.dense(fc0, self.z_dim, activation=tf.nn.leaky_relu)
 
             return latent_variable
 

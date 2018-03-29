@@ -1,6 +1,12 @@
 ## A simple **"Adversarial Autoencoders"**  Implementation.
 
 ### vae
+
+<figure class="half">
+    <img src="https://github.com/yxue3357/MyResearchCodes/raw/master/VAEs/AAE/results/vae_z16_train8000.png">
+    <img src="https://github.com/yxue3357/MyResearchCodes/raw/master/VAEs/AAE/results/vae_z16_tsne_8000.png">
+</figure>
+
 ![vae1](https://github.com/yxue3357/MyResearchCodes/raw/master/VAEs/AAE/results/vae_z16_train8000.png){:height="50%" width="50%"}
 ![vae2](https://github.com/yxue3357/MyResearchCodes/raw/master/VAEs/AAE/results/vae_z16_tsne_8000.png){:height="50%" width="50%"}
 

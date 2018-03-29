@@ -11,7 +11,7 @@ datasets = fashion
 
 
 def next_batch_(bz):
-    data = datasets.fit.next_batch(bz, shuffle=True)
+    data = datasets.train.next_batch(bz, shuffle=True)
     return np.reshape(data[0], [bz, 28, 28, 1]), data[1]
 
 

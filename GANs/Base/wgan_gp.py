@@ -5,7 +5,7 @@ from particle import G, D
 from sampler import gaussian
 
 flags = tf.app.flags
-flags.DEFINE_string('logs_path', './results/wgan_gp/', '')
+flags.DEFINE_string('log_path', './results/wgan_gp/', '')
 
 flags.DEFINE_integer('steps', 6000, '')
 flags.DEFINE_integer('z_dim', 16, '')

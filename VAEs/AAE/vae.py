@@ -1,7 +1,7 @@
 import numpy as np
 import tensorflow as tf
 
-from dataset import next_batch_, imcombind_, imsave_, embedding_viz_
+from dataset import next_batch_, imcombind_, imsave_, plot_q_z
 from particle import encoder, decoder
 
 flags = tf.app.flags
@@ -98,7 +98,7 @@ def main(_):
 
             if _step % 500 == 0:
                 latent_z, y = _model.latent_z(sess, 2000)
-                embedding_viz_(latent_z, y, _step, FLAGS.log_path)
+                plot_q_z(latent_z, y, FLAGS.log_path + 'vae_z_{}.png'.format(_step))
 
 
 if __name__ == "__main__":

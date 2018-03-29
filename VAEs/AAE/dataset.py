@@ -36,14 +36,21 @@ def implot_(img):
     plt.imshow(img)
 
 
-def embedding_viz_(x, y, ti, path):
+def plot_q_z(x, y, filename):
     from sklearn.manifold import TSNE
-    # from sklearn.decomposition import PCA
+    colors = ["#2103c8", "#0e960e", "#e40402", "#05aaa8", "#ac02ab", "#aba808", "#151515", "#94a169", "#bec9cd",
+              "#6a6551"]
 
-    x_tsne = TSNE().fit_transform(x)
-    plt.scatter(x_tsne[:, 0], x_tsne[:, 1], c=y, marker=".")
-    plt.savefig(path + 'z_tsne_{}.png'.format(ti))
-    # x_pca = PCA(2).fit_transform(x)
-    # plt.scatter(x_pca[:, 0], x_pca[:, 1], c=y)
-    # plt.savefig(FLAGS.log_path + 'z_pca_{}.png'.format(ti))
+    plt.clf()
+    fig, ax = plt.subplots(ncols=1, figsize=(8, 8))
+    if x.shape[1] != 2:
+        x = TSNE().fit_transform(x)
+    y = y[:, np.newaxis]
+    xy = np.concatenate((x, y), axis=1)
+
+    for l, c in zip(range(10), colors):
+        ix = np.where(xy[:, 2] == l)
+        ax.scatter(xy[ix, 0], xy[ix, 1], c=c, marker='o', label=l, s=10, linewidths=0)
+
+    plt.savefig(filename)
     plt.close()

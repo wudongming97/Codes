@@ -7,7 +7,7 @@ from sampler import gaussian
 flags = tf.app.flags
 flags.DEFINE_string('log_path', './logs/wgan_gp/', '')
 
-flags.DEFINE_integer('steps', 6000, '')
+flags.DEFINE_integer('steps', 20000, '')
 flags.DEFINE_integer('z_dim', 16, '')
 flags.DEFINE_integer('bz', 32, '')
 flags.DEFINE_float('lr', 0.001, '')
@@ -17,8 +17,9 @@ FLAGS = flags.FLAGS
 
 class wgan_gp(object):
     def __init__(self):
-        self.G = G()
-        self.D = D()
+        self.phase = tf.placeholder(tf.bool, name='phase')
+        self.G = G(self.phase)
+        self.D = D(self.phase)
 
         self.real = tf.placeholder(tf.float32, [None, 28, 28, 1], name='x')
         self.z = tf.placeholder(tf.float32, [None, FLAGS.z_dim], name='z')
@@ -26,9 +27,11 @@ class wgan_gp(object):
 
         self.g_loss = tf.reduce_mean(self.D(self.fake, reuse=False))
         self.d_loss = tf.reduce_mean(self.D(self.real)) - tf.reduce_mean(self.D(self.fake)) + self._dx()
-        self.d_adam = tf.train.AdamOptimizer(FLAGS.lr).minimize(self.d_loss, var_list=self.D.vars)
-        self.g_adam = tf.train.AdamOptimizer(FLAGS.lr).minimize(self.g_loss, var_list=self.G.vars,
-                                                                global_step=tf.train.get_or_create_global_step())
+        update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+        with tf.control_dependencies(update_ops):
+            self.d_adam = tf.train.AdamOptimizer(FLAGS.lr).minimize(self.d_loss, var_list=self.D.vars)
+            self.g_adam = tf.train.AdamOptimizer(FLAGS.lr).minimize(self.g_loss, var_list=self.G.vars,
+                                                                    global_step=tf.train.get_or_create_global_step())
 
         self.fit_summary = tf.summary.merge([
             tf.summary.scalar('g_loss', self.g_loss),
@@ -47,19 +50,21 @@ class wgan_gp(object):
         return dx
 
     def gen(self, sess, bz):
-        return sess.run(self.fake, feed_dict={self.z: gaussian(bz, FLAGS.z_dim)})
+        return sess.run(self.fake, feed_dict={self.z: gaussian(bz, FLAGS.z_dim), self.phase: False})
 
     def fit(self, sess, local_):
         for _ in range(local_):
 
             x_real, _ = next_batch_(FLAGS.bz)
             for _ in range(3):
-                sess.run(self.d_adam, feed_dict={self.real: x_real, self.z: gaussian(FLAGS.bz, FLAGS.z_dim)})
-            sess.run(self.g_adam, feed_dict={self.real: x_real, self.z: gaussian(FLAGS.bz, FLAGS.z_dim)})
+                sess.run(self.d_adam,
+                         feed_dict={self.real: x_real, self.z: gaussian(FLAGS.bz, FLAGS.z_dim), self.phase: True})
+            sess.run(self.g_adam,
+                     feed_dict={self.real: x_real, self.z: gaussian(FLAGS.bz, FLAGS.z_dim), self.phase: True})
 
         x_real, _ = next_batch_(FLAGS.bz)
         return sess.run([self.d_loss, self.g_loss, self.fit_summary], feed_dict={
-            self.real: x_real, self.z: gaussian(FLAGS.bz, FLAGS.z_dim)})
+            self.real: x_real, self.z: gaussian(FLAGS.bz, FLAGS.z_dim), self.phase: False})
 
 
 def main(_):
@@ -82,11 +87,11 @@ def main(_):
 
             _step = _step + 100
             _writer.add_summary(fit_summary, _step)
-            _saver.save(sess, FLAGS.log_path)
             print("Train [%d\%d] g_loss [%3f] d_loss [%3f]" % (_step, FLAGS.steps, g_loss, d_loss))
 
             images = _model.gen(sess, 100)
             imsave_(FLAGS.log_path + 'train_{}.png'.format(_step), imcombind_(images))
+            _saver.save(sess, FLAGS.log_path) if _step % 5000 == 0 else None
 
 
 if __name__ == "__main__":

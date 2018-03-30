@@ -1,25 +1,63 @@
 import tensorflow as tf
 
 from dataset import next_batch_, imcombind_, imsave_
-from particle import G, D
 from sampler import gaussian
 
 flags = tf.app.flags
 flags.DEFINE_string('log_path', './logs/wgan_gp/', '')
 
 flags.DEFINE_integer('steps', 20000, '')
-flags.DEFINE_integer('z_dim', 16, '')
-flags.DEFINE_integer('bz', 32, '')
+flags.DEFINE_integer('bz', 100, '')
+flags.DEFINE_integer('z_dim', 64, '')
 flags.DEFINE_float('lr', 0.001, '')
 flags.DEFINE_float('scale', 6.0, '')
 FLAGS = flags.FLAGS
 
 
+def bn(x, is_training):
+    return tf.layers.batch_normalization(x, training=is_training)
+
+
+class G(object):
+    def __init__(self):
+        self.name = 'mnist/g_net'
+
+    def __call__(self, z):
+        with tf.variable_scope(self.name):
+            fc1 = tf.layers.dense(z, 7 * 7 * 32, activation=tf.nn.leaky_relu)
+            fc1 = tf.reshape(fc1, [-1, 7, 7, 32])
+            cv1 = tf.layers.conv2d_transpose(fc1, 128, [4, 4], [2, 2], 'SAME', activation=tf.nn.leaky_relu)
+            cv2 = tf.layers.conv2d_transpose(cv1, 32, [4, 4], [2, 2], 'SAME', activation=tf.nn.leaky_relu)
+            fake = tf.layers.conv2d_transpose(cv2, 1, [4, 4], [1, 1], 'SAME', activation=tf.nn.sigmoid)
+            return fake
+
+    @property
+    def vars(self):
+        return [var for var in tf.global_variables() if self.name in var.name]
+
+
+class D(object):
+    def __init__(self):
+        self.name = 'mnist/d_net'
+
+    def __call__(self, x, reuse=True):
+        with tf.variable_scope(self.name, reuse=reuse):
+            cv1 = tf.layers.conv2d(x, 128, [4, 4], [2, 2], activation=tf.nn.leaky_relu)
+            cv2 = tf.layers.conv2d(cv1, 32, [4, 4], [2, 2], activation=tf.nn.leaky_relu)
+            fc1 = tf.layers.dense(tf.layers.flatten(cv2), 256, activation=tf.nn.leaky_relu)
+            fc2 = tf.layers.dense(fc1, 1)
+
+            return fc2
+
+    @property
+    def vars(self):
+        return [var for var in tf.global_variables() if self.name in var.name]
+
+
 class wgan_gp(object):
     def __init__(self):
-        self.phase = tf.placeholder(tf.bool, name='phase')
-        self.G = G(self.phase)
-        self.D = D(self.phase)
+        self.G = G()
+        self.D = D()
 
         self.real = tf.placeholder(tf.float32, [None, 28, 28, 1], name='x')
         self.z = tf.placeholder(tf.float32, [None, FLAGS.z_dim], name='z')
@@ -27,11 +65,9 @@ class wgan_gp(object):
 
         self.g_loss = tf.reduce_mean(self.D(self.fake, reuse=False))
         self.d_loss = tf.reduce_mean(self.D(self.real)) - tf.reduce_mean(self.D(self.fake)) + self._dx()
-        update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
-        with tf.control_dependencies(update_ops):
-            self.d_adam = tf.train.AdamOptimizer(FLAGS.lr).minimize(self.d_loss, var_list=self.D.vars)
-            self.g_adam = tf.train.AdamOptimizer(FLAGS.lr).minimize(self.g_loss, var_list=self.G.vars,
-                                                                    global_step=tf.train.get_or_create_global_step())
+        self.d_adam = tf.train.AdamOptimizer(FLAGS.lr).minimize(self.d_loss, var_list=self.D.vars)
+        self.g_adam = tf.train.AdamOptimizer(FLAGS.lr).minimize(self.g_loss, var_list=self.G.vars,
+                                                                global_step=tf.train.get_or_create_global_step())
 
         self.fit_summary = tf.summary.merge([
             tf.summary.scalar('g_loss', self.g_loss),
@@ -50,21 +86,19 @@ class wgan_gp(object):
         return dx
 
     def gen(self, sess, bz):
-        return sess.run(self.fake, feed_dict={self.z: gaussian(bz, FLAGS.z_dim), self.phase: False})
+        return sess.run(self.fake, feed_dict={self.z: gaussian(bz, FLAGS.z_dim)})
 
     def fit(self, sess, local_):
         for _ in range(local_):
-
             x_real, _ = next_batch_(FLAGS.bz)
             for _ in range(3):
                 sess.run(self.d_adam,
-                         feed_dict={self.real: x_real, self.z: gaussian(FLAGS.bz, FLAGS.z_dim), self.phase: True})
+                         feed_dict={self.real: x_real, self.z: gaussian(FLAGS.bz, FLAGS.z_dim)})
             sess.run(self.g_adam,
-                     feed_dict={self.real: x_real, self.z: gaussian(FLAGS.bz, FLAGS.z_dim), self.phase: True})
-
+                     feed_dict={self.real: x_real, self.z: gaussian(FLAGS.bz, FLAGS.z_dim)})
         x_real, _ = next_batch_(FLAGS.bz)
         return sess.run([self.d_loss, self.g_loss, self.fit_summary], feed_dict={
-            self.real: x_real, self.z: gaussian(FLAGS.bz, FLAGS.z_dim), self.phase: False})
+            self.real: x_real, self.z: gaussian(FLAGS.bz, FLAGS.z_dim)})
 
 
 def main(_):

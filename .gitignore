@@ -5,7 +5,8 @@
 *.gz
 *.txt
 *.en
-*results
 *.zip
 *.jpg
+*logs
+*data
 

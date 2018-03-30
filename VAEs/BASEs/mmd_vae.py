@@ -9,11 +9,27 @@ flags = tf.app.flags
 flags.DEFINE_integer('steps', 20000, '')
 flags.DEFINE_integer('bz', 64, '')
 flags.DEFINE_integer('z_dim', 16, '')
-flags.DEFINE_string('log_path', './logs/vae/', '')
+flags.DEFINE_string('log_path', './logs/mmd_vae/', '')
 FLAGS = flags.FLAGS
 
 
-class vae:
+def compute_kernel(x, y):
+    x_size = tf.shape(x)[0]
+    y_size = tf.shape(y)[0]
+    dim = tf.shape(x)[1]
+    tiled_x = tf.tile(tf.reshape(x, tf.stack([x_size, 1, dim])), tf.stack([1, y_size, 1]))
+    tiled_y = tf.tile(tf.reshape(y, tf.stack([1, y_size, dim])), tf.stack([x_size, 1, 1]))
+    return tf.exp(-tf.reduce_mean(tf.square(tiled_x - tiled_y), axis=2) / tf.cast(dim, tf.float32))
+
+
+def compute_mmd(x, y):
+    x_kernel = compute_kernel(x, x)
+    y_kernel = compute_kernel(y, y)
+    xy_kernel = compute_kernel(x, y)
+    return tf.reduce_mean(x_kernel) + tf.reduce_mean(y_kernel) - 2 * tf.reduce_mean(xy_kernel)
+
+
+class mmd_vae:
     def __init__(self):
         self.en = encoder()
         self.de = decoder()
@@ -25,22 +41,20 @@ class vae:
         self.log_var = tf.layers.dense(en_, FLAGS.z_dim)
         eps = tf.random_normal(tf.shape(self.mu))
         self.z_latent = self.mu + tf.exp(0.5 * self.log_var) * eps
-        self.rec_x, logits = self.de(self.z_latent, False)
+        self.rec_x, _ = self.de(self.z_latent, False)
         self.gen_x, _ = self.de(self.z)
 
         flat_x = tf.layers.flatten(self.x)
-        flat_logits = tf.layers.flatten(logits)
-        self.rec_loss = tf.reduce_mean(tf.reduce_sum(
-            tf.nn.sigmoid_cross_entropy_with_logits(logits=flat_logits, labels=flat_x), 1))
-        self.kld_loss = tf.reduce_mean(-0.5 * tf.reduce_sum(
-            self.log_var - tf.square(self.mu) - tf.exp(self.log_var) + 1, 1))
-        self.loss = self.rec_loss + self.kld_loss
+        flat_rx = tf.layers.flatten(self.rec_x)
+        self.loss_nll = tf.reduce_mean(tf.square(flat_x - flat_rx))
+        self.loss_mmd = compute_mmd(self.z, self.z_latent)
+        self.loss = self.loss_nll + self.loss_mmd
         self.optim = tf.train.AdamOptimizer(1e-3).minimize(self.loss, tf.train.get_or_create_global_step())
 
         self.fit_summary = tf.summary.merge([
             tf.summary.scalar('loss', self.loss),
-            tf.summary.scalar('rec_loss', self.rec_loss),
-            tf.summary.scalar('kld_loss', self.kld_loss),
+            tf.summary.scalar('loss_nll', self.loss_nll),
+            tf.summary.scalar('loss_mmd', self.loss_mmd),
             tf.summary.image('x', self.x, 8),
             tf.summary.image('rec_x', self.rec_x, 8),
             tf.summary.histogram('z', self.z_latent),
@@ -54,10 +68,10 @@ class vae:
     def fit(self, sess, local_):
         for _ in range(local_):
             x, _ = next_batch_(FLAGS.bz)
-            sess.run(self.optim, {self.x: x})
+            sess.run(self.optim, {self.x: x, self.z: gaussian(FLAGS.bz, FLAGS.z_dim)})
         x, _ = next_batch_(FLAGS.bz * 5)
-        return sess.run([self.loss, self.rec_loss, self.kld_loss, self.fit_summary], {
-            self.x: x
+        return sess.run([self.loss, self.loss_nll, self.loss_mmd, self.fit_summary], {
+            self.x: x, self.z: gaussian(FLAGS.bz, FLAGS.z_dim)
         })
 
     def gen(self, sess, bz):
@@ -69,7 +83,7 @@ class vae:
 
 
 def main(_):
-    _model = vae()
+    _model = mmd_vae()
     _gpu = tf.GPUOptions(allow_growth=True)
     _saver = tf.train.Saver(pad_step_number=True)
     with tf.Session(config=tf.ConfigProto(gpu_options=_gpu)) as sess:
@@ -84,13 +98,13 @@ def main(_):
         while True:
             if _step >= FLAGS.steps:
                 break
-            loss, rec_loss, kld_loss, fit_summary = _model.fit(sess, 100)
+            loss, loss_nll, loss_mmd, fit_summary = _model.fit(sess, 100)
 
             _step = _step + 100
             _writer.add_summary(fit_summary, _step)
             _saver.save(sess, FLAGS.log_path)
-            print("Train [%d\%d] loss [%3f] rec_loss [%3f] kld_loss [%3f]" % (
-                _step, FLAGS.steps, loss, rec_loss, kld_loss))
+            print("Train [%d\%d] loss [%3f] loss_nll [%3f] loss_mmd [%3f]" % (
+                _step, FLAGS.steps, loss, loss_nll, loss_mmd))
 
             images, gen_summary = _model.gen(sess, 100)
             _writer.add_summary(gen_summary)
@@ -98,7 +112,7 @@ def main(_):
 
             if _step % 1000 == 0:
                 latent_z, y = _model.latent_z(sess, 2000)
-                plot_q_z(latent_z, y, FLAGS.log_path + 'vae_z_{}.png'.format(_step))
+                plot_q_z(latent_z, y, FLAGS.log_path + 'mmd_vae_z_{}.png'.format(_step))
 
 
 if __name__ == "__main__":

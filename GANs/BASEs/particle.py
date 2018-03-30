@@ -26,8 +26,8 @@ class G(object):
     def __call__(self, z):
         with tf.variable_scope(self.name):
             fc1 = tf.layers.dense(z, 7 * 7 * 32, activation=tf.nn.leaky_relu)
-            conv1 = tf.reshape(fc1, [-1, 7, 7, 32])
-            conv1 = tf.layers.conv2d_transpose(conv1, 128, [4, 4], [2, 2], 'SAME', activation=tf.nn.leaky_relu)
+            fc1 = tf.reshape(fc1, [-1, 7, 7, 32])
+            conv1 = tf.layers.conv2d_transpose(fc1, 128, [4, 4], [2, 2], 'SAME', activation=tf.nn.leaky_relu)
             conv2 = tf.layers.conv2d_transpose(conv1, 32, [4, 4], [2, 2], 'SAME', activation=tf.nn.leaky_relu)
             fake = tf.layers.conv2d_transpose(conv2, 1, [4, 4], [1, 1], 'SAME', activation=tf.nn.sigmoid)
             return fake

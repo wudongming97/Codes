@@ -10,7 +10,7 @@ flags.DEFINE_integer('steps', 20000, '')
 flags.DEFINE_integer('bz', 100, '')
 flags.DEFINE_integer('z_dim', 64, '')
 flags.DEFINE_float('lr', 0.001, '')
-flags.DEFINE_float('scale', 6.0, '')
+flags.DEFINE_float('scale', 2.0, '')
 FLAGS = flags.FLAGS
 
 
@@ -20,11 +20,11 @@ class G(object):
 
     def __call__(self, z):
         with tf.variable_scope(self.name):
-            fc1 = tf.layers.dense(z, 7 * 7 * 32, activation=tf.nn.leaky_relu)
-            fc1 = tf.reshape(fc1, [-1, 7, 7, 32])
-            cv1 = tf.layers.conv2d_transpose(fc1, 128, [4, 4], [2, 2], 'SAME', activation=tf.nn.leaky_relu)
-            cv2 = tf.layers.conv2d_transpose(cv1, 32, [4, 4], [2, 2], 'SAME', activation=tf.nn.leaky_relu)
-            fake = tf.layers.conv2d_transpose(cv2, 1, [4, 4], [1, 1], 'SAME', activation=tf.nn.sigmoid)
+            fc1 = tf.nn.relu(tf.layers.dense(z, 1024))
+            fc2 = tf.nn.relu(tf.layers.dense(fc1, 7 * 7 * 128))
+            fc2 = tf.reshape(fc2, [-1, 7, 7, 128])
+            cv1 = tf.nn.relu(tf.layers.conv2d_transpose(fc2, 32, [4, 4], [2, 2], 'SAME'))
+            fake = tf.layers.conv2d_transpose(cv1, 1, [4, 4], [2, 2], 'SAME', activation=tf.nn.sigmoid)
             return fake
 
     @property
@@ -38,9 +38,9 @@ class D(object):
 
     def __call__(self, x, reuse=True):
         with tf.variable_scope(self.name, reuse=reuse):
-            cv1 = tf.layers.conv2d(x, 128, [4, 4], [2, 2], activation=tf.nn.leaky_relu)
-            cv2 = tf.layers.conv2d(cv1, 32, [4, 4], [2, 2], activation=tf.nn.leaky_relu)
-            fc1 = tf.layers.dense(tf.layers.flatten(cv2), 256, activation=tf.nn.leaky_relu)
+            cv1 = tf.nn.leaky_relu(tf.layers.conv2d(x, 64, [4, 4], [2, 2]))
+            cv2 = tf.nn.leaky_relu(tf.layers.conv2d(cv1, 128, [4, 4], [2, 2]))
+            fc1 = tf.nn.leaky_relu(tf.layers.dense(tf.layers.flatten(cv2), 1024))
             fc2 = tf.layers.dense(fc1, 1)
 
             return fc2

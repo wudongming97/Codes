@@ -11,3 +11,4 @@
 
 Notes:
 > 1. loss_nll 用MSE或者用交叉熵效果差不多
+> 2. loss_nll 换用l1 loss没效果， 生成几乎全黑图片, z空间也很混乱

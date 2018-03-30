@@ -5,9 +5,10 @@ from particle import encoder, decoder
 from sampler import gaussian
 
 flags = tf.app.flags
-flags.DEFINE_integer('steps', 20000, '')
+flags.DEFINE_integer('steps', 2000, '')
 flags.DEFINE_integer('bz', 64, '')
 flags.DEFINE_integer('z_dim', 16, '')
+flags.DEFINE_float('beta', 1, '设置为2，3，4，5都可以， 10会破坏训练')
 flags.DEFINE_string('log_path', './logs/mmd_vae/', '')
 FLAGS = flags.FLAGS
 
@@ -46,7 +47,7 @@ class mmd_vae:
         # self.loss_nll = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=logits, labels=self.x))
         self.loss_nll = tf.reduce_mean(tf.square(self.x - self.rec_x))
         self.loss_mmd = compute_mmd(self.z, self.z_latent)
-        self.loss = self.loss_nll + self.loss_mmd
+        self.loss = self.loss_nll + FLAGS.beta * self.loss_mmd
         self.optim = tf.train.AdamOptimizer(1e-3).minimize(self.loss, tf.train.get_or_create_global_step())
 
         self.fit_summary = tf.summary.merge([
@@ -109,7 +110,7 @@ def main(_):
             imsave_(FLAGS.log_path + 'train{}.png'.format(_step), imcombind_(images))
 
             if _step % 1000 == 0:
-                latent_z, y = _model.latent_z(sess, 6000)
+                latent_z, y = _model.latent_z(sess, 2000)
                 plot_q_z(latent_z, y, FLAGS.log_path + 'mmd_vae_z_{}.png'.format(_step))
 
 

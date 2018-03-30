@@ -14,10 +14,6 @@ flags.DEFINE_float('scale', 6.0, '')
 FLAGS = flags.FLAGS
 
 
-def bn(x, is_training):
-    return tf.layers.batch_normalization(x, training=is_training)
-
-
 class G(object):
     def __init__(self):
         self.name = 'mnist/g_net'

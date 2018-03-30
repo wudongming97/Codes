@@ -7,3 +7,6 @@
 ## mmd_vae
 ![mmd_vae1](https://github.com/yxue3357/MyResearchCodes/raw/master/VAEs/BASEs/results/mmd_train4000.png)
 ![mmd_vae1](https://github.com/yxue3357/MyResearchCodes/raw/master/VAEs/BASEs/results/mmd_vae_z_4000.png)
+
+Notes:
+> 1. loss_nll 用MSE或者用交叉熵效果差不多

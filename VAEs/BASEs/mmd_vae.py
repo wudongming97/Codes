@@ -1,4 +1,3 @@
-import numpy as np
 import tensorflow as tf
 
 from dataset import next_batch_, imcombind_, imsave_, plot_q_z
@@ -41,12 +40,11 @@ class mmd_vae:
         self.log_var = tf.layers.dense(en_, FLAGS.z_dim)
         eps = tf.random_normal(tf.shape(self.mu))
         self.z_latent = self.mu + tf.exp(0.5 * self.log_var) * eps
-        self.rec_x, _ = self.de(self.z_latent, False)
+        self.rec_x, logits = self.de(self.z_latent, False)
         self.gen_x, _ = self.de(self.z)
 
-        flat_x = tf.layers.flatten(self.x)
-        flat_rx = tf.layers.flatten(self.rec_x)
-        self.loss_nll = tf.reduce_mean(tf.square(flat_x - flat_rx))
+        # self.loss_nll = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=logits, labels=self.x))
+        self.loss_nll = tf.reduce_mean(tf.square(self.x - self.rec_x))
         self.loss_mmd = compute_mmd(self.z, self.z_latent)
         self.loss = self.loss_nll + self.loss_mmd
         self.optim = tf.train.AdamOptimizer(1e-3).minimize(self.loss, tf.train.get_or_create_global_step())
@@ -111,7 +109,7 @@ def main(_):
             imsave_(FLAGS.log_path + 'train{}.png'.format(_step), imcombind_(images))
 
             if _step % 1000 == 0:
-                latent_z, y = _model.latent_z(sess, 2000)
+                latent_z, y = _model.latent_z(sess, 6000)
                 plot_q_z(latent_z, y, FLAGS.log_path + 'mmd_vae_z_{}.png'.format(_step))
 
 

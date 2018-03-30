@@ -1,4 +1,3 @@
-import numpy as np
 import tensorflow as tf
 
 from dataset import next_batch_, imcombind_, imsave_, plot_q_z

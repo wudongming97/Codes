@@ -6,7 +6,6 @@
 
 ## mmd_vae
 ![mmd_vae1](https://github.com/yxue3357/MyResearchCodes/raw/master/VAEs/BASEs/results/mmd_train4000.png)
-![mmd_vae1](https://github.com/yxue3357/MyResearchCodes/raw/master/VAEs/BASEs/results/mmd_vae_z_4000.png)
 ![mmd_vae1](https://github.com/yxue3357/MyResearchCodes/raw/master/VAEs/BASEs/results/mmd_vae_z_1000.png)
 
 Notes:

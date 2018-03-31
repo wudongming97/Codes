@@ -1,6 +1,5 @@
-import tensorflow as tf
-
 from dataset import next_batch_, imcombind_, imsave_
+from ops import *
 from sampler import gaussian
 
 flags = tf.app.flags
@@ -20,11 +19,10 @@ class G(object):
 
     def __call__(self, z):
         with tf.variable_scope(self.name):
-            fc1 = tf.nn.relu(tf.layers.dense(z, 1024))
-            fc2 = tf.nn.relu(tf.layers.dense(fc1, 7 * 7 * 128))
+            fc2 = relu(dense(z, 7 * 7 * 128))
             fc2 = tf.reshape(fc2, [-1, 7, 7, 128])
-            cv1 = tf.nn.relu(tf.layers.conv2d_transpose(fc2, 32, [4, 4], [2, 2], 'SAME'))
-            fake = tf.layers.conv2d_transpose(cv1, 1, [4, 4], [2, 2], 'SAME', activation=tf.nn.sigmoid)
+            cv1 = relu(conv2d_t(fc2, 32, [4, 4], [2, 2], 'SAME'))
+            fake = sigmoid(conv2d_t(cv1, 1, [4, 4], [2, 2], 'SAME'))
             return fake
 
     @property
@@ -38,10 +36,9 @@ class D(object):
 
     def __call__(self, x, reuse=True):
         with tf.variable_scope(self.name, reuse=reuse):
-            cv1 = tf.nn.leaky_relu(tf.layers.conv2d(x, 64, [4, 4], [2, 2]))
-            cv2 = tf.nn.leaky_relu(tf.layers.conv2d(cv1, 128, [4, 4], [2, 2]))
-            fc1 = tf.nn.leaky_relu(tf.layers.dense(tf.layers.flatten(cv2), 1024))
-            fc2 = tf.layers.dense(fc1, 1)
+            cv1 = lrelu(conv2d(x, 64, [4, 4], [2, 2]))
+            fc1 = lrelu(dense(flatten(cv1), 784))
+            fc2 = dense(fc1, 1)
 
             return fc2
 

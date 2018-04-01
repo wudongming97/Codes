@@ -1,6 +1,6 @@
 import tensorflow as tf
-from utils import imsave_, imcombind_, L1Loss, L2Loss
-from module import generator_resnet, discriminator
+from utils import imsave_, imcombind_, L1Loss, L2Loss, inverse_transform
+from module import generator_resnet, discriminator, image_pool
 from data import Reader
 import numpy as np
 
@@ -18,6 +18,8 @@ FLAGS = flags.FLAGS
 
 class cycle_gan:
     def __init__(self):
+        self.fake_pool_x = image_pool(50)
+        self.fake_pool_y = image_pool(50)
         self.reader_x = Reader(FLAGS.ds_x)
         self.reader_y = Reader(FLAGS.ds_y)
 
@@ -59,7 +61,7 @@ class cycle_gan:
         self.d_optim = optimizer.minimize(self.d_loss, var_list=self.Dx.vars + self.Dy.vars)
         self.g_optim = optimizer.minimize(self.g_loss, var_list=self.G.vars + self.F.vars)
 
-        self.inc_step = tf.assign_add(tf.train.get_or_create_global_step(), tf.constant(1, tf.int64))
+        self.inc_step = tf.assign_add(tf.train.get_or_create_global_step(), 1)
         self.fit_summ = tf.summary.merge([
             tf.summary.scalar('gg_loss', self.gg_loss),
             tf.summary.scalar('gf_loss', self.gf_loss),
@@ -68,26 +70,24 @@ class cycle_gan:
             tf.summary.scalar('dy_loss', self.dy_loss),
             tf.summary.scalar('d_loss', self.d_loss)
         ])
-        self.gen_summ = tf.summary.merge([
-            tf.summary.image('gen_X', tf.concat([self.real_x, self.fake_y, self.cyc_x], axis=0), 1),
-            tf.summary.image('gen_Y', tf.concat([self.real_y, self.fake_x, self.cyc_y], axis=0), 1)
-        ])
-
-    def pool(self, x, y):
-        return x, y
 
     def fit(self, sess, local_):
+        pool_x, pool_y = None, None
         for _ in range(local_):
             fake_x, fake_y, _ = sess.run([self.fake_x, self.fake_y, self.g_optim])
-            pool_x, pool_y = self.pool(fake_x, fake_y)
+            pool_x, pool_y = self.fake_pool_x(fake_x), self.fake_pool_y(fake_y)
             sess.run([self.d_optim, self.inc_step], {self.pool_x: pool_x, self.pool_y: pool_y})
         return sess.run(
-            [self.gg_loss, self.gf_loss, self.g_loss, self.dx_loss, self.dy_loss, self.d_loss, self.fit_summ])
+            [self.gg_loss, self.gf_loss, self.g_loss, self.dx_loss, self.dy_loss, self.d_loss, self.fit_summ],
+            {self.pool_x: pool_x, self.pool_y: pool_y})
 
-    def gen(self, sess):
-        images, summ = sess.run(
-            [self.real_x, self.fake_x, self.cyc_x, self.real_y, self.fake_y, self.cyc_y, self.gen_summ])
-        return np.stack(images, axis=0), summ
+    def gen(self, sess, bz):
+        res = []
+        for _ in range(bz):
+            images = sess.run(
+                [self.real_x, self.fake_x, self.cyc_x, self.real_y, self.fake_y, self.cyc_y])
+            res.extend(images)
+        return np.concatenate(res, axis=0)
 
 
 def main(_):
@@ -101,8 +101,10 @@ def main(_):
         ckpt = tf.train.get_checkpoint_state(FLAGS.log_path)
         if ckpt and ckpt.model_checkpoint_path:
             _saver.restore(sess, FLAGS.log_path)
-
         _step = tf.train.get_global_step().eval()
+
+        coord = tf.train.Coordinator()
+        threads = tf.train.start_queue_runners(sess=sess, coord=coord)
         while True:
             if _step >= FLAGS.steps:
                 break
@@ -112,10 +114,13 @@ def main(_):
             _writer.add_summary(res[6], _step)
             print("Train [%d\%d] gg_loss [%3f] gf_loss [%3f] g_loss [%3f] dx_loss [%3f] dy_loss [%3f] d_loss [%3f]" % (
                 _step, FLAGS.steps, res[0], res[1], res[2], res[3], res[4], res[5]))
-            for ix in range(10):
-                images = _model.gen(sess)
-                imsave_(FLAGS.log_path + 'train_{}_{}.png'.format(_step, ix), imcombind_(images))
+
+            images = inverse_transform(_model.gen(sess, 6))
+            imsave_(FLAGS.log_path + 'train_{}.png'.format(_step), imcombind_(images, 6))
             _saver.save(sess, FLAGS.log_path) if _step % 5000 == 0 else None
+
+        coord.request_stop()
+        coord.join(threads)
 
 
 if __name__ == "__main__":

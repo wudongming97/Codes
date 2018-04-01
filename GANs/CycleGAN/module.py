@@ -1,5 +1,6 @@
 # 网络结构参照 https://github.com/xhujoy/CycleGAN-tensorflow/blob/master/module.py
 from ops import *
+import random
 
 
 class generator_resnet:
@@ -54,3 +55,25 @@ class discriminator:
     @property
     def vars(self):
         return [var for var in tf.global_variables() if self.name in var.name]
+
+
+class image_pool:
+    def __init__(self, capacity=50):
+        self.capacity = capacity
+        self.level = 0
+        self.fake_pool = []
+
+    def __call__(self, image):
+        if self.level < self.capacity:
+            self.fake_pool.append(image)
+            self.level += 1
+            return image
+        else:
+            p = random.random()
+            if p > 0.5:
+                rix = random.randint(0, self.capacity-1)
+                temp =self.fake_pool[rix]
+                self.fake_pool[rix] = image
+                return temp
+            else:
+                return image

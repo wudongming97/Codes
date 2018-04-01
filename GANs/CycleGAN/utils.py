@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def imcombind_(images, width=3):
+def imcombind_(images, width=6):
     num = images.shape[0]
     height = int(math.ceil(float(num) / width))
     shape = images.shape[1:4]
@@ -22,10 +22,8 @@ def imsave_(path, img):
     plt.imsave(path, np.squeeze(img))
 
 
-def convert2int(image):
-    """ Transfrom from float tensor ([-1.,1.]) to int image ([0,255])
-    """
-    return tf.image.convert_image_dtype((image + 1.0) / 2.0, tf.uint8)
+def inverse_transform(images):
+    return (images + 1.) / 2.
 
 
 def convert2float(image):
@@ -33,26 +31,6 @@ def convert2float(image):
     """
     image = tf.image.convert_image_dtype(image, dtype=tf.float32)
     return (image / 127.5) - 1.0
-
-
-def batch_convert2int(images):
-    """
-    Args:
-      images: 4D float tensor (batch_size, image_size, image_size, depth)
-    Returns:
-      4D int tensor
-    """
-    return tf.map_fn(convert2int, images, dtype=tf.uint8)
-
-
-def batch_convert2float(images):
-    """
-    Args:
-      images: 4D int tensor (batch_size, image_size, image_size, depth)
-    Returns:
-      4D float tensor
-    """
-    return tf.map_fn(convert2float, images, dtype=tf.float32)
 
 
 def L1Loss(in_, target):

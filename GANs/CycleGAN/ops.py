@@ -14,6 +14,7 @@ flatten = tf.layers.flatten
 
 # global varible
 is_training = tf.placeholder(tf.bool, name='is_training')
+global_step = tf.train.get_or_create_global_step()
 
 
 # cyclegan的训练的batch_size为1，所以是不可以用batch_norm

@@ -1,4 +1,5 @@
 import tensorflow as tf
+
 from utils import convert2float
 
 
@@ -51,40 +52,3 @@ class Reader():
         image = convert2float(image)
         image.set_shape([self.image_size, self.image_size, 3])
         return image
-
-
-def test_reader():
-    with tf.Graph().as_default():
-        reader1 = Reader('apple')
-        reader2 = Reader('orange')
-        images_op1 = reader1.feed()
-        images_op2 = reader2.feed()
-
-        sess = tf.Session()
-        init = tf.global_variables_initializer()
-        sess.run(init)
-
-        coord = tf.train.Coordinator()
-        threads = tf.train.start_queue_runners(sess=sess, coord=coord)
-
-        try:
-            step = 0
-            while not coord.should_stop():
-                batch_images1, batch_images2 = sess.run([images_op1, images_op2])
-                print("image shape: {}".format(batch_images1))
-                print("image shape: {}".format(batch_images2))
-                print("=" * 10)
-                step += 1
-        except KeyboardInterrupt:
-            print('Interrupted')
-            coord.request_stop()
-        except Exception as e:
-            coord.request_stop(e)
-        finally:
-            # When done, ask the threads to stop.
-            coord.request_stop()
-            coord.join(threads)
-
-
-if __name__ == '__main__':
-    test_reader()

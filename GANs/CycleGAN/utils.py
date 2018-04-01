@@ -1,9 +1,8 @@
 import math
 
-import tensorflow as tf
-
 import matplotlib.pyplot as plt
 import numpy as np
+import tensorflow as tf
 
 
 def imcombind_(images, width=6):
@@ -31,15 +30,3 @@ def convert2float(image):
     """
     image = tf.image.convert_image_dtype(image, dtype=tf.float32)
     return (image / 127.5) - 1.0
-
-
-def L1Loss(in_, target):
-    return tf.reduce_mean(tf.abs(in_ - target))
-
-
-def L2Loss(in_, target):
-    return tf.reduce_mean((in_ - target) ** 2)
-
-
-def sceLoss(logits, labels):
-    return tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=logits, labels=labels))

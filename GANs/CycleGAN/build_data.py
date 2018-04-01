@@ -1,6 +1,7 @@
 # from https://github.com/vanhuyz/CycleGAN-TensorFlow/blob/master/build_data.py
-import tensorflow as tf
 import os
+
+import tensorflow as tf
 
 from data import _info
 

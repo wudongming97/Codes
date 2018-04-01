@@ -1,6 +1,7 @@
 # 网络结构参照 https://github.com/xhujoy/CycleGAN-tensorflow/blob/master/module.py
-from ops import *
 import random
+
+from ops import *
 
 
 class generator_resnet:
@@ -71,9 +72,23 @@ class image_pool:
         else:
             p = random.random()
             if p > 0.5:
-                rix = random.randint(0, self.capacity-1)
-                temp =self.fake_pool[rix]
+                rix = random.randint(0, self.capacity - 1)
+                temp = self.fake_pool[rix]
                 self.fake_pool[rix] = image
                 return temp
             else:
                 return image
+
+
+def discriminator_loss(d_real, d_fake):
+    error_real = tf.reduce_mean(tf.squared_difference(d_real, tf.ones_like(d_real)))
+    error_fake = tf.reduce_mean(tf.square(d_fake))
+    return (error_fake + error_real) / 2
+
+
+def generator_loss(d_fake):
+    return tf.reduce_mean(tf.squared_difference(d_fake, tf.ones_like(d_fake)))
+
+
+def cyc_loss(x, cyc_x, y, cyc_y):
+    return tf.reduce_mean(tf.abs(cyc_x - x)) + tf.reduce_mean(tf.abs(cyc_y - y))

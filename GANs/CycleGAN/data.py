@@ -12,7 +12,7 @@ def _info(name):
     }[name]
 
 
-class Reader():
+class Reader:
     def __init__(self, name, image_size=256,
                  min_queue_examples=1000, num_threads=4):
         self.name = name

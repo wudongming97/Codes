@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from tensorflow.examples.tutorials.mnist import input_data
 
-mnist = input_data.read_data_sets('./data/mnist')
-fashion = input_data.read_data_sets('./data/fashion')
+mnist = input_data.read_data_sets('./datas/mnist')
+fashion = input_data.read_data_sets('./datas/fashion')
 
 datasets = fashion
 

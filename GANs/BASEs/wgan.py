@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-from dataset import next_batch_, imcombind_, imsave_
+from data import next_batch_, imcombind_, imsave_
 from sampler import gaussian
 
 flags = tf.app.flags

@@ -1,4 +1,4 @@
-from dataset import next_batch_, imcombind_, imsave_
+from data import next_batch_, imcombind_, imsave_
 from ops import *
 from sampler import gaussian
 

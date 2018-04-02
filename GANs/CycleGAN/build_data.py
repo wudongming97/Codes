@@ -3,7 +3,7 @@ import os
 
 import tensorflow as tf
 
-from data import _info
+from data import datasets_info
 
 
 def file_paths(dir):
@@ -68,7 +68,7 @@ def data_writer(dir, output_file):
 
 
 if __name__ == '__main__':
-    datasets = ['apple', 'orange', 'horse', 'zebra']
+    datasets = ['apple_t', 'orange_t', 'horse_t', 'zebra_t']
     for ds in datasets:
-        data_info = _info(ds)
-        data_writer(data_info[0], data_info[1])
+        info = datasets_info(ds)
+        data_writer(info[0], info[1])

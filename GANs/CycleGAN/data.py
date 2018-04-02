@@ -3,12 +3,16 @@ import tensorflow as tf
 from utils import convert2float
 
 
-def _info(name):
+def datasets_info(name):
     return {
         'apple': ('datas/apple2orange/trainA', 'datas/apple.tfrecords'),
         'orange': ('datas/apple2orange/trainB', 'datas/orange.tfrecords'),
         'horse': ('datas/horse2zebra/trainA', 'datas/horse.tfrecords'),
-        'zebra': ('datas/horse2zebra/trainB', 'datas/zebra.tfrecords')
+        'zebra': ('datas/horse2zebra/trainB', 'datas/zebra.tfrecords'),
+        'apple_t': ('datas/apple2orange/testA', 'datas/apple_t.tfrecords'),
+        'orange_t': ('datas/apple2orange/testB', 'datas/orange_t.tfrecords'),
+        'horse_t': ('datas/horse2zebra/testA', 'datas/horse_t.tfrecords'),
+        'zebra_t': ('datas/horse2zebra/testB', 'datas/zebra_t.tfrecords')
     }[name]
 
 
@@ -16,7 +20,7 @@ class Reader:
     def __init__(self, name, image_size=256,
                  min_queue_examples=1000, num_threads=4):
         self.name = name
-        self.tfrecords_file = _info(self.name)[1]
+        self.tfrecords_file = datasets_info(self.name)[1]
         self.image_size = image_size
         self.min_queue_examples = min_queue_examples
         self.num_threads = num_threads

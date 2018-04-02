@@ -1,3 +1,5 @@
+import functools
+
 import tensorflow as tf
 
 ## ops alias
@@ -6,11 +8,11 @@ lrelu = tf.nn.leaky_relu
 sigmoid = tf.nn.sigmoid
 
 ## layers alias
-bn = tf.layers.batch_normalization
-conv2d = tf.layers.conv2d
-conv2d_t = tf.layers.conv2d_transpose
 dense = tf.layers.dense
 flatten = tf.layers.flatten
+bn = tf.layers.batch_normalization
+conv2d = functools.partial(tf.layers.conv2d, kernel_initializer=tf.truncated_normal_initializer(stddev=0.02))
+dconv2d = functools.partial(tf.layers.conv2d_transpose, kernel_initializer=tf.truncated_normal_initializer(stddev=0.02))
 
 # global varible
 is_training = tf.placeholder(tf.bool, name='is_training')

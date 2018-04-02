@@ -25,9 +25,9 @@ class generator_resnet:
             for i in range(9):
                 r9 = residual_in(r9, name='g_r{}'.format(i + 1))
 
-            d1 = conv2d_t(r9, self.ngf * 2, 3, 2, 'SAME', name='g_d1_dc')
+            d1 = dconv2d(r9, self.ngf * 2, 3, 2, 'SAME', name='g_d1_dc')
             d1 = relu(instance_norm(d1, 'g_d1_bn'))
-            d2 = conv2d_t(d1, self.ngf, 3, 2, 'SAME', name='g_d2_dc')
+            d2 = dconv2d(d1, self.ngf, 3, 2, 'SAME', name='g_d2_dc')
             d2 = relu(instance_norm(d2, 'g_d2_bn'))
             d2 = tf.pad(d2, [[0, 0], [3, 3], [3, 3], [0, 0]], "REFLECT")
             pred = tf.nn.tanh(conv2d(d2, 3, 7, 1, name='g_pred_c'))

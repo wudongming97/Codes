@@ -18,7 +18,7 @@ def datasets_info(name):
 
 class Reader:
     def __init__(self, name, image_size=256,
-                 min_queue_examples=1000, num_threads=4):
+                 min_queue_examples=100, num_threads=4):
         self.name = name
         self.tfrecords_file = datasets_info(self.name)[1]
         self.image_size = image_size

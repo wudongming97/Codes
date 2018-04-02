@@ -20,25 +20,27 @@ FLAGS = flags.FLAGS
 
 class cycle_gan:
     def __init__(self):
-        self.fake_pool_x = image_pool(50)
-        self.fake_pool_y = image_pool(50)
-        self.reader_x = Reader(FLAGS.ds_x)
-        self.reader_y = Reader(FLAGS.ds_y)
-
         self.G = generator_resnet('G')
         self.F = generator_resnet('F')
         self.Dx = discriminator('Dx')
         self.Dy = discriminator('Dy')
 
-        self.real_x = self.reader_x.feed()
-        self.real_y = self.reader_y.feed()
-        self.pool_x = tf.placeholder(tf.float32, [None, 256, 256, 3], name='Dx_pool')
-        self.pool_y = tf.placeholder(tf.float32, [None, 256, 256, 3], name='Dy_pool')
+        # train graph
+        self.fake_pool_x = image_pool(50)
+        self.fake_pool_y = image_pool(50)
+        self.reader_x = Reader(FLAGS.ds_x)
+        self.reader_y = Reader(FLAGS.ds_y)
 
+        self.real_x = self.reader_x.feed()
         self.fake_y = self.G(self.real_x, False)
         self.cyc_x = self.F(self.fake_y, False)
+
+        self.real_y = self.reader_y.feed()
         self.fake_x = self.F(self.real_y)
         self.cyc_y = self.G(self.fake_x)
+
+        self.pool_x = tf.placeholder(tf.float32, [None, 256, 256, 3], name='Dx_pool')
+        self.pool_y = tf.placeholder(tf.float32, [None, 256, 256, 3], name='Dy_pool')
 
         self.Dy_fake = self.Dy(self.fake_y, False)
         self.Dy_real = self.Dy(self.real_y)
@@ -75,6 +77,19 @@ class cycle_gan:
             tf.summary.scalar('lr', self.lr)
         ])
 
+        # test graph
+        # forward
+        self.reader_x_t = Reader(FLAGS.ds_x + '_t')
+        self.test_x = self.reader_x_t.feed(6)
+        self.test_fake_y = self.G(self.test_x)
+        self.test_cyc_x = self.F(self.test_fake_y)
+
+        # backward
+        self.reader_y_t = Reader(FLAGS.ds_y + '_t')
+        self.test_y = self.reader_y_t.feed(6)
+        self.test_fake_x = self.F(self.test_y)
+        self.test_cyc_y = self.G(self.test_fake_x)
+
     def fit(self, sess, local_):
         pool_x, pool_y = None, None
         for _ in range(local_):
@@ -90,13 +105,15 @@ class cycle_gan:
             [self.G_loss, self.F_loss, self.Dx_loss, self.Dy_loss, self.fit_summ],
             {self.pool_x: pool_x, self.pool_y: pool_y})
 
-    def gen(self, sess, bz):
-        res = []
-        for _ in range(bz):
-            images = sess.run(
-                [self.real_x, self.fake_x, self.cyc_x, self.real_y, self.fake_y, self.cyc_y])
-            res.extend(images)
-        return np.concatenate(res, axis=0)
+    def gen(self, sess):
+        images = sess.run(
+            [self.real_x, self.fake_y, self.cyc_x, self.real_y, self.fake_x, self.cyc_y])
+        return np.concatenate(images, axis=0)
+
+    def test(self, sess):
+        images = sess.run(
+            [self.test_x, self.test_fake_y, self.test_cyc_x, self.test_y, self.test_fake_x, self.test_cyc_y])
+        return np.concatenate(images, axis=0)
 
 
 def main(_):
@@ -124,8 +141,10 @@ def main(_):
             print("Train [%d\%d] G_loss [%3f] F_loss [%3f]  Dx_loss [%3f] Dy_loss [%3f] " % (
                 _step, FLAGS.steps, res[0], res[1], res[2], res[3]))
 
-            images = inverse_transform(_model.gen(sess, 6))
-            imsave_(FLAGS.log_path + 'train_{}.png'.format(_step), imcombind_(images, 6))
+            images = inverse_transform(_model.gen(sess))
+            imsave_(FLAGS.log_path + 'train_{}.png'.format(_step), imcombind_(images, 3))
+            images = inverse_transform(_model.test(sess))
+            imsave_(FLAGS.log_path + 'test_{}.png'.format(_step), imcombind_(images, 6))
             _saver.save(sess, FLAGS.log_path) if _step % 1000 == 0 else None
 
         coord.request_stop()

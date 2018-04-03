@@ -21,8 +21,8 @@ class G(object):
         with tf.variable_scope(self.name):
             fc2 = relu(dense(z, 7 * 7 * 128))
             fc2 = tf.reshape(fc2, [-1, 7, 7, 128])
-            cv1 = relu(conv2d_t(fc2, 32, [4, 4], [2, 2], 'SAME'))
-            fake = sigmoid(conv2d_t(cv1, 1, [4, 4], [2, 2], 'SAME'))
+            cv1 = relu(dconv2d(fc2, 32, [4, 4], [2, 2], 'SAME'))
+            fake = sigmoid(dconv2d(cv1, 1, [4, 4], [2, 2], 'SAME'))
             return fake
 
     @property
@@ -56,24 +56,27 @@ class wgan_gp(object):
         self.z = tf.placeholder(tf.float32, [None, FLAGS.z_dim], name='z')
         self.fake = self.G(self.z)
 
-        self.g_loss = tf.reduce_mean(self.D(self.fake, reuse=False))
-        self.d_loss = tf.reduce_mean(self.D(self.real)) - tf.reduce_mean(self.D(self.fake)) + self._dx()
+        self.d_fake = self.D(self.fake, reuse=False)
+        self.d_real = self.D(self.real)
+        self.g_loss = tf.reduce_mean(self.d_fake)
+        self.d_loss = tf.reduce_mean(self.d_real) - tf.reduce_mean(self.d_fake) + self._dx()
         self.d_adam = tf.train.AdamOptimizer(FLAGS.lr).minimize(self.d_loss, var_list=self.D.vars)
-        self.g_adam = tf.train.AdamOptimizer(FLAGS.lr).minimize(self.g_loss, var_list=self.G.vars,
-                                                                global_step=tf.train.get_or_create_global_step())
+        self.g_adam = tf.train.AdamOptimizer(FLAGS.lr).minimize(self.g_loss, var_list=self.G.vars)
 
         self.fit_summary = tf.summary.merge([
             tf.summary.scalar('g_loss', self.g_loss),
             tf.summary.scalar('d_loss', self.d_loss),
-            tf.summary.image('X', self.real, 16),
-            tf.summary.image('fake', self.fake, 16)
+            tf.summary.histogram('d_real', self.d_real),
+            tf.summary.histogram('d_fake', self.d_fake),
+            tf.summary.image('X', self.real, 4),
+            tf.summary.image('fake', self.fake, 4)
         ])
 
     def _dx(self):
         eps = tf.random_uniform([], 0.0, 1.0)
         x_hat = eps * self.real + (1 - eps) * self.fake
         d_hat = self.D(x_hat)
-        dx = tf.layers.flatten(tf.gradients(d_hat, x_hat)[0])
+        dx = flatten(tf.gradients(d_hat, x_hat)[0])
         dx = tf.sqrt(tf.reduce_sum(tf.square(dx), axis=1))
         dx = tf.reduce_mean(tf.square(dx - 1.0) * FLAGS.scale)
         return dx
@@ -84,11 +87,11 @@ class wgan_gp(object):
     def fit(self, sess, local_):
         for _ in range(local_):
             x_real, _ = next_batch_(FLAGS.bz)
+            z = gaussian(FLAGS.bz, FLAGS.z_dim)
             for _ in range(3):
-                sess.run(self.d_adam,
-                         feed_dict={self.real: x_real, self.z: gaussian(FLAGS.bz, FLAGS.z_dim)})
+                sess.run(self.d_adam, feed_dict={self.real: x_real, self.z: z})
             sess.run(self.g_adam,
-                     feed_dict={self.real: x_real, self.z: gaussian(FLAGS.bz, FLAGS.z_dim)})
+                     feed_dict={self.real: x_real, self.z: z})
         x_real, _ = next_batch_(FLAGS.bz)
         return sess.run([self.d_loss, self.g_loss, self.fit_summary], feed_dict={
             self.real: x_real, self.z: gaussian(FLAGS.bz, FLAGS.z_dim)})
@@ -106,7 +109,7 @@ def main(_):
         if ckpt and ckpt.model_checkpoint_path:
             _saver.restore(sess, FLAGS.log_path)
 
-        _step = tf.train.get_global_step().eval()
+        _step = global_step.eval()
         while True:
             if _step >= FLAGS.steps:
                 break

@@ -40,7 +40,7 @@ class D(object):
             cv1 = lrelu(conv2d(x, 11, [5, 5], [2, 2]))
             cv2 = lrelu(bn(conv2d(cv1, 74, [5, 5], [2, 2])))
             fc1 = lrelu(bn(dense(flatten(cv2), 1024)))
-            # fc2 = sigmoid(dense(fc1, 1))  # 按照原论文，加上sigmoid后，G梯度消失，无法训练
+            # fc2 = sigmoid(dense(fc1, 1))  # 添加sigmoid太容易发生饱和，难以训练
             fc2 = dense(fc1, 1)
             return fc2
 

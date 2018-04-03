@@ -10,3 +10,5 @@
 ## lsgan
 ![](https://github.com/yxue3357/MyResearchCodes/raw/master/GANs/BASEs/results/lsgan_mnist_4900%20.png)
 ![](https://github.com/yxue3357/MyResearchCodes/raw/master/GANs/BASEs/results/lsgan_fashion_4900.png)
+Notes:
+> 1. 判别器最后一层若接sigmoid激活函数，则非常容易发生饱和现象

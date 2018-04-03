@@ -98,15 +98,13 @@ class image_pool:
                 return image
 
 
-def discriminator_loss(d_real, d_fake):
-    error_real = tf.reduce_mean(tf.squared_difference(d_real, tf.ones_like(d_real)))
-    error_fake = tf.reduce_mean(tf.square(d_fake))
-    return (error_fake + error_real) / 2
+def dis_loss(d_real, d_fake):
+    return tf.reduce_mean(tf.square(d_real - tf.ones_like(d_real)) + tf.square(d_fake))
 
 
-def generator_loss(d_fake):
-    return tf.reduce_mean(tf.squared_difference(d_fake, tf.ones_like(d_fake)))
+def gen_loss(d_fake):
+    return tf.reduce_mean(tf.square(d_fake - tf.ones_like(d_fake)))
 
 
 def cyc_loss(x, cyc_x, y, cyc_y):
-    return tf.reduce_mean(tf.abs(cyc_x - x)) + tf.reduce_mean(tf.abs(cyc_y - y))
+    return tf.reduce_mean(tf.abs(cyc_x - x) + tf.abs(cyc_y - y))

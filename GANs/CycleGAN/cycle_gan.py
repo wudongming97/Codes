@@ -50,11 +50,11 @@ class cycle_gan:
         # loss def
         self.Cyc_loss = cyc_loss(self.real_x, self.cyc_x, self.real_y, self.cyc_y)
 
-        self.G_loss = generator_loss(self.Dy_fake) + FLAGS.lamda * self.Cyc_loss
-        self.F_loss = generator_loss(self.Dx_fake) + FLAGS.lamda * self.Cyc_loss
+        self.G_loss = gen_loss(self.Dy_fake) + FLAGS.lamda * self.Cyc_loss
+        self.F_loss = gen_loss(self.Dx_fake) + FLAGS.lamda * self.Cyc_loss
 
-        self.Dx_loss = discriminator_loss(self.Dx_real, self.Dx(self.pool_x))
-        self.Dy_loss = discriminator_loss(self.Dy_real, self.Dy(self.pool_y))
+        self.Dx_loss = dis_loss(self.Dx_real, self.Dx(self.pool_x))
+        self.Dy_loss = dis_loss(self.Dy_real, self.Dy(self.pool_y))
 
         # optim
         self.lr = tf.where(

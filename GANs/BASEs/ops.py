@@ -4,7 +4,7 @@ import tensorflow as tf
 
 # global varible
 is_training = tf.placeholder(tf.bool, name='is_training')
-global_step=tf.train.get_or_create_global_step()
+global_step = tf.train.get_or_create_global_step()
 
 ## ops alias
 relu = tf.nn.relu

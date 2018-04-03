@@ -70,11 +70,15 @@ class cycle_gan:
 
         self.inc_step = tf.assign_add(global_step, 1)
         self.fit_summ = tf.summary.merge([
+            tf.summary.scalar('lr', self.lr),
             tf.summary.scalar('G_loss', self.G_loss),
             tf.summary.scalar('F_loss', self.F_loss),
             tf.summary.scalar('Dx_loss', self.Dx_loss),
             tf.summary.scalar('Dy_loss', self.Dy_loss),
-            tf.summary.scalar('lr', self.lr)
+            tf.summary.histogram('Dx_fake', self.Dx_fake),
+            tf.summary.histogram('Dx_real', self.Dx_real),
+            tf.summary.histogram('Dy_fake', self.Dy_fake),
+            tf.summary.histogram('Dy_real', self.Dx_real)
         ])
 
         # test graph

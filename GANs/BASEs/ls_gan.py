@@ -3,7 +3,7 @@ from ops import *
 from sampler import gaussian
 
 flags = tf.app.flags
-flags.DEFINE_string('log_path', './logs/lsgan_fashion/', '')
+flags.DEFINE_string('log_path', './logs/lsgan/', '')
 
 flags.DEFINE_integer('steps', 20000, '')
 flags.DEFINE_integer('bz', 64, '')

@@ -1,6 +1,5 @@
-import tensorflow as tf
-
 from data import next_batch_, imcombind_, imsave_
+from ops import *
 from sampler import gaussian
 
 flags = tf.app.flags
@@ -14,22 +13,17 @@ flags.DEFINE_float('clip_v', 0.02, '')
 FLAGS = flags.FLAGS
 
 
-def bn(x, is_training):
-    return tf.layers.batch_normalization(x, training=is_training)
-
-
 class G(object):
-    def __init__(self, phase):
+    def __init__(self):
         self.name = 'mnist/g_net'
-        self.phase = phase
 
     def __call__(self, z):
         with tf.variable_scope(self.name):
-            fc1 = tf.nn.relu(bn(tf.layers.dense(z, 1024), self.phase))
-            fc2 = tf.nn.relu(bn(tf.layers.dense(fc1, 7 * 7 * 128), self.phase))
+            fc1 = relu(bn(dense(z, 1024)))
+            fc2 = relu(bn(dense(fc1, 7 * 7 * 128)))
             fc2 = tf.reshape(fc2, [-1, 7, 7, 128])
-            cv1 = tf.nn.relu(bn(tf.layers.conv2d_transpose(fc2, 64, [4, 4], [2, 2], 'SAME'), self.phase))
-            fake = tf.layers.conv2d_transpose(cv1, 1, [4, 4], [2, 2], 'SAME', activation=tf.nn.sigmoid)
+            cv1 = relu(bn(dconv2d(fc2, 64, [4, 4], [2, 2], 'SAME')))
+            fake = dconv2d(cv1, 1, [4, 4], [2, 2], 'SAME', activation=sigmoid)
             return fake
 
     @property
@@ -38,16 +32,15 @@ class G(object):
 
 
 class D(object):
-    def __init__(self, phase):
+    def __init__(self):
         self.name = 'mnist/d_net'
-        self.phase = phase
 
     def __call__(self, x, reuse=True):
         with tf.variable_scope(self.name, reuse=reuse):
-            cv1 = tf.nn.leaky_relu(bn(tf.layers.conv2d(x, 64, [4, 4], [2, 2]), self.phase))
-            cv2 = tf.nn.leaky_relu(bn(tf.layers.conv2d(cv1, 128, [4, 4], [2, 2]), self.phase))
-            fc1 = tf.nn.leaky_relu(bn(tf.layers.dense(tf.layers.flatten(cv2), 1024), self.phase))
-            fc2 = tf.layers.dense(fc1, 1)
+            cv1 = lrelu(bn(conv2d(x, 64, [4, 4], [2, 2])))
+            cv2 = lrelu(bn(conv2d(cv1, 128, [4, 4], [2, 2])))
+            fc1 = lrelu(bn(dense(flatten(cv2), 1024)))
+            fc2 = dense(fc1, 1)
 
             return fc2
 
@@ -58,46 +51,50 @@ class D(object):
 
 class wgan(object):
     def __init__(self):
-        self.phase = tf.placeholder(tf.bool, name='phase')
-        self.G = G(self.phase)
-        self.D = D(self.phase)
+        self.G = G()
+        self.D = D()
 
         self.real = tf.placeholder(tf.float32, [None, 28, 28, 1], name='x')
         self.z = tf.placeholder(tf.float32, [None, FLAGS.z_dim], name='z')
         self.fake = self.G(self.z)
+        self.d_fake = self.D(self.fake, reuse=False)
+        self.d_real = self.D(self.real)
 
-        self.g_loss = tf.reduce_mean(self.D(self.fake, reuse=False))
-        self.d_loss = tf.reduce_mean(self.D(self.real)) - tf.reduce_mean(self.D(self.fake))
+        self.g_loss = tf.reduce_mean(self.d_fake)
+        self.d_loss = tf.reduce_mean(self.d_real) - tf.reduce_mean(self.d_fake)
         self.d_clip = [v.assign(tf.clip_by_value(v, -FLAGS.clip_v, FLAGS.clip_v)) for v in self.D.vars]
         update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
         with tf.control_dependencies(update_ops):
-            self.d_optim = tf.train.RMSPropOptimizer(FLAGS.lr).minimize(self.d_loss, var_list=self.D.vars)
-            self.g_optim = tf.train.RMSPropOptimizer(FLAGS.lr).minimize(self.g_loss, var_list=self.G.vars,
-                                                                        global_step=tf.train.get_or_create_global_step())
+            optimizer = tf.train.RMSPropOptimizer(FLAGS.lr)
+            self.d_optim = optimizer.minimize(self.d_loss, var_list=self.D.vars)
+            self.g_optim = optimizer.minimize(self.g_loss, var_list=self.G.vars,
+                                              )
         self.fit_summary = tf.summary.merge([
             tf.summary.scalar('g_loss', self.g_loss),
             tf.summary.scalar('d_loss', self.d_loss),
+            tf.summary.histogram('d_fake', self.d_fake),
+            tf.summary.histogram('d_real', self.d_real),
             tf.summary.image('X', self.real, 16),
             tf.summary.image('fake', self.fake, 16)
         ])
+        self.inc_step = tf.assign_add(global_step, 1)
 
     def gen(self, sess, bz):
-        return sess.run(self.fake, feed_dict={self.z: gaussian(bz, FLAGS.z_dim), self.phase: False})
+        return sess.run(self.fake, feed_dict={self.z: gaussian(bz, FLAGS.z_dim), is_training: False})
 
     def fit(self, sess, local_):
         for _ in range(local_):
-
+            sess.run(self.inc_step)
             x_real, _ = next_batch_(FLAGS.bz)
+            z = gaussian(FLAGS.bz, FLAGS.z_dim)
             for _ in range(3):
-                sess.run(self.d_optim,
-                         feed_dict={self.real: x_real, self.z: gaussian(FLAGS.bz, FLAGS.z_dim), self.phase: True})
+                sess.run(self.d_optim, feed_dict={self.real: x_real, self.z: z, is_training: True})
                 sess.run(self.d_clip)
-            sess.run(self.g_optim,
-                     feed_dict={self.real: x_real, self.z: gaussian(FLAGS.bz, FLAGS.z_dim), self.phase: True})
+            sess.run(self.g_optim, feed_dict={self.real: x_real, self.z: z, is_training: True})
 
         x_real, _ = next_batch_(FLAGS.bz)
         return sess.run([self.d_loss, self.g_loss, self.fit_summary], feed_dict={
-            self.real: x_real, self.z: gaussian(FLAGS.bz, FLAGS.z_dim), self.phase: False})
+            self.real: x_real, self.z: gaussian(FLAGS.bz, FLAGS.z_dim), is_training: False})
 
 
 def main(_):
@@ -112,7 +109,7 @@ def main(_):
         if ckpt and ckpt.model_checkpoint_path:
             _saver.restore(sess, FLAGS.log_path)
 
-        _step = tf.train.get_global_step().eval()
+        _step = global_step.eval()
         while True:
             if _step >= FLAGS.steps:
                 break

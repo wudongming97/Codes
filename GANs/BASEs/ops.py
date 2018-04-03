@@ -1,4 +1,10 @@
+from functools import partial
+
 import tensorflow as tf
+
+# global varible
+is_training = tf.placeholder(tf.bool, name='is_training')
+global_step=tf.train.get_or_create_global_step()
 
 ## ops alias
 relu = tf.nn.relu
@@ -6,14 +12,11 @@ lrelu = tf.nn.leaky_relu
 sigmoid = tf.nn.sigmoid
 
 ## layers alias
-bn = tf.layers.batch_normalization
-conv2d = tf.layers.conv2d
-conv2d_t = tf.layers.conv2d_transpose
 dense = tf.layers.dense
 flatten = tf.layers.flatten
-
-# global varible
-is_training = tf.placeholder(tf.bool, name='is_training')
+conv2d = tf.layers.conv2d
+dconv2d = tf.layers.conv2d_transpose
+bn = partial(tf.layers.batch_normalization, training=is_training)
 
 
 def residual(name, x):

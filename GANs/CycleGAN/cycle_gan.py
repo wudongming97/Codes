@@ -15,6 +15,7 @@ flags.DEFINE_float('init_lr', 0.0002, '')
 flags.DEFINE_integer('start_decay', 100000, '')
 flags.DEFINE_integer('decay_step', 100000, '')
 flags.DEFINE_float('lamda', 10, '')
+flags.DEFINE_float('lamda_id', 0.5, '')
 FLAGS = flags.FLAGS
 
 
@@ -42,19 +43,29 @@ class cycle_gan:
         self.pool_x = tf.placeholder(tf.float32, [None, 256, 256, 3], name='Dx_pool')
         self.pool_y = tf.placeholder(tf.float32, [None, 256, 256, 3], name='Dy_pool')
 
-        self.Dy_fake = self.Dy(self.fake_y, False)
-        self.Dy_real = self.Dy(self.real_y)
-        self.Dx_fake = self.Dx(self.fake_x, False)
-        self.Dx_real = self.Dx(self.real_x)
+        self.dy_fake = self.Dy(self.fake_y, False)
+        self.dy_real = self.Dy(self.real_y)
+        self.dx_fake = self.Dx(self.fake_x, False)
+        self.dx_real = self.Dx(self.real_x)
+
+        self.iden_x = self.G(self.real_y)
+        self.iden_y = self.F(self.real_x)
 
         # loss def
-        self.Cyc_loss = cyc_loss(self.real_x, self.cyc_x, self.real_y, self.cyc_y)
+        self.Ix_loss = tf.reduce_mean(tf.abs(self.iden_x - self.real_y))
+        self.Iy_loss = tf.reduce_mean(tf.abs(self.iden_y - self.real_x))
+        self.I_loss = (self.Ix_loss + self.Iy_loss) * FLAGS.lamda * FLAGS.lamda_id
 
-        self.G_loss = gen_loss(self.Dy_fake) + FLAGS.lamda * self.Cyc_loss
-        self.F_loss = gen_loss(self.Dx_fake) + FLAGS.lamda * self.Cyc_loss
+        self.C_loss = cyc_loss(self.real_x, self.cyc_x, self.real_y, self.cyc_y) * FLAGS.lamda
+        self.G_loss = gen_loss(self.dy_fake)
+        self.F_loss = gen_loss(self.dx_fake)
 
-        self.Dx_loss = dis_loss(self.Dx_real, self.Dx(self.pool_x))
-        self.Dy_loss = dis_loss(self.Dy_real, self.Dy(self.pool_y))
+        self.loss_G = self.G_loss + self.F_loss + self.C_loss + self.I_loss
+
+        self.Dx_loss = dis_loss(self.dx_real, self.Dx(self.pool_x))
+        self.Dy_loss = dis_loss(self.dy_real, self.Dy(self.pool_y))
+
+        self.loss_D = self.Dx_loss + self.Dy_loss
 
         # optim
         self.lr = tf.where(
@@ -63,10 +74,8 @@ class cycle_gan:
             FLAGS.init_lr
         )
         optimizer = tf.train.AdamOptimizer(self.lr, beta1=0.5)
-        self.G_optim = optimizer.minimize(self.G_loss, var_list=self.G.vars)
-        self.F_optim = optimizer.minimize(self.F_loss, var_list=self.F.vars)
-        self.D_optim_x = optimizer.minimize(self.Dx_loss, var_list=self.Dx.vars)
-        self.D_optim_y = optimizer.minimize(self.Dy_loss, var_list=self.Dy.vars)
+        self.g_optim = optimizer.minimize(self.loss_G, var_list=self.G.vars + self.F.vars)
+        self.d_optim = optimizer.minimize(self.loss_D, var_list=self.Dx.vars + self.Dy.vars)
 
         self.inc_step = tf.assign_add(global_step, 1)
         self.fit_summ = tf.summary.merge([
@@ -75,10 +84,12 @@ class cycle_gan:
             tf.summary.scalar('F_loss', self.F_loss),
             tf.summary.scalar('Dx_loss', self.Dx_loss),
             tf.summary.scalar('Dy_loss', self.Dy_loss),
-            tf.summary.histogram('Dx_fake', self.Dx_fake),
-            tf.summary.histogram('Dx_real', self.Dx_real),
-            tf.summary.histogram('Dy_fake', self.Dy_fake),
-            tf.summary.histogram('Dy_real', self.Dx_real)
+            tf.summary.scalar('Ix_loss', self.Ix_loss),
+            tf.summary.scalar('Iy_loss', self.Iy_loss),
+            tf.summary.histogram('dx_fake', self.dx_fake),
+            tf.summary.histogram('dx_real', self.dx_real),
+            tf.summary.histogram('dy_fake', self.dy_fake),
+            tf.summary.histogram('dy_real', self.dx_real)
         ])
 
         # test graph
@@ -97,16 +108,14 @@ class cycle_gan:
     def fit(self, sess, local_):
         pool_x, pool_y = None, None
         for _ in range(local_):
-            fake_y, _ = sess.run([self.fake_y, self.G_optim])
-            fake_x, _ = sess.run([self.fake_x, self.F_optim])
+            fake_x, fake_y, _ = sess.run([self.fake_x, self.fake_y, self.g_optim])
             pool_x, pool_y = self.fake_pool_x(fake_x), self.fake_pool_y(fake_y)
 
-            sess.run(self.D_optim_x, {self.pool_x: pool_x})
-            sess.run(self.D_optim_y, {self.pool_y: pool_y})
+            sess.run(self.d_optim, {self.pool_x: pool_x, self.pool_y: pool_y})
             sess.run(self.inc_step)
 
         return sess.run(
-            [self.G_loss, self.F_loss, self.Dx_loss, self.Dy_loss, self.fit_summ],
+            [self.G_loss, self.F_loss, self.Dx_loss, self.Dy_loss, self.Ix_loss, self.Iy_loss, self.fit_summ],
             {self.pool_x: pool_x, self.pool_y: pool_y})
 
     def gen(self, sess):
@@ -141,9 +150,9 @@ def main(_):
             res = _model.fit(sess, 100)
 
             _step = _step + 100
-            _writer.add_summary(res[4], _step)
-            print("Train [%d\%d] G_loss [%3f] F_loss [%3f]  Dx_loss [%3f] Dy_loss [%3f] " % (
-                _step, FLAGS.steps, res[0], res[1], res[2], res[3]))
+            _writer.add_summary(res[6], _step)
+            print("Train [%d\%d] G_loss [%3f] F_loss [%3f]  Dx_loss [%3f] Dy_loss [%3f] Ix_loss [%3f] Iy_loss [%3f]" % (
+                _step, FLAGS.steps, res[0], res[1], res[2], res[3], res[4], res[5]))
 
             images = inverse_transform(_model.gen(sess))
             imsave_(FLAGS.log_path + 'train_{}.png'.format(_step), imcombind_(images, 3))

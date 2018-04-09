@@ -17,20 +17,20 @@ class generator_resnet:
     def __call__(self, x, reuse=True):
         with tf.variable_scope(self.name, reuse=reuse):
             c3 = tf.pad(x, [[0, 0], [3, 3], [3, 3], [0, 0]], "REFLECT")
-            c3 = relu(instance_norm(conv2d(c3, self.ngf, 7, 1, name='g_e1_c'), 'g_e1_bn'))
-            c3 = relu(instance_norm(conv2d(c3, self.ngf * 2, 3, 2, 'SAME', name='g_e2_c'), 'g_e2_bn'))
-            r9 = relu(instance_norm(conv2d(c3, self.ngf * 4, 3, 2, 'SAME', name='g_e3_c'), 'g_e3_bn'))
+            c3 = relu(instance_norm(conv2d(c3, self.ngf, 7, 1), 'g_e1_bn'))
+            c3 = relu(instance_norm(conv2d(c3, self.ngf * 2, 3, 2, 'SAME'), 'g_e2_bn'))
+            r9 = relu(instance_norm(conv2d(c3, self.ngf * 4, 3, 2, 'SAME'), 'g_e3_bn'))
 
             # define G network with 9 resnet blocks
             for i in range(9):
                 r9 = residual_in(r9, name='g_r{}'.format(i + 1))
 
-            d1 = dconv2d(r9, self.ngf * 2, 3, 2, 'SAME', name='g_d1_dc')
+            d1 = dconv2d(r9, self.ngf * 2, 3, 2, 'SAME')
             d1 = relu(instance_norm(d1, 'g_d1_bn'))
-            d2 = dconv2d(d1, self.ngf, 3, 2, 'SAME', name='g_d2_dc')
+            d2 = dconv2d(d1, self.ngf, 3, 2, 'SAME')
             d2 = relu(instance_norm(d2, 'g_d2_bn'))
             d2 = tf.pad(d2, [[0, 0], [3, 3], [3, 3], [0, 0]], "REFLECT")
-            pred = tf.nn.tanh(conv2d(d2, 3, 7, 1, name='g_pred_c'))
+            pred = tf.nn.tanh(conv2d(d2, 3, 7, 1))
 
         return pred
 

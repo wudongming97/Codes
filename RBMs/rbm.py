@@ -89,12 +89,12 @@ class rbm:
 
 
 if __name__ == '__main__':
-    rbm = rbm(784, 1024, 2e-4, 5, './results/rbm/')
+    rbm = rbm(784, 1024, 1e-3, 10, './results/rbm/')
     if not rbm.load():
         rbm.fit(mnist, 10)
 
     # 随机生成
-    pv, v = rbm.inference(100, 2000)
+    pv, v = rbm.inference(100, 200)
     for t, im in enumerate([pv, v]):
         images = np.reshape(im.cpu().numpy(), [-1, 28, 28, 1])
         imsave_('./results/rbm/mnist_{}.png'.format(t), imcombind_(images))

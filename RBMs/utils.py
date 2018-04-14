@@ -16,6 +16,14 @@ mnist = Data.DataLoader(
         download=True),
     batch_size=16, shuffle=True, num_workers=2)
 
+fashion = Data.DataLoader(
+    dataset=torchvision.datasets.FashionMNIST(
+        './datas/fashion',
+        train=True,
+        transform=torchvision.transforms.ToTensor(),
+        download=True),
+    batch_size=16, shuffle=True, num_workers=2)
+
 
 def imcombind_(images):
     num = images.shape[0]

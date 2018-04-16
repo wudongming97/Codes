@@ -113,7 +113,7 @@ class rbm_base:
         vn, hn = self._gibbs_chain(h_gibbs, self.n_gibbs_steps)
         self.persistent_chains = hn
 
-        dW = (vn.t() @ hn - v0.t() @ h0) / N - self.l2 * self._W
+        dW = (vn.t() @ hn - v0.t() @ h0) / N + self.l2 * self._W
         dvb = T.mean(vn - v0, 0)
         dhb = T.mean(hn - h0, 0)
 

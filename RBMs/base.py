@@ -1,23 +1,24 @@
-from utils import *
 import os
+
 from tensorboardX import SummaryWriter
+
+from utils import *
 
 
 class rbm_base:
     def __init__(self, model_path, drop_probs=0.0, n_epoch_to_save=2,
                  v_sz=784, v_layer_cls=None, v_layer_params=None,
-                 h_sz=256, h_layer_cls=None, h_layer_params=None, pcd=True,
+                 h_sz=64, h_layer_cls=None, h_layer_params=None, pcd=True,
                  W_init=None, vb_init=None, hb_init=None, metrics_interval=200, verbose=True,
-                 epoch_start_decay=1, epoch_stop_decay=8, ultimate_lr=2e-5,
+                 epoch_start_decay=2, epoch_stop_decay=8, ultimate_lr=2e-5,
                  n_gibbs_steps=1, sample_v_states=True, sample_h_states=True,
-                 lr=1e-2, momentum=0.9, max_epoch=10, batch_size=16, l2=1e-4):
-
+                 lr=1e-2, momentum=0.5, max_epoch=10, batch_size=16, l2=1e-4):
         self.model_path = model_path
         self.drop_probs = drop_probs
         self.pcd = pcd
         self.persistent_chains = None
         self.n_epoch_to_save = n_epoch_to_save
-        self._writer = SummaryWriter(model_path)
+        self.writer = SummaryWriter(model_path)
         self.v_sz = v_sz
         self.h_sz = h_sz
 
@@ -52,11 +53,14 @@ class rbm_base:
         self._step = 0
         self._lr = lr
         self._momentum = momentum
+
         self._dW = Tensor(np.zeros([self.v_sz, self.h_sz]))
         self._dhb = Tensor(np.zeros(self.h_sz))
         self._dvb = Tensor(np.zeros(self.v_sz))
 
-        self._W = Tensor(np.random.uniform(size=(self.v_sz, self.h_sz))) if self.W_init is None else self.W_init
+        self._W = T.nn.init.xavier_normal(
+            Tensor(np.zeros([self.v_sz, self.h_sz]))) if self.W_init is None else self.W_init
+
         self._hb = Tensor(np.zeros(self.h_sz)) if self.hb_init is None else self.hb_init
         self._vb = Tensor(np.zeros(self.v_sz)) if self.vb_init is None else self.vb_init
 
@@ -137,12 +141,12 @@ class rbm_base:
                 # verbose and metrics
                 if (self._step + 1) % self.metrics_interval == 0:
                     gap = self._free_energy_gap_metric(X, X_val, 200)
-                    self._writer.add_scalar('free_energy_gap', gap, self._step)
-                    self._writer.add_scalar('lr', self._lr, self._step)
+                    self.writer.add_scalar('free_energy_gap', gap, self._step)
+                    self.writer.add_scalar('lr', self._lr, self._step)
 
                     if self.verbose:
                         print('epoch: [%d \ %d] global_step: [%d] free_energy_gap: [%.3f]' % (
-                            epoch, self.max_epoch, self._step, gap))
+                            epoch + 1, self.max_epoch, self._step, gap))
             # save
             if (epoch + 1) % self.n_epoch_to_save:
                 self.save()

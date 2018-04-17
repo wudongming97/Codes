@@ -193,13 +193,15 @@ class rbm_base:
     def _load(self, npz_file, only_weights=False):
         if not os.path.isfile(npz_file):
             return False
-
         npz = np.load(npz_file)
         self._W = Tensor(npz['W'])
         self._vb = Tensor(npz['vb'])
         self._hb = Tensor(npz['hb'])
         if not only_weights:
-            self._lr, self._momentum, self._step = npz['optim_params']
+            _lr, _momentum, _step = npz['optim_params']
+            self._step = Tensor(1).fill_(_step)
+            self._lr = Tensor(1).fill_(_lr)
+            self._momentum = Tensor(1).fill_(_momentum)
             self._dW = Tensor(npz['dW'])
             self._dhb = Tensor(npz['dhb'])
             self._dvb = Tensor(npz['dvb'])

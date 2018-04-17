@@ -155,7 +155,7 @@ class rbm_base:
                         print('epoch: [%d \ %d] global_step: [%d] train_free_energy: [%.3f] train_msre: [%3f]' % (
                             epoch + 1, self.max_epoch, self._step, free_energy, msre))
             # save
-            if (epoch + 1) % self.n_epoch_to_save:
+            if (epoch + 1) % self.n_epoch_to_save == 0:
                 self.save()
         writer.close()
 

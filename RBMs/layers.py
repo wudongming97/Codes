@@ -24,7 +24,7 @@ class BernoulliLayer(BaseLayer):
         super(BernoulliLayer, self).__init__(*args, **kwargs)
 
     def init(self, bz):
-        return Tensor(np.zeros([bz, self.n_units]))
+        return Tensor(np.random.normal(1e-8, 0.02, size=[bz, self.n_units]))
 
     def activation(self, x):
         return T.sigmoid(x)

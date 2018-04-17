@@ -6,19 +6,19 @@ from utils import *
 
 
 class rbm_base:
-    def __init__(self, model_path, drop_probs=0.0, n_epoch_to_save=2,
+    def __init__(self, model_path, drop_probs=0.0, n_epoch_to_save=1,
                  v_sz=784, v_layer_cls=None, v_layer_params=None,
-                 h_sz=64, h_layer_cls=None, h_layer_params=None, pcd=True,
+                 h_sz=256, h_layer_cls=None, h_layer_params=None, pcd=True,
                  W_init=None, vb_init=None, hb_init=None, metrics_interval=200, verbose=True,
                  epoch_start_decay=2, epoch_stop_decay=8, ultimate_lr=2e-5,
-                 n_gibbs_steps=1, sample_v_states=True, sample_h_states=True,
+                 n_gibbs_steps=1, sample_v_states=True, sample_h_states=False,
                  lr=1e-2, momentum=0.5, max_epoch=10, batch_size=16, l2=1e-4):
+
         self.model_path = model_path
         self.drop_probs = drop_probs
         self.pcd = pcd
         self.persistent_chains = None
         self.n_epoch_to_save = n_epoch_to_save
-        self.writer = SummaryWriter(model_path)
         self.v_sz = v_sz
         self.h_sz = h_sz
 
@@ -60,7 +60,6 @@ class rbm_base:
 
         self._W = T.nn.init.xavier_normal(
             Tensor(np.zeros([self.v_sz, self.h_sz]))) if self.W_init is None else self.W_init
-
         self._hb = Tensor(np.zeros(self.h_sz)) if self.hb_init is None else self.hb_init
         self._vb = Tensor(np.zeros(self.v_sz)) if self.vb_init is None else self.vb_init
 
@@ -71,6 +70,10 @@ class rbm_base:
 
     def _free_energy(self, v):
         raise NotImplementedError
+
+    def _msre_metric(self, v):
+        v_ = self._gibbs_chain(self._h_given_v(v)[0], self.n_gibbs_steps)[0]
+        return T.mean((v - v_) ** 2)
 
     def _free_energy_gap_metric(self, train, valid, batch_size):
         train_feg = self._free_energy(shuffle_batch(train, batch_size).view(-1, self.v_sz))
@@ -101,8 +104,9 @@ class rbm_base:
         return v, h
 
     def _gibbs_chain(self, h0, n_gibbs_steps):
+        v, h = None, h0
         for _ in range(n_gibbs_steps):
-            v, h = self._gibbs_step(h0)
+            v, h = self._gibbs_step(h)
         return v, h
 
     def _update(self, v0):
@@ -128,6 +132,7 @@ class rbm_base:
         self._hb = self._hb - self._dhb
 
     def fit(self, X, X_val):
+        writer = SummaryWriter(self.model_path)
         self.persistent_chains = self._h_given_v(
             shuffle_batch(X, self.batch_size).view(self.batch_size, self.v_sz))[0]
         for epoch in range(self.max_epoch):
@@ -140,16 +145,19 @@ class rbm_base:
 
                 # verbose and metrics
                 if (self._step + 1) % self.metrics_interval == 0:
-                    gap = self._free_energy_gap_metric(X, X_val, 200)
-                    self.writer.add_scalar('free_energy_gap', gap, self._step)
-                    self.writer.add_scalar('lr', self._lr, self._step)
+                    free_energy = self._free_energy(X_batch)
+                    msre = self._msre_metric(X_batch)
+                    writer.add_scalar('train_free_energy', free_energy, self._step)
+                    writer.add_scalar('train_msre', msre, self._step)
+                    writer.add_scalar('lr', self._lr, self._step)
 
                     if self.verbose:
-                        print('epoch: [%d \ %d] global_step: [%d] free_energy_gap: [%.3f]' % (
-                            epoch + 1, self.max_epoch, self._step, gap))
+                        print('epoch: [%d \ %d] global_step: [%d] train_free_energy: [%.3f] train_msre: [%3f]' % (
+                            epoch + 1, self.max_epoch, self._step, free_energy, msre))
             # save
             if (epoch + 1) % self.n_epoch_to_save:
                 self.save()
+        writer.close()
 
     def _inf(self, h0, n_gibbs_steps, to_numpy=True):
         v, h = self._gibbs_chain(h0, n_gibbs_steps)
@@ -178,11 +186,11 @@ class rbm_base:
                  os.path.join(self.model_path + 'ckpt_latest.npz'))
 
     def load(self, step_to_load=None, only_weights=False):
-        if step_to_load is None:
-            npz_file = os.path.join(self.model_path + 'ckpt_latest.npz')
-        else:
-            npz_file = os.path.join(self.model_path + 'ckpt_{}.npz'.format(step_to_load))
+        filename = 'ckpt_latest.npz' if step_to_load is None else 'ckpt_{}.npz'.format(step_to_load)
+        npz_file = os.path.join(self.model_path + filename)
+        return self._load(npz_file, only_weights)
 
+    def _load(self, npz_file, only_weights=False):
         if not os.path.isfile(npz_file):
             return False
 

@@ -71,6 +71,10 @@ def imsave_(path, img):
     plt.imsave(path, np.squeeze(img), cmap=plt.cm.gray)
 
 
+def implot_(img):
+    plt.imshow(img)
+
+
 if __name__ == '__main__':
     # for a in next_batch(mnist, 1000):
     #     print(a.size())

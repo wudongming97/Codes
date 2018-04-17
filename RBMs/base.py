@@ -11,7 +11,7 @@ class rbm_base:
                  h_sz=256, h_layer_cls=None, h_layer_params=None, pcd=True,
                  W_init=None, vb_init=None, hb_init=None, metrics_interval=200, verbose=True,
                  epoch_start_decay=2, epoch_stop_decay=8, ultimate_lr=2e-5,
-                 n_gibbs_steps=1, sample_v_states=True, sample_h_states=False,
+                 n_gibbs_steps=1, sample_v_states=False, sample_h_states=True,
                  lr=1e-2, momentum=0.5, max_epoch=10, batch_size=16, l2=1e-4):
 
         self.model_path = model_path
@@ -112,7 +112,7 @@ class rbm_base:
     def _update(self, v0):
         N = v0.size()[0]
 
-        h0 = self._h_given_v(v0)[0]
+        h0 = self._h_given_v(v0)[1]
         h_gibbs = self.persistent_chains if self.pcd else h0
         vn, hn = self._gibbs_chain(h_gibbs, self.n_gibbs_steps)
         self.persistent_chains = hn
@@ -134,7 +134,7 @@ class rbm_base:
     def fit(self, X, X_val):
         writer = SummaryWriter(self.model_path)
         self.persistent_chains = self._h_given_v(
-            shuffle_batch(X, self.batch_size).view(self.batch_size, self.v_sz))[0]
+            shuffle_batch(X, self.batch_size).view(self.batch_size, self.v_sz))[1]
         for epoch in range(self.max_epoch):
             self._weight_decay(epoch, self.epoch_start_decay, self.epoch_stop_decay, self.ultimate_lr)
             for X_batch in next_batch(X, self.batch_size):

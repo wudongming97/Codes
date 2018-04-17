@@ -1,5 +1,6 @@
 import math
 
+import imageio
 import matplotlib.pyplot as plt
 import numpy as np
 import torch as T
@@ -73,6 +74,11 @@ def imsave_(path, img):
 
 def implot_(img):
     plt.imshow(img)
+
+
+def to_gif(file_lst, gif_name):
+    frames = [imageio.imread(file) for file in file_lst]
+    imageio.mimsave(gif_name, frames, duration=0.5)
 
 
 if __name__ == '__main__':

@@ -30,12 +30,24 @@ fashion_test = tv.datasets.FashionMNIST(
     transform=tv.transforms.ToTensor(),
     download=True)
 
+cifar_train = tv.datasets.CIFAR100(
+    './datas/fashion',
+    train=True,
+    transform=tv.transforms.ToTensor(),
+    download=True)
+
+cifar_test = tv.datasets.CIFAR100(
+    './datas/fashion',
+    train=False,
+    transform=tv.transforms.ToTensor(),
+    download=True)
+
 
 def next_batch(X, bs):
     end, L = bs, len(X)
     while end < L:
         batch_X = [X[i][0] for i in range(end - bs, end)]
-        batch_X = T.cat(batch_X)
+        batch_X = T.stack(batch_X)
         if USE_GPU:
             batch_X = batch_X.cuda()
         yield batch_X
@@ -46,7 +58,7 @@ def shuffle_batch(X, bs):
     L = len(X)
     assert bs < L
     batch_X = [X[i][0] for i in np.random.choice(L, bs)]
-    batch_X = T.cat(batch_X)
+    batch_X = T.stack(batch_X)
     if USE_GPU:
         batch_X = batch_X.cuda()
     return batch_X
@@ -65,4 +77,4 @@ def linear_inc(init, ultimate, start, stop):
 if __name__ == '__main__':
     # for a in next_batch(mnist, 1000):
     #     print(a.size())
-    print(shuffle_batch(mnist_train, 1000).size())
+    print(shuffle_batch(cifar_test, 1000).size())

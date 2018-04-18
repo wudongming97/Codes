@@ -1,7 +1,4 @@
-import math
-
 import imageio
-import matplotlib.pyplot as plt
 import numpy as np
 import torch as T
 import torchvision as tv

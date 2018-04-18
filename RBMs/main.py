@@ -44,17 +44,17 @@ def basic_test(model, train_ds, test_ds, train=True):
         samples = model.inf_by_stochastic(batch_size, _step)
         sto_filename = model.model_path + 'images/sto_{}.png'.format(_step)
         sto_path_lst.append(sto_filename)
-        imsave_(sto_filename, imcombind_(np.reshape(samples, [-1, 28, 28, 1])))
+        tv.utils.save_image(samples.view(-1, 1, 28, 28), sto_filename)
 
         X_val = shuffle_batch(mnist_test, batch_size)
         samples = model.inf_from_valid(X_val, _step)
         val_filename = model.model_path + 'images/val_{}.png'.format(_step)
         val_path_lst.append(val_filename)
-        imsave_(val_filename, imcombind_(np.reshape(samples, [-1, 28, 28, 1])))
+        tv.utils.save_image(samples.view(-1, 1, 28, 28), val_filename)
 
     to_gif(sto_path_lst, model.model_path + 'sto.gif')
     to_gif(val_path_lst, model.model_path + 'val.gif')
 
 
 if __name__ == '__main__':
-    basic_test(brbm_pcd, fashion_train, fashion_test, train=True)
+    basic_test(brbm_pcd, mnist_train, mnist_test, train=True)

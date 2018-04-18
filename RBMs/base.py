@@ -185,23 +185,14 @@ class rbm_base:
                 self.save()
         writer.close()
 
-    def _inf(self, h0, n_gibbs_steps, to_numpy=True):
-        v, h = self._gibbs_chain(h0, n_gibbs_steps)
-        if to_numpy:
-            return v.cpu().numpy(), h.cpu().numpy()
-        else:
-            return v, h
-
     def inf_from_valid(self, batch_X_val, n_gibbs_steps):
         batch_X_val = batch_X_val.view([-1, self.v_sz])
         h0_val, _ = self._h_given_v(batch_X_val)
-        v_inf, _ = self._inf(h0_val, n_gibbs_steps, to_numpy=True)
-        return v_inf
+        return self._gibbs_chain(h0_val, n_gibbs_steps)[0]
 
     def inf_by_stochastic(self, batch_size, n_gibbs_steps):
         h0_sto = self._h_layer.init(batch_size)
-        v_inf, _ = self._inf(h0_sto, n_gibbs_steps, to_numpy=True)
-        return v_inf
+        return self._gibbs_chain(h0_sto, n_gibbs_steps)[0]
 
     def save(self):
         np.savez(os.path.join(self.model_path + 'ckpt_{}.npz'.format(self._step)),

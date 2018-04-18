@@ -9,10 +9,12 @@ class rbm_base:
     def __init__(self, model_path, drop_probs=0.0, n_epoch_to_save=1,
                  v_sz=784, v_layer_cls=None, v_layer_params=None,
                  h_sz=256, h_layer_cls=None, h_layer_params=None, pcd=True,
-                 W_init=None, vb_init=None, hb_init=None, metrics_interval=200, verbose=True,
-                 lr=1e-2, epoch_start_decay=2, epoch_stop_decay=8, ultimate_lr=2e-5,
+                 W_init=None, vb_init=None, hb_init=None, metrics_interval=200,
+                 init_lr=1e-2, lr_start=2, lr_stop=8, ultimate_lr=2e-5,
                  n_gibbs_steps=1, sample_v_states=False, sample_h_states=True,
-                 momentum=0.5, max_epoch=10, batch_size=16, l2=1e-4):
+                 init_mo=0.5, ultimate_mo=0.8, mo_start=0, mo_stop=5,
+                 sparsity_target=0.1, sparsity_damping=0.9, sparsity_cost=0.0,
+                 max_epoch=10, batch_size=16, l2=1e-4, verbose=True):
 
         self.model_path = model_path
         self.drop_probs = drop_probs
@@ -37,9 +39,18 @@ class rbm_base:
         self.metrics_interval = metrics_interval
         self.verbose = verbose
 
-        self.epoch_start_decay = epoch_start_decay
-        self.epoch_stop_decay = epoch_stop_decay
+        self.sparsity_target = sparsity_target
+        self.sparsity_damping = sparsity_damping
+        self.sparsity_cost = sparsity_cost
+
+        self.init_lr = init_lr
+        self.lr_start_decay = lr_start
+        self.lr_stop_decay = lr_stop
         self.ultimate_lr = ultimate_lr
+        self.init_mo = init_mo
+        self.ultimate_mo = ultimate_mo
+        self.mo_stop_decay = mo_stop
+        self.mo_start_decay = mo_start
 
         self.sample_v_states = sample_v_states
         self.sample_h_states = sample_h_states
@@ -51,8 +62,10 @@ class rbm_base:
 
         # 带下划线的成员，是变化的，是save要保存的变量
         self._step = 0
-        self._lr = lr
-        self._momentum = momentum
+        self._lr = self.init_lr
+        self._mo = self.init_mo
+
+        self._q_mean = Tensor(np.zeros(self.h_sz))
 
         self._dW = Tensor(np.zeros([self.v_sz, self.h_sz]))
         self._dhb = Tensor(np.zeros(self.h_sz))
@@ -80,11 +93,15 @@ class rbm_base:
         valid_feg = self._free_energy(shuffle_batch(valid, batch_size).view(-1, self.v_sz))
         return train_feg - valid_feg
 
-    def _weight_decay(self, epoch_cur, epoch_start, epoch_stop, ultimate_lr):
-        assert epoch_start < epoch_stop
-        if epoch_cur > epoch_start:
-            epoch_stop = self.max_epoch if epoch_stop > self.max_epoch else epoch_stop
-            self._lr -= (self._lr - ultimate_lr) * (epoch_cur - epoch_start) / (epoch_stop - epoch_start)
+    def _lr_decay(self):
+        lr = self._lr + linear_inc(self.init_lr, self.ultimate_lr,
+                                   self.lr_start_decay, self.lr_stop_decay)
+        self._lr = lr if lr > self.ultimate_lr else self.ultimate_lr
+
+    def _mo_decay(self):
+        mo = self._mo + linear_inc(self.init_mo, self.ultimate_mo,
+                                   self.mo_start_decay, self.mo_stop_decay)
+        self._mo = mo if mo < self.ultimate_mo else self.ultimate_mo
 
     def _h_given_v(self, v):
         h_probs = self._h_layer.activation(v @ self._W + self._hb)
@@ -117,16 +134,19 @@ class rbm_base:
         vn, hn = self._gibbs_chain(h_gibbs, self.n_gibbs_steps)
         self.persistent_chains = hn
 
-        dW = (vn.t() @ hn - v0.t() @ h0) / N + self.l2 * self._W
-        dvb = T.mean(vn - v0, 0)
-        dhb = T.mean(hn - h0, 0)
+        # 添加稀疏化正则项
+        q_means = T.mean(hn, 0)
+        self._q_mean = self.sparsity_damping * self._q_mean + (1 - self.sparsity_damping) * q_means
+        sparsity_penalty = self.sparsity_cost * (self._q_mean - self.sparsity_target)
 
-        # todo 添加稀疏化正则项
+        dW = (vn.t() @ hn - v0.t() @ h0) / N + self.l2 * self._W + sparsity_penalty
+        dvb = T.mean(vn - v0, 0)
+        dhb = T.mean(hn - h0, 0) + sparsity_penalty
 
         # update
-        self._dW = self._momentum * self._dW + self._lr * dW
-        self._dvb = self._momentum * self._dvb + self._lr * dvb
-        self._dhb = self._momentum * self._dhb + self._lr * dhb
+        self._dW = self._mo * self._dW + self._lr * dW
+        self._dvb = self._mo * self._dvb + self._lr * dvb
+        self._dhb = self._mo * self._dhb + self._lr * dhb
         self._W = self._W - self._dW
         self._vb = self._vb - self._dvb
         self._hb = self._hb - self._dhb
@@ -136,7 +156,8 @@ class rbm_base:
         self.persistent_chains = self._h_given_v(
             shuffle_batch(X, self.batch_size).view(self.batch_size, self.v_sz))[1]
         for epoch in range(self.max_epoch):
-            self._weight_decay(epoch, self.epoch_start_decay, self.epoch_stop_decay, self.ultimate_lr)
+            self._lr_decay()
+            self._mo_decay()
             for X_batch in next_batch(X, self.batch_size):
                 X_batch = X_batch.view(-1, self.v_sz)
                 X_batch = self._dropout(X_batch, self.drop_probs)
@@ -145,15 +166,20 @@ class rbm_base:
 
                 # verbose and metrics
                 if (self._step + 1) % self.metrics_interval == 0:
-                    free_energy = self._free_energy(X_batch)
+                    free_energy_gap = self._free_energy_gap_metric(X, X_val, 800)
                     msre = self._msre_metric(X_batch)
-                    writer.add_scalar('train_free_energy', free_energy, self._step)
+                    writer.add_scalar('train_free_energy', free_energy_gap, self._step)
                     writer.add_scalar('train_msre', msre, self._step)
                     writer.add_scalar('lr', self._lr, self._step)
+                    writer.add_scalar('mo', self._mo, self._step)
+                    writer.add_histogram('W', self._W, self._step)
+                    writer.add_histogram('v_bias', self._vb, self._step)
+                    writer.add_histogram('h_bias', self._hb, self._step)
+                    writer.add_histogram('dW', self._dW, self._step)
 
                     if self.verbose:
-                        print('epoch: [%d \ %d] global_step: [%d] train_free_energy: [%.3f] train_msre: [%3f]' % (
-                            epoch + 1, self.max_epoch, self._step, free_energy, msre))
+                        print('epoch: [%d \ %d] global_step: [%d] free_energy_gap: [%.3f] train_msre: [%3f]' % (
+                            epoch + 1, self.max_epoch, self._step, free_energy_gap, msre))
             # save
             if (epoch + 1) % self.n_epoch_to_save == 0:
                 self.save()
@@ -179,8 +205,9 @@ class rbm_base:
 
     def save(self):
         np.savez(os.path.join(self.model_path + 'ckpt_{}.npz'.format(self._step)),
-                 W=self._W, vb=self._vb, hb=self._hb, dW=self._dW, dvb=self._dvb, dhb=self._dhb,
-                 optim_params=np.array([self._lr, self._momentum, self._step]))
+                 W=self._W, vb=self._vb, hb=self._hb, dW=self._dW, dvb=self._dvb,
+                 dhb=self._dhb, q_mean=self._q_mean,
+                 optim_params=np.array([self._lr, self._mo, self._step]))
         from shutil import copyfile
         copyfile(os.path.join(self.model_path + 'ckpt_{}.npz'.format(self._step)),
                  os.path.join(self.model_path + 'ckpt_latest.npz'))
@@ -201,8 +228,9 @@ class rbm_base:
             _lr, _momentum, _step = npz['optim_params']
             self._step = Tensor(1).fill_(_step)
             self._lr = Tensor(1).fill_(_lr)
-            self._momentum = Tensor(1).fill_(_momentum)
+            self._mo = Tensor(1).fill_(_momentum)
             self._dW = Tensor(npz['dW'])
             self._dhb = Tensor(npz['dhb'])
             self._dvb = Tensor(npz['dvb'])
+            self._q_mean = Tensor(npz['q_mean'])
         return True

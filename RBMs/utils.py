@@ -81,6 +81,11 @@ def to_gif(file_lst, gif_name):
     imageio.mimsave(gif_name, frames, duration=0.5)
 
 
+def linear_inc(init, ultimate, start, stop):
+    assert start < stop
+    return (ultimate - init) / (stop - start)
+
+
 if __name__ == '__main__':
     # for a in next_batch(mnist, 1000):
     #     print(a.size())

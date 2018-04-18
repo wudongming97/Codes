@@ -10,9 +10,9 @@ class rbm_base:
                  v_sz=784, v_layer_cls=None, v_layer_params=None,
                  h_sz=256, h_layer_cls=None, h_layer_params=None, pcd=True,
                  W_init=None, vb_init=None, hb_init=None, metrics_interval=200, verbose=True,
-                 epoch_start_decay=2, epoch_stop_decay=8, ultimate_lr=2e-5,
+                 lr=1e-2, epoch_start_decay=2, epoch_stop_decay=8, ultimate_lr=2e-5,
                  n_gibbs_steps=1, sample_v_states=False, sample_h_states=True,
-                 lr=1e-2, momentum=0.5, max_epoch=10, batch_size=16, l2=1e-4):
+                 momentum=0.5, max_epoch=10, batch_size=16, l2=1e-4):
 
         self.model_path = model_path
         self.drop_probs = drop_probs
@@ -124,9 +124,9 @@ class rbm_base:
         # todo 添加稀疏化正则项
 
         # update
-        self._dW = self._lr * (self._momentum * self._dW + dW)
-        self._dvb = self._lr * (self._momentum * self._dvb + dvb)
-        self._dhb = self._lr * (self._momentum * self._dhb + dhb)
+        self._dW = self._momentum * self._dW + self._lr * dW
+        self._dvb = self._momentum * self._dvb + self._lr * dvb
+        self._dhb = self._momentum * self._dhb + self._lr * dhb
         self._W = self._W - self._dW
         self._vb = self._vb - self._dvb
         self._hb = self._hb - self._dhb

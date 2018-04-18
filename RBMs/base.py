@@ -6,7 +6,8 @@ from utils import *
 
 
 class rbm_base:
-    def __init__(self, model_path, drop_probs=0.0, n_epoch_to_save=1,
+    def __init__(self, model_path,
+                 drop_probs=0.0, n_epoch_to_save=1, im_shape=[1, 28, 28],
                  v_sz=784, v_layer_cls=None, v_layer_params=None,
                  h_sz=256, h_layer_cls=None, h_layer_params=None, pcd=True,
                  W_init=None, vb_init=None, hb_init=None, metrics_interval=200,
@@ -17,6 +18,7 @@ class rbm_base:
                  max_epoch=10, batch_size=16, l2=1e-4, verbose=True):
 
         self.model_path = model_path
+        self.im_shape = im_shape
         self.drop_probs = drop_probs
         self.pcd = pcd
         self.persistent_chains = None
@@ -176,10 +178,13 @@ class rbm_base:
                     writer.add_histogram('v_bias', self._vb, self._step)
                     writer.add_histogram('h_bias', self._hb, self._step)
                     writer.add_histogram('dW', self._dW, self._step)
+                    if self.im_shape[0] == 3:  # tensorboardX 不支持灰度图
+                        writer.add_image('filters', self._filters(4))
 
                     if self.verbose:
                         print('epoch: [%d \ %d] global_step: [%d] free_energy_gap: [%.3f] train_msre: [%3f]' % (
                             epoch + 1, self.max_epoch, self._step, free_energy_gap, msre))
+
             # save
             if (epoch + 1) % self.n_epoch_to_save == 0:
                 self.save()
@@ -193,6 +198,11 @@ class rbm_base:
     def inf_by_stochastic(self, batch_size, n_gibbs_steps):
         h0_sto = self._h_layer.init(batch_size)
         return self._gibbs_chain(h0_sto, n_gibbs_steps)[0]
+
+    def _filters(self, n_filter=64):
+        assert n_filter < self.h_sz
+        filter_ = self._W.t().contiguous()[:n_filter, :]
+        return filter_.view([n_filter] + self.im_shape)
 
     def save(self):
         np.savez(os.path.join(self.model_path + 'ckpt_{}.npz'.format(self._step)),

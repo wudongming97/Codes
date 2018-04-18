@@ -6,10 +6,8 @@ from utils import *
 
 
 class rbm_base:
-    def __init__(self, model_path,
+    def __init__(self, model_path, v_sz=784, h_sz=256, pcd=True,
                  drop_probs=0.0, n_epoch_to_save=1, im_shape=[1, 28, 28],
-                 v_sz=784, v_layer_cls=None, v_layer_params=None,
-                 h_sz=256, h_layer_cls=None, h_layer_params=None, pcd=True,
                  W_init=None, vb_init=None, hb_init=None, metrics_interval=200,
                  init_lr=1e-2, lr_start=2, lr_stop=8, ultimate_lr=2e-5,
                  n_gibbs_steps=1, sample_v_states=False, sample_h_states=True,
@@ -25,14 +23,6 @@ class rbm_base:
         self.n_epoch_to_save = n_epoch_to_save
         self.v_sz = v_sz
         self.h_sz = h_sz
-
-        v_layer_params = v_layer_params or {}
-        v_layer_params.setdefault('n_units', self.v_sz)
-        self._v_layer = v_layer_cls(**v_layer_params)
-
-        h_layer_params = h_layer_params or {}
-        h_layer_params.setdefault('n_units', self.h_sz)
-        self._h_layer = h_layer_cls(**h_layer_params)
 
         self.W_init = W_init
         self.vb_init = vb_init
@@ -78,13 +68,19 @@ class rbm_base:
         self._hb = Tensor(np.zeros(self.h_sz)) if self.hb_init is None else self.hb_init
         self._vb = Tensor(np.zeros(self.v_sz)) if self.vb_init is None else self.vb_init
 
+    def _free_energy(self, v):
+        raise NotImplementedError
+
+    def _h_given_v(self, v):
+        raise NotImplementedError
+
+    def _v_given_h(self, h):
+        raise NotImplementedError
+
     def _dropout(self, X, drop_probs):
         assert 0 <= drop_probs < 1
         X *= T.bernoulli((1 - drop_probs) * T.ones_like(X)) / (1 - drop_probs)
         return X
-
-    def _free_energy(self, v):
-        raise NotImplementedError
 
     def _msre_metric(self, v):
         v_ = self._gibbs_chain(self._h_given_v(v)[0], self.n_gibbs_steps)[0]
@@ -104,16 +100,6 @@ class rbm_base:
         mo = self._mo + linear_inc(self.init_mo, self.ultimate_mo,
                                    self.mo_start_decay, self.mo_stop_decay)
         self._mo = mo if mo < self.ultimate_mo else self.ultimate_mo
-
-    def _h_given_v(self, v):
-        h_probs = self._h_layer.activation(v @ self._W + self._hb)
-        h_samples = self._h_layer.sample(h_probs)
-        return h_probs, h_samples
-
-    def _v_given_h(self, h):
-        v_probs = self._v_layer.activation(h @ self._W.t() + self._vb)
-        v_samples = self._v_layer.sample(v_probs)
-        return v_probs, v_samples
 
     def _gibbs_step(self, h0):
         v_probs, v_samples = self._v_given_h(h0)
@@ -196,7 +182,7 @@ class rbm_base:
         return self._gibbs_chain(h0_val, n_gibbs_steps)[0]
 
     def inf_by_stochastic(self, batch_size, n_gibbs_steps):
-        h0_sto = self._h_layer.init(batch_size)
+        h0_sto = Tensor(np.random.normal(1e-8, 0.02, size=[batch_size, self.h_sz]))
         return self._gibbs_chain(h0_sto, n_gibbs_steps)[0]
 
     def _filters(self, n_filter=64):

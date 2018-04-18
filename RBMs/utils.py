@@ -21,7 +21,7 @@ mnist_test = torchvision.datasets.MNIST(
     transform=torchvision.transforms.ToTensor(),
     download=True)
 
-fashion = torchvision.datasets.FashionMNIST(
+fashion_train = torchvision.datasets.FashionMNIST(
     './datas/fashion',
     train=True,
     transform=torchvision.transforms.ToTensor(),

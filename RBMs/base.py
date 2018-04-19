@@ -77,6 +77,12 @@ class rbm_base:
     def _v_given_h(self, h):
         raise NotImplementedError
 
+    def save(self):
+        raise NotImplementedError
+
+    def load(self):
+        raise NotImplementedError
+
     def _dropout(self, X, drop_probs):
         assert 0 <= drop_probs < 1
         X *= T.bernoulli((1 - drop_probs) * T.ones_like(X)) / (1 - drop_probs)
@@ -190,34 +196,22 @@ class rbm_base:
         filter_ = self._W.t().contiguous()[:n_filter, :]
         return filter_.view([n_filter] + self.im_shape)
 
-    def save(self):
+    def _save(self, **kwargs):
         np.savez(os.path.join(self.model_path + 'ckpt_{}.npz'.format(self._step)),
-                 W=self._W, vb=self._vb, hb=self._hb, dW=self._dW, dvb=self._dvb,
-                 dhb=self._dhb, q_mean=self._q_mean,
-                 optim_params=np.array([self._lr, self._mo, self._step]))
+                 _step=self._step, _lr=self._lr, _mo=self._mo,
+                 _W=self._W, _vb=self._vb, _hb=self._hb, _q_mean=self._q_mean,
+                 _dW=self._dW, _dvb=self._dvb, _dhb=self._dhb, **kwargs)
         from shutil import copyfile
         copyfile(os.path.join(self.model_path + 'ckpt_{}.npz'.format(self._step)),
                  os.path.join(self.model_path + 'ckpt_latest.npz'))
 
-    def load(self, step_to_load=None, only_weights=False):
-        filename = 'ckpt_latest.npz' if step_to_load is None else 'ckpt_{}.npz'.format(step_to_load)
-        npz_file = os.path.join(self.model_path + filename)
-        return self._load(npz_file, only_weights)
-
-    def _load(self, npz_file, only_weights=False):
+    def _load(self, npz_file, *args):
         if not os.path.isfile(npz_file):
             return False
         npz = np.load(npz_file)
-        self._W = Tensor(npz['W'])
-        self._vb = Tensor(npz['vb'])
-        self._hb = Tensor(npz['hb'])
-        if not only_weights:
-            _lr, _momentum, _step = npz['optim_params']
-            self._step = Tensor(1).fill_(_step)
-            self._lr = Tensor(1).fill_(_lr)
-            self._mo = Tensor(1).fill_(_momentum)
-            self._dW = Tensor(npz['dW'])
-            self._dhb = Tensor(npz['dhb'])
-            self._dvb = Tensor(npz['dvb'])
-            self._q_mean = Tensor(npz['q_mean'])
-        return True
+        self._W, self._vb, self._hb = Tensor(npz['_W']), Tensor(npz['_vb']), Tensor(npz['_hb'])
+        self._step, self._mo, self._lr = int(npz['_step']), float(npz['_mo']), float(npz['_lr'])
+        self._dW, self._dhb, self._dvb = Tensor(npz['_dW']), Tensor(npz['_dhb']), Tensor(npz['_dvb'])
+        self._q_mean = Tensor(npz['_q_mean'])
+
+        return [npz[t] for t in args]

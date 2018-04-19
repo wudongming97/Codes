@@ -57,4 +57,4 @@ def basic_test(model, train_ds, test_ds, train=True):
 
 
 if __name__ == '__main__':
-    basic_test(brbm_pcd, mnist_train, mnist_test, train=True)
+    basic_test(brbm_pcd, mnist_train, mnist_test, train=False)

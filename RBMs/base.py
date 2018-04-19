@@ -89,7 +89,7 @@ class rbm_base:
         return X
 
     def _msre_metric(self, v):
-        v_ = self._gibbs_chain(self._h_given_v(v)[0], self.n_gibbs_steps)[0]
+        v_ = self._gibbs_sample(self._h_given_v(v)[0], self.n_gibbs_steps)[0]
         return T.mean((v - v_) ** 2)
 
     def _free_energy_gap_metric(self, train, valid, batch_size):
@@ -114,30 +114,29 @@ class rbm_base:
         h = h_samples if self.sample_h_states else h_probs
         return v, h
 
-    def _gibbs_chain(self, h0, n_gibbs_steps):
+    def _gibbs_sample(self, h0, n_gibbs_steps):
         v, h = None, h0
         for _ in range(n_gibbs_steps):
             v, h = self._gibbs_step(h)
         return v, h
 
-    def _update(self, v0):
-        N = v0.size()[0]
-
+    def _gibbs_chain(self, v0):
         h0 = self._h_given_v(v0)[1]
         h_gibbs = self.persistent_chains if self.pcd else h0
-        vn, hn = self._gibbs_chain(h_gibbs, self.n_gibbs_steps)
+        vn, hn = self._gibbs_sample(h_gibbs, self.n_gibbs_steps)
         self.persistent_chains = hn
+        return h0, v0, hn, vn
 
+    def _update(self, h0, v0, hn, vn):
+        N = v0.size()[0]
         # 添加稀疏化正则项
         q_means = T.mean(hn, 0)
         self._q_mean = self.sparsity_damping * self._q_mean + (1 - self.sparsity_damping) * q_means
         sparsity_penalty = self.sparsity_cost * (self._q_mean - self.sparsity_target)
-
         dW = (vn.t() @ hn - v0.t() @ h0) / N + self.l2 * self._W + sparsity_penalty
         dvb = T.mean(vn - v0, 0)
         dhb = T.mean(hn - h0, 0) + sparsity_penalty
 
-        # update
         self._dW = self._mo * self._dW + self._lr * dW
         self._dvb = self._mo * self._dvb + self._lr * dvb
         self._dhb = self._mo * self._dhb + self._lr * dhb
@@ -155,10 +154,10 @@ class rbm_base:
             for X_batch in next_batch(X, self.batch_size):
                 X_batch = X_batch.view(-1, self.v_sz)
                 X_batch = self._dropout(X_batch, self.drop_probs)
-                self._update(X_batch)
-                self._step += 1
+                h0, v0, hn, vn = self._gibbs_chain(X_batch)
+                self._update(h0, v0, hn, vn)
 
-                # verbose and metrics
+                self._step += 1
                 if (self._step + 1) % self.metrics_interval == 0:
                     free_energy_gap = self._free_energy_gap_metric(X, X_val, 800)
                     msre = self._msre_metric(X_batch)
@@ -172,10 +171,13 @@ class rbm_base:
                     writer.add_histogram('dW', self._dW, self._step)
                     if self.im_shape[0] == 3:  # tensorboardX 不支持灰度图
                         writer.add_image('filters', self._filters(4))
+                    else:
+                        tv.utils.save_image(vn.view([-1] + self.im_shape),
+                                            self.model_path + 'verbose/train_{}.png'.format(self._step))
 
                     if self.verbose:
-                        print('epoch: [%d \ %d] global_step: [%d] free_energy_gap: [%.3f] train_msre: [%3f]' % (
-                            epoch + 1, self.max_epoch, self._step, free_energy_gap, msre))
+                        print('epoch: [%d \ %d] global_step: [%d] train_msre: [%3f]' % (
+                            epoch + 1, self.max_epoch, self._step, msre))
 
             # save
             if (epoch + 1) % self.n_epoch_to_save == 0:
@@ -185,11 +187,11 @@ class rbm_base:
     def inf_from_valid(self, batch_X_val, n_gibbs_steps):
         batch_X_val = batch_X_val.view([-1, self.v_sz])
         h0_val, _ = self._h_given_v(batch_X_val)
-        return self._gibbs_chain(h0_val, n_gibbs_steps)[0]
+        return self._gibbs_sample(h0_val, n_gibbs_steps)[0]
 
     def inf_by_stochastic(self, batch_size, n_gibbs_steps):
         h0_sto = Tensor(np.random.normal(1e-8, 0.02, size=[batch_size, self.h_sz]))
-        return self._gibbs_chain(h0_sto, n_gibbs_steps)[0]
+        return self._gibbs_sample(h0_sto, n_gibbs_steps)[0]
 
     def _filters(self, n_filter=64):
         assert n_filter < self.h_sz

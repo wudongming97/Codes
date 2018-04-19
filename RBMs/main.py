@@ -1,4 +1,4 @@
-from rbms import BernoulliRBM
+from rbms import BernoulliRBM, GaussianBRBM
 from utils import *
 
 brbm_cd = BernoulliRBM(
@@ -30,6 +30,24 @@ brbm_pcd = BernoulliRBM(
     h_sz=256,
     l2=0.01)
 
+gbrbm = GaussianBRBM(
+    model_path='./logs/grbm_pcd/',
+    pcd=True,
+    drop_probs=0.2,
+    init_lr=5e-4,
+    ultimate_lr=1e-6,
+    lr_start=2,
+    sparsity_target=0.1,
+    lr_stop=98,
+    n_gibbs_steps=2,
+    max_epoch=100,
+    sample_h_states=False,
+    sample_v_states=True,
+    batch_size=10,
+    h_sz=512,
+    l2=0.001
+)
+
 
 def basic_test(model, train_ds, test_ds, train=True):
     if train:
@@ -57,4 +75,5 @@ def basic_test(model, train_ds, test_ds, train=True):
 
 
 if __name__ == '__main__':
-    basic_test(brbm_pcd, mnist_train, mnist_test, train=False)
+    # basic_test(brbm_pcd, mnist_train, mnist_test, train=False)
+    basic_test(gbrbm, mnist_train, mnist_test, train=True)

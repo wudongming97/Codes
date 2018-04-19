@@ -33,21 +33,36 @@ class BernoulliRBM(rbm_base):
         self._load(self.model_path + 'ckpt_latest.npz')
 
 
-class Gaussian_BernoulliRBM(rbm_base):
-    def __init__(self, is_fixed_sigma=True, *args, **kwargs):
-        super(Gaussian_BernoulliRBM, self).__init__(
-            model_path='./logs/gbrbm/', *args, **kwargs)
+class GaussianBRBM(rbm_base):
+    """RBM with Gaussian visible and Bernoulli hidden units.
+
+    This implementation does not learn variances, but instead uses
+    fixed, predetermined values. Input data should be pre-processed
+    to have zero mean (or, equivalently, initialize visible biases
+    to the negative mean of data). It can also be normalized to have
+    unit variance. In the latter case use `sigma` equal to 1., as
+    suggested in [1].
+    """
+
+    def __init__(self, model_path='./logs/gbrbm/',
+                 is_fixed_sigma=True, *args, **kwargs):
+        super(GaussianBRBM, self).__init__(
+            model_path=model_path, *args, **kwargs)
         self._sigma = Tensor(np.ones(self.v_sz))
         self.is_fixed_sigma = is_fixed_sigma
 
     def _h_given_v(self, v):
-        None
+        h_probs = T.sigmoid(v / self._sigma @ self._W + self._hb)
+        h_samples = T.bernoulli(h_probs)
+        return h_probs, h_samples
 
     def _v_given_h(self, h):
-        None
+        v_mean = self._sigma * (h @ self._W.t()) + self._vb
+        v_samples = T.normal(v_mean, std=self._sigma.clone().expand_as(v_mean))
+        return v_mean, v_samples
 
     def _free_energy(self, v):
-        None
+        return 0
 
     def save(self):
         self._save(_sigma=self._sigma)

@@ -38,7 +38,7 @@ from pycocotools.coco import COCO
 
 # Import Mask RCNN
 # sys.path.append(ROOT_DIR)  # To find local version of the library
-from datas import utils
+from build_data import utils
 
 # Download and install the Python COCO tools from https://github.com/waleedka/coco
 # That's a fork from the original https://github.com/pdollar/coco with a bug

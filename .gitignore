@@ -8,5 +8,7 @@
 *.zip
 *.jpg
 *logs
+*data
+*datas
 *datasets
 

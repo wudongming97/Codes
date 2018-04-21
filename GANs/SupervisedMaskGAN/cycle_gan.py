@@ -1,26 +1,31 @@
-import numpy as np
+import os
 
-from data import Reader
+from data import datasets, datasets_info
 from module import *
 from ops import global_step
-from utils import imsave_, imcombind_, inverse_transform
+from plott import *
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 flags = tf.app.flags
-flags.DEFINE_string('ds_x', 'horse', 'x数据集')
-flags.DEFINE_string('ds_y', 'zebra', 'y数据集')
+flags.DEFINE_string('ds_x', 'cat', 'x数据集')
+flags.DEFINE_string('ds_y', 'dog', 'y数据集')
 flags.DEFINE_string('log_path', './logs/cycgan/', '')
 
 flags.DEFINE_integer('steps', 200000, '')
 flags.DEFINE_float('init_lr', 0.0002, '')
 flags.DEFINE_integer('start_decay', 100000, '')
 flags.DEFINE_integer('decay_step', 100000, '')
-flags.DEFINE_float('lamda', 10, '')
+flags.DEFINE_float('lamda', 5, '')
 flags.DEFINE_float('lamda_id', 0.5, '')
 FLAGS = flags.FLAGS
 
 
 class cycle_gan:
     def __init__(self):
+        self.data_x = datasets(datasets_info(FLAGS.ds_x))
+        self.data_y = datasets(datasets_info(FLAGS.ds_y))
+
         self.G = generator_resnet('G')
         self.F = generator_resnet('F')
         self.Dx = discriminator('Dx')
@@ -29,19 +34,20 @@ class cycle_gan:
         # train graph
         self.fake_pool_x = image_pool(50)
         self.fake_pool_y = image_pool(50)
-        self.reader_x = Reader(FLAGS.ds_x)
-        self.reader_y = Reader(FLAGS.ds_y)
 
-        self.real_x = self.reader_x.feed()
-        self.fake_y = self.G(self.real_x, False)
-        self.cyc_x = self.F(self.fake_y, False)
+        self.real_x = tf.placeholder(tf.float32, [1, 256, 256, 3], 'real_x')
+        self.real_x_mask = tf.placeholder(tf.float32, [1, 256, 256, 1], 'real_x_mask')
+        self.real_y = tf.placeholder(tf.float32, [1, 256, 256, 3], 'real_y')
+        self.real_y_mask = tf.placeholder(tf.float32, [1, 256, 256, 1], 'real_y_mask')
 
-        self.real_y = self.reader_y.feed()
-        self.fake_x = self.F(self.real_y)
-        self.cyc_y = self.G(self.fake_x)
+        self.fake_y = self.real_x_mask * self.G(self.real_x, False) + (1 - self.real_x_mask) * self.real_x
+        self.cyc_x = self.real_y_mask * self.F(self.fake_y, False) + (1 - self.real_y_mask) * self.fake_y
 
-        self.pool_x = tf.placeholder(tf.float32, [None, 256, 256, 3], name='Dx_pool')
-        self.pool_y = tf.placeholder(tf.float32, [None, 256, 256, 3], name='Dy_pool')
+        self.fake_x = self.real_y_mask * self.F(self.real_y) + (1 - self.real_y_mask) * self.real_y
+        self.cyc_y = self.real_x_mask * self.G(self.fake_x) + (1 - self.real_x_mask) * self.fake_x
+
+        self.pool_x = tf.placeholder(tf.float32, [None, 256, 256, 3], name='pool_x')
+        self.pool_y = tf.placeholder(tf.float32, [None, 256, 256, 3], name='pool_y')
 
         self.dy_fake = self.Dy(self.fake_y, False)
         self.dy_real = self.Dy(self.real_y)
@@ -92,48 +98,63 @@ class cycle_gan:
             tf.summary.histogram('dy_real', self.dx_real)
         ])
 
-        # test graph
-        # forward
-        self.reader_x_t = Reader(FLAGS.ds_x + '_t')
-        self.test_x = self.reader_x_t.feed(6)
-        self.test_fake_y = self.G(self.test_x)
-        self.test_cyc_x = self.F(self.test_fake_y)
-
-        # backward
-        self.reader_y_t = Reader(FLAGS.ds_y + '_t')
-        self.test_y = self.reader_y_t.feed(6)
-        self.test_fake_x = self.F(self.test_y)
-        self.test_cyc_y = self.G(self.test_fake_x)
+        # # test graph
+        # # forward
+        # self.reader_x_t = Reader(FLAGS.ds_x + '_t')
+        # self.test_x = self.reader_x_t.feed(6)
+        # self.test_fake_y = self.G(self.test_x)
+        # self.test_cyc_x = self.F(self.test_fake_y)
+        #
+        # # backward
+        # self.reader_y_t = Reader(FLAGS.ds_y + '_t')
+        # self.test_y = self.reader_y_t.feed(6)
+        # self.test_fake_x = self.F(self.test_y)
+        # self.test_cyc_y = self.G(self.test_fake_x)
 
     def fit(self, sess, local_):
-        pool_x, pool_y = None, None
+        x_pair, y_pair, pool_x, pool_y = None, None, None, None
         for _ in range(local_):
-            fake_x, fake_y, _ = sess.run([self.fake_x, self.fake_y, self.g_optim])
-            pool_x, pool_y = self.fake_pool_x(fake_x), self.fake_pool_y(fake_y)
+            y_pair = self.data_y.shuffle_pair()
+            x_pair = self.data_x.shuffle_pair()
+            fake_x, fake_y, _ = sess.run([self.fake_x, self.fake_y, self.g_optim], {
+                self.real_x: x_pair[0], self.real_x_mask: x_pair[1],
+                self.real_y: y_pair[0], self.real_y_mask: y_pair[1]
+            })
 
-            sess.run(self.d_optim, {self.pool_x: pool_x, self.pool_y: pool_y})
+            pool_x, pool_y = self.fake_pool_x(fake_x), self.fake_pool_y(fake_y)
+            sess.run(self.d_optim, {self.pool_x: pool_x, self.pool_y: pool_y,
+                                    self.real_x: x_pair[0], self.real_x_mask: x_pair[1],
+                                    self.real_y: y_pair[0], self.real_y_mask: y_pair[1]})
             sess.run(self.inc_step)
 
         return sess.run(
             [self.G_loss, self.F_loss, self.Dx_loss, self.Dy_loss, self.Ix_loss, self.Iy_loss, self.fit_summ],
-            {self.pool_x: pool_x, self.pool_y: pool_y})
+            {self.pool_x: pool_x, self.pool_y: pool_y, self.real_x: x_pair[0], self.real_x_mask: x_pair[1],
+             self.real_y: y_pair[0], self.real_y_mask: y_pair[1]
+             })
 
     def gen(self, sess):
-        images = sess.run(
-            [self.real_x, self.fake_y, self.cyc_x, self.real_y, self.fake_x, self.cyc_y])
-        return np.concatenate(images, axis=0)
+        y_pair = self.data_y.shuffle_pair()
+        x_pair = self.data_x.shuffle_pair()
+        images, masks = sess.run(
+            [(self.real_x, self.fake_y, self.cyc_x, self.real_y, self.fake_x,
+              self.cyc_y), (self.real_x_mask, self.real_y_mask)], {
+                self.real_x: x_pair[0], self.real_x_mask: x_pair[1],
+                self.real_y: y_pair[0], self.real_y_mask: y_pair[1]
+            })
 
-    def test(self, sess):
-        images = sess.run(
-            [self.test_x, self.test_fake_y, self.test_cyc_x, self.test_y, self.test_fake_x, self.test_cyc_y])
-        return np.concatenate(images, axis=0)
+        return np.concatenate(images), np.concatenate(masks)
+
+    # def test(self, sess):
+    #     images = sess.run(
+    #         [self.test_x, self.test_fake_y, self.test_cyc_x, self.test_y, self.test_fake_x, self.test_cyc_y])
+    #     return np.concatenate(images, axis=0)
 
 
 def main(_):
     _model = cycle_gan()
-    _gpu = tf.GPUOptions(allow_growth=True)
     _saver = tf.train.Saver(pad_step_number=True)
-    with tf.Session(config=tf.ConfigProto(gpu_options=_gpu)) as sess:
+    with tf.Session() as sess:
         _writer = tf.summary.FileWriter(FLAGS.log_path, sess.graph)
         tf.global_variables_initializer().run()
 
@@ -142,8 +163,6 @@ def main(_):
             _saver.restore(sess, FLAGS.log_path)
         _step = tf.train.get_global_step().eval()
 
-        coord = tf.train.Coordinator()
-        threads = tf.train.start_queue_runners(sess=sess, coord=coord)
         while True:
             if _step >= FLAGS.steps:
                 break
@@ -154,14 +173,12 @@ def main(_):
             print("Train [%d\%d] G_loss [%3f] F_loss [%3f]  Dx_loss [%3f] Dy_loss [%3f] Ix_loss [%3f] Iy_loss [%3f]" % (
                 _step, FLAGS.steps, res[0], res[1], res[2], res[3], res[4], res[5]))
 
-            images = inverse_transform(_model.gen(sess))
-            imsave_(FLAGS.log_path + 'train_{}.png'.format(_step), imcombind_(images, 3))
-            images = inverse_transform(_model.test(sess))
-            imsave_(FLAGS.log_path + 'test_{}.png'.format(_step), imcombind_(images, 6))
+            images, masks = _model.gen(sess)
+            imsave_(FLAGS.log_path + 'images_{}.png'.format(_step), imcombind_((images + 1) / 2, 3))
+            # imsave_(FLAGS.log_path + 'masks_{}.png'.format(_step), imcombind_(masks, 2))
+            # images = inverse_transform(_model.test(sess))
+            # imsave_(FLAGS.log_path + 'test_{}.png'.format(_step), imcombind_(images, 6))
             _saver.save(sess, FLAGS.log_path) if _step % 1000 == 0 else None
-
-        coord.request_stop()
-        coord.join(threads)
 
 
 if __name__ == "__main__":

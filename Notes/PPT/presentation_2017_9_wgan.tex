@@ -7,43 +7,43 @@
 \usepackage{algorithm,algorithmic}
 \usepackage{amsthm}
 \floatname{algorithm}{算法}
-\renewcommand{\algorithmicrequire}{\textbf{输入:}} 
+\renewcommand{\algorithmicrequire}{\textbf{输入:}}
 \renewcommand{\algorithmicensure}{\textbf{输出:}}
 
 \mode<presentation> {
 
 \usetheme{Madrid}
 \usefonttheme[onlymath]{serif}
-\setbeamertemplate{footline}[page number] 
-\setbeamertemplate{navigation symbols}{} 
+\setbeamertemplate{footline}[page number]
+\setbeamertemplate{navigation symbols}{}
 }
 
-\usepackage[UTF8]{ctex}     
-\graphicspath{{graphics/}}     
-\DeclareGraphicsExtensions{.eps,.png,.jpg} 
+\usepackage[UTF8]{ctex}
+\graphicspath{{graphics/}}
+\DeclareGraphicsExtensions{.eps,.png,.jpg}
 \CTEXoptions[today=old]
 
 
-\AtBeginSection[] { 
+\AtBeginSection[] {
   \begin{frame}
-    \frametitle{Outline} 
-    \tableofcontents[currentsection] 
-  \end{frame} 
+    \frametitle{Outline}
+    \tableofcontents[currentsection,hideallsubsections]
+  \end{frame}
   \addtocounter{framenumber}{-1}  %目录页不计算页码
 }
 %--------------------------------------------------------------
 %	TITLE PAGE
 %--------------------------------------------------------------
-\title[]{Wasserstein Generative Adversarial Nets} 
+\title[]{Wasserstein Generative Adversarial Nets}
 % \subtitle{}
-\author{Presented by Yang Xue} 
-\institute[SCU] 
+\author{Presented by Yang Xue}
+\institute[SCU]
 {
-Sichuan University \\ 
+Sichuan University \\
 \medskip
 % \textit{john@smith.com} % Your email address
 }
-\date{\today} 
+\date{\today}
 %---------------------------------------------------------------
 
 
@@ -53,11 +53,11 @@ Sichuan University \\
 
 %----------------------------------------------------------------
 \begin{frame}
-\titlepage 
+\titlepage
 \end{frame}
 %\begin{frame}
-%\frametitle{Overview} 
-%\tableofcontents 
+%\frametitle{Overview}
+%\tableofcontents
 %\end{frame}
 %----------------------------------------------------------------
 
@@ -135,7 +135,7 @@ Sichuan University \\
         \item \uline{一旦出现完美判别器情况，就无法训练。}
       \end{enumerate}
   \end{columns}
-  
+
 \end{frame}
 %------------------------------------------------
 \begin{frame}
@@ -147,7 +147,7 @@ Sichuan University \\
   $$
 \end{theorem}
 \vspace{5mm}
-${\left \| {\nabla}_{\theta} \mathbb{E}_{z \sim p(z)} \left [ log(1 - D(g_{\theta}(z))) \right ] \right \|}_2^2$ 
+${\left \| {\nabla}_{\theta} \mathbb{E}_{z \sim p(z)} \left [ log(1 - D(g_{\theta}(z))) \right ] \right \|}_2^2$
 \begin{equation*}\begin{split}
 & <   \mathbb{E}_{z \sim p(z)} \left [  \frac{\left ( {\left \| \nabla_{\theta}D^*(g_{\theta}(z)) \right \| }_2 + \epsilon  \right )^2 {\left \| J_{\theta}g_{\theta}(z) \right \|}_2^2}{\left ( \left | 1 - D^*(g_{\theta}(z)) \right | - \epsilon  \right  )^2} \right ]    \\
 & = \mathbb{E}_{z \sim p(z)} \left [ \frac{{\epsilon }^2 \left \| J_{\theta (z)} \right \|^2_2}{\left ( 1 - \epsilon  \right )^2}  \right ]   \\
@@ -257,7 +257,7 @@ $$
   \textbf{缺点：}
     \begin{enumerate}
       \item 计算复杂度高。
-      %\item 
+      %\item
     \end{enumerate}
 \end{columns}
 \end{frame}
@@ -271,16 +271,16 @@ $$
   令$\mathit{Z} \sim \mathit{U}[0,1]$，$\mathbb{P}_0 \sim (0, \mathit{Z})$，$\mathbb{P}_\theta \sim (\theta, Z)$，则：
   \begin{enumerate}
     \item $\mathit{W}(\mathbb{P}_r , \mathbb{P}_\theta) = |\theta|$
-    \item 
+    \item
     $
-    JS(\mathbb{P}_r , \mathbb{P}_\theta) = 
+    JS(\mathbb{P}_r , \mathbb{P}_\theta) =
     \begin{cases}
       log2 & \text{$\theta \neq 0$} \\
       0 & \text{$\theta = 0$}
     \end{cases}
     $
     \item $
-    KL(\mathbb{P}_r , \mathbb{P}_\theta) = 
+    KL(\mathbb{P}_r , \mathbb{P}_\theta) =
     \begin{cases}
       +\infty & \text{$\theta \neq 0$} \\
       0 & \text{$\theta = 0$}
@@ -316,9 +316,9 @@ $$
   \end{split}
 \end{equation*}
 
-\begin{algorithm}[H]                    
-  \caption{WGAN}         
-  \begin{algorithmic}  
+\begin{algorithm}[H]
+  \caption{WGAN}
+  \begin{algorithmic}
     \STATE Sample $\left \{ x^{(i)}) \right \}^m_{i=1} \sim \mathbb{P}_r$
     \STATE Sample $\left \{ z^{(i)}) \right \}^m_{i=1} \sim \mathbb{P}_z$
     \STATE $\Delta \omega \leftarrow \nabla_{\omega} \left [ \frac{1}{m}\sum_{i=1}^{m} f_{\omega }(x^{(i)}) - \frac{1}{m}\sum_{i=1}^{m} f_{\omega }(g_\theta(z^{(i)})) \right ]$

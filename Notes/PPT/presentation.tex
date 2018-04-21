@@ -1,0 +1,146 @@
+\documentclass[xetex]{beamer}
+
+\mode<presentation> {
+
+\usetheme{Madrid}
+\usefonttheme[onlymath]{serif}
+
+\setbeamertemplate{footline}[page number] 
+\setbeamertemplate{navigation symbols}{} 
+}
+
+\usepackage[UTF8]{ctex}
+\usepackage[T1]{fontenc}
+\usepackage{newunicodechar}
+\usepackage{graphicx} 
+\usepackage{booktabs} 
+\usepackage{xcolor}
+\usepackage{nicefrac}
+\usepackage{subfigure}       
+
+\graphicspath{{graphics/}}     
+\DeclareGraphicsExtensions{.eps,.png,.jpg} 
+
+% argmin上下排列， \underset{h}{\argmin}
+\usepackage{amsopn}
+\CTEXoptions[today=old]
+
+%--------------------------------------------------------------
+%	TITLE PAGE
+%--------------------------------------------------------------
+\title[]{Reseach Report} 
+\author{yang xue} 
+\institute[SCU] 
+{
+Sichuan University \\ 
+\medskip
+% \textit{john@smith.com} % Your email address
+}
+\date{\today} 
+%---------------------------------------------------------------
+
+
+
+
+\begin{document}
+
+%----------------------------------------------------------------
+\begin{frame}
+\titlepage 
+\end{frame}
+\begin{frame}
+\frametitle{Overview} 
+\tableofcontents 
+\end{frame}
+%----------------------------------------------------------------
+
+
+%----------------------------------------------------------------
+%	PRESENTATION SLIDES
+%----------------------------------------------------------------
+
+%------------------------------------------------
+\section{First Section}
+%------------------------------------------------
+\subsection{Subsection Example} 
+
+\begin{frame}
+\frametitle{Page one}
+\end{frame}
+%------------------------------------------------
+
+\begin{frame}
+\frametitle{Page two}
+\end{frame}
+%------------------------------------------------
+
+\begin{frame}
+\frametitle{Page three}
+  \begin{block}{Block 1}
+  block1
+  \end{block}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}
+\frametitle{Multiple Columns}
+\begin{columns}[c] % The "c" option specifies centered vertical alignment while the "t" option is used for top vertical alignment
+
+\column{.45\textwidth} % Left column and width
+\textbf{Heading}
+\begin{enumerate}
+\item Statement
+\item Explanation
+\item Example
+\end{enumerate}
+
+\column{.5\textwidth} % Right column and width
+Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer lectus nisl, ultricies in feugiat rutrum, porttitor sit amet augue. Aliquam ut tortor mauris. Sed volutpat ante purus, quis accumsan dolor.
+
+\end{columns}
+\end{frame}
+
+%------------------------------------------------
+\section{Second Section}
+%------------------------------------------------
+
+\begin{frame}
+\frametitle{Theorem}
+\begin{theorem}[Mass--energy equivalence]
+$E = mc^2$
+\end{theorem}
+\end{frame}
+%------------------------------------------------
+
+\begin{frame}[fragile] % Need to use the fragile option when verbatim is used in the slide
+\frametitle{Verbatim}
+\begin{example}[Theorem Slide Code]
+\begin{verbatim}
+\begin{frame}
+\frametitle{Theorem}
+\begin{theorem}[Mass--energy equivalence]
+$E = mc^2$
+\end{theorem}
+\end{frame}\end{verbatim}
+\end{example}
+\end{frame}
+
+%------------------------------------------------
+
+\begin{frame}
+\frametitle{Figure}
+Uncomment the code on this slide to include your own image from the same directory as the template .TeX file. xxx
+%\begin{figure}
+%\includegraphics[width=0.8\linewidth]{test}
+%\end{figure}
+\end{frame}
+
+
+%------------------------------------------------
+\begin{frame}
+\Huge{\centerline{The End}}
+\end{frame}
+%------------------------------------------------
+
+\end{document} 

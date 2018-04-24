@@ -1,5 +1,5 @@
 
-# CycleGAN
+# Mask-CycleGAN
 An simple implementation of Mask-CycleGan using pytorch.
 
 # Notes

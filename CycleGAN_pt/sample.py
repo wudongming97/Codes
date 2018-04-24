@@ -31,11 +31,11 @@ batch = 0
 for (A, _), (B, _) in zip(valid_A, valid_B):
     batch += 1
 
-    a_real = Variable(A).cuda()
+    a_real = Variable(A, volatile=True).cuda()
     b_fake = netG_A(a_real)
     a_rec = netG_B(b_fake)
 
-    b_real = Variable(B).cuda()
+    b_real = Variable(B, volatile=True).cuda()
     a_fake = netG_B(b_real)
     b_rec = netG_A(a_fake)
 

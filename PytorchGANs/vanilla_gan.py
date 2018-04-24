@@ -13,11 +13,12 @@ n_epochs = 100
 
 save_dir = './results_vanilla_gan/'
 print_every = 100
-epoch_to_decay = 50
+epoch_lr_decay = 50
 save_epoch_freq = 1
 
-dim_im = 784
 dim_z = 16
+dim_im = 784
+
 G = T.nn.Sequential(
     nn.Linear(dim_z, 256),
     nn.ReLU(),
@@ -56,7 +57,7 @@ def gaussian(size, mean=0, std=1):
 # train
 for _ in range(epoch, n_epochs):
     epoch += 1
-    if epoch > epoch_to_decay:
+    if epoch > epoch_lr_decay:
         scheduler_G.step()
         scheduler_D.step()
 

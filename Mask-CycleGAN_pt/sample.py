@@ -4,7 +4,7 @@ import torch as T
 import torchvision as tv
 from torch.autograd import Variable
 
-from data import valid_A, valid_B
+from coco_sub import apple2orange_loader
 from networks import ResnetGenerator
 
 epoch = 100
@@ -31,7 +31,7 @@ if epoch >= 1:
     netG_B.load_state_dict(checkpoint['G_B'])
 
 batch = 0
-for (A, _), (B, _) in zip(valid_A, valid_B):
+for A, B in apple2orange_loader:
     batch += 1
 
     a_real = Variable(A, volatile=True).cuda()

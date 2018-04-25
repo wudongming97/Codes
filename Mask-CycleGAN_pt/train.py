@@ -6,12 +6,15 @@ import torch.optim as optim
 import torchvision as tv
 from torch.autograd import Variable
 from torch.optim import lr_scheduler
-
-from data import data_A, data_B
 from networks import *
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
 # T.cuda.set_device(0)
+
+# data
+data_source = 'celeba_smile'  # celeba_smile, apple2orange,horse2zebra
+save_dir = './results_celeba_smile/'
+os.makedirs(save_dir, exist_ok=True)
 
 epoch = 0
 print_every = 200
@@ -24,10 +27,6 @@ n_epochs = 100
 lambda_gan = 0.8
 lambda_cycle = 0.8
 lambda_identity = 2
-
-# data
-save_dir = './results_horse2zebra/'
-os.makedirs(save_dir, exist_ok=True)
 
 # network
 input_nc = 3
@@ -76,6 +75,24 @@ netG_B.train()
 netD_B.train()
 netD_A.train()
 
+
+# loader
+def get_data_loader(ds):
+    if ds == 'horse2zebra':
+        from coco_sub import horse2zebra_loader
+        return horse2zebra_loader
+    elif ds == 'apple2orange':
+        from coco_sub import apple2orange_loader
+        return apple2orange_loader
+    elif ds == 'celeba_smile':
+        from celeba import celeba_smile_loader
+        return celeba_smile_loader
+    else:
+        raise ValueError
+
+
+data_loader = get_data_loader(data_source)
+
 # resume
 if epoch >= 1:
     checkpoint = T.load(save_dir + 'ckpt_{}.ptz'.format(epoch))
@@ -93,7 +110,7 @@ for _ in range(epoch, n_epochs):
         scheduler_D.step()
 
     batch = 0
-    for (A, _), (B, _) in zip(data_A, data_B):
+    for A, B in data_loader:
         batch += 1
         # G:A -> B
         a_real = Variable(A).cuda()
@@ -162,7 +179,7 @@ for _ in range(epoch, n_epochs):
                 a_oimg.data * 0.5 + 0.5,
                 a_mask.data,
                 b_rec.data * 0.5 + 0.5], 0),
-                save_dir + 'images/{}_{}.png'.format(epoch, batch), 5)
+                save_dir + 'train_{}_{}.png'.format(epoch, batch), 5)
 
     if epoch % save_epoch_freq == 0:
         T.save({

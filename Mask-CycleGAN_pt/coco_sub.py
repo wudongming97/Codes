@@ -46,8 +46,8 @@ class paired_image_dataset(data.Dataset):
         im1 = Image.open(paired_path[0])
         im2 = Image.open(paired_path[1])
         if self.transform is not None:
-            im1 = self.transform(im1)
-            im2 = self.transform(im2)
+            im1 = self.transform(im1).convert('RGB')
+            im2 = self.transform(im2).convert('RGB')
         return im1, im2
 
     def __len__(self):

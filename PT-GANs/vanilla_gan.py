@@ -1,3 +1,5 @@
+import os
+
 import torch as T
 import torch.nn as nn
 import torch.optim as optim
@@ -11,7 +13,9 @@ lr = 1e-3
 epoch = 0
 n_epochs = 100
 
-save_dir = './results_vanilla_gan/'
+save_dir = './results_vanilla_gan_1/'
+os.makedirs(save_dir, exist_ok=True)
+
 print_every = 100
 epoch_lr_decay = 50
 save_epoch_freq = 1
@@ -70,7 +74,8 @@ for _ in range(epoch, n_epochs):
         fake_x = G(z)
         fake_score = D(fake_x)
 
-        loss_G = T.mean(T.log(T.ones_like(fake_score) - fake_score))
+        # loss_G = T.mean(T.log(T.ones_like(fake_score) - fake_score))
+        loss_G = -T.mean(T.log(fake_score))  # 相比较上面的loss， 这个收敛的更快
 
         G.zero_grad()
         loss_G.backward()

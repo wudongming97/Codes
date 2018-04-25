@@ -36,6 +36,24 @@ class single_class_image_folder(data.Dataset):
         return img
 
 
+class paired_image_dataset(data.Dataset):
+    def __init__(self, paired_paths, transform):
+        self.paired_paths = paired_paths
+        self.transform = transform
+
+    def __getitem__(self, item):
+        paired_path = self.paired_paths[item]
+        im1 = Image.open(paired_path[0])
+        im2 = Image.open(paired_path[1])
+        if self.transform is not None:
+            im1 = self.transform(im1)
+            im2 = self.transform(im2)
+        return im1, im2
+
+    def __len__(self):
+        return len(self.paired_paths)
+
+
 class random_paired_dataset(data.Dataset):
     def __init__(self, ds1, ds2):
         self.ds1 = ds1

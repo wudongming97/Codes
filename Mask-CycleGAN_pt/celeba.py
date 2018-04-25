@@ -1,8 +1,9 @@
+import random
+
 import torch as T
 import torch.utils.data as data
 import torchvision as tv
 from PIL import Image
-import random
 
 
 class celeba_dataset(data.Dataset):

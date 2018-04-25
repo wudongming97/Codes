@@ -6,6 +6,7 @@ import torch.optim as optim
 import torchvision as tv
 from torch.autograd import Variable
 from torch.optim import lr_scheduler
+
 from networks import *
 
 os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"

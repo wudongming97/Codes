@@ -111,7 +111,7 @@ for _ in range(epoch, n_epochs):
         scheduler_D.step()
 
     batch = 0
-    for A, B in data_loader:
+    for B, A in data_loader:
         batch += 1
         # G:A -> B
         a_real = Variable(A).cuda()

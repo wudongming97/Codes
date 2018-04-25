@@ -1,3 +1,5 @@
+import os
+
 import torch as T
 import torchvision as tv
 from torch.autograd import Variable
@@ -8,7 +10,8 @@ from networks import ResnetGenerator
 epoch = 100
 
 # data
-save_dir = './results/'
+save_dir = './valid_results/'
+os.makedirs(save_dir, exist_ok=True)
 
 # network
 input_nc = 3
@@ -46,4 +49,4 @@ for (A, _), (B, _) in zip(valid_A, valid_B):
         b_real.data * 0.5 + 0.5,
         a_fake.data * 0.5 + 0.5,
         b_rec.data * 0.5 + 0.5], 0),
-        save_dir + 'valid_images/{}_{}.png'.format(epoch, batch), 3)
+        save_dir + 'valid_{}_{}.png'.format(epoch, batch), 3)

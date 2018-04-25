@@ -27,6 +27,7 @@ lambda_identity = 2
 
 # data
 save_dir = './results_horse2zebra/'
+os.makedirs(save_dir, exist_ok=True)
 
 # network
 input_nc = 3

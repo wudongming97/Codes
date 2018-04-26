@@ -40,8 +40,8 @@ ndf = 32
 
 netG_A = ResnetGenerator(input_nc, output_nc, ngf, nn.BatchNorm2d).to(device)
 netG_B = ResnetGenerator(input_nc, output_nc, ngf, nn.BatchNorm2d).to(device)
-netD_A = NLayerDiscriminator(input_nc, ndf, nn.BatchNorm2d).cuda().to(device)
-netD_B = NLayerDiscriminator(input_nc, ndf, nn.BatchNorm2d).cuda().to(device)
+netD_A = NLayerDiscriminator(input_nc, ndf, nn.BatchNorm2d).to(device)
+netD_B = NLayerDiscriminator(input_nc, ndf, nn.BatchNorm2d).to(device)
 
 # optim
 opt_G = optim.Adam(list(netG_A.parameters()) + list(netG_B.parameters()), lr=lr, betas=(0.5, 0.999))

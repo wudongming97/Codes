@@ -102,10 +102,10 @@ for _ in range(epoch, n_epochs):
             _imags = fake_x.view(batch_size, 1, 28, 28).data
             tv.utils.save_image(_imags, save_dir + '{}_{}.png'.format(epoch, _batch))
 
-        if epoch % save_epoch_freq == 0:
-            T.save({
-                'lr': lr,
-                'epoch': epoch,
-                'G': G.state_dict(),
-                'D': D.state_dict()
-            }, save_dir + 'ckpt_{}.ptz'.format(epoch))
+    if epoch % save_epoch_freq == 0:
+        T.save({
+            'lr': lr,
+            'epoch': epoch,
+            'G': G.state_dict(),
+            'D': D.state_dict()
+        }, save_dir + 'ckpt_{}.ptz'.format(epoch))

@@ -1,12 +1,10 @@
 import os
 
-import torch as T
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-import torchvision as tv
 
-from utils import plot_q_z
+from utils import *
 
 _use_cuda = T.cuda.is_available()
 DEVICE = T.device('cuda' if _use_cuda else 'cpu')
@@ -16,34 +14,6 @@ os.makedirs(save_dirs, exist_ok=True)
 
 im_dim = 784
 z_dim = 16
-
-batch_size = 64
-
-train_iter = T.utils.data.DataLoader(
-    dataset=tv.datasets.MNIST(
-        root='../../Datasets/MNIST/',
-        transform=tv.transforms.ToTensor(),
-        train=True,
-        download=True
-    ),
-    batch_size=batch_size,
-    shuffle=True,
-    drop_last=True,
-    num_workers=2,
-)
-
-test_iter = T.utils.data.DataLoader(
-    dataset=tv.datasets.MNIST(
-        root='../../Datasets/MNIST/',
-        transform=tv.transforms.ToTensor(),
-        train=False,
-        download=True
-    ),
-    batch_size=1000,
-    shuffle=True,
-    drop_last=True,
-    num_workers=2,
-)
 
 
 class vae(nn.Module):
@@ -100,7 +70,7 @@ def train(model, data_iter, lr=1e-3, n_epochs=10):
 
             if b % 100 == 0:
                 print('[ %d / %d ] kl_loss: %.4f rec_loss: %4f ' % (e, n_epochs, kl_loss.item(), rec_loss.item()))
-                # plot_q_z(z.detach().cpu().numpy(), l, save_dirs + '{}_{}.png'.format(e, b))
+
         # test
         with T.no_grad():
             # 随机生成

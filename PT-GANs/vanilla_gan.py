@@ -1,13 +1,11 @@
 import os
 
-import torch as T
 import torch.nn as nn
 import torch.optim as optim
-import torchvision as tv
 from torch.autograd import Variable
 from torch.optim import lr_scheduler
 
-from data import mnist_loader, batch_size
+from data import *
 
 lr = 1e-3
 epoch = 0
@@ -66,7 +64,7 @@ for _ in range(epoch, n_epochs):
         scheduler_D.step()
 
     _batch = 0
-    for X, _ in mnist_loader:
+    for X, _ in train_iter:
         _batch += 1
         # G
         x_real = Variable(X).view(-1, dim_im).cuda()

@@ -1,7 +1,7 @@
 import torchvision as tv
 import torch as T
 
-batch_size = 100
+batch_size = 64
 
 train_iter = T.utils.data.DataLoader(
     dataset=tv.datasets.MNIST(

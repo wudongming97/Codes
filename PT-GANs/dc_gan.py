@@ -2,6 +2,7 @@ import os
 
 import torch as T
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim as optim
 import torchvision as tv
 from torch.optim import lr_scheduler
@@ -19,12 +20,11 @@ print_every = 100
 save_epoch_freq = 1
 
 nz = 100
-im_size = [64, 64, 3]
-
-batch_size = 64
+im_size = [64, 64]
+batch_size = 128
 
 _transformer = tv.transforms.Compose([
-    # tv.transforms.Resize([256, 256]),
+    tv.transforms.Resize(im_size),
     tv.transforms.ToTensor(),
     tv.transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
 ])
@@ -36,17 +36,6 @@ train_iter = T.utils.data.DataLoader(
         classes=['bedroom_train']
     ),
     batch_size=batch_size,
-    shuffle=True,
-    drop_last=True,
-    num_workers=2,
-)
-val_iter = T.utils.data.DataLoader(
-    dataset=tv.datasets.LSUN(
-        root='../../Datasets/LSUN/',
-        transform=_transformer,
-        classes=['bedroom_val']
-    ),
-    batch_size=1000,
     shuffle=True,
     drop_last=True,
     num_workers=2,
@@ -70,10 +59,8 @@ class generator(nn.Module):
     def __init__(self, nz, nc, ngf):
         super(generator, self).__init__()
         self.net = nn.Sequential(
-
             # layer 1
             nn.ConvTranspose2d(nz, ngf * 8, 4, 1, 0, bias=False),
-            nn.BatchNorm2d(ngf * 8),
             nn.ReLU(True),
             # layer 2 (ngf*8) x 4 x 4
             nn.ConvTranspose2d(ngf * 8, ngf * 4, 4, 2, 1, bias=False),
@@ -100,33 +87,33 @@ class generator(nn.Module):
 class discriminator(nn.Module):
     def __init__(self, nc, ndf):
         super(discriminator, self).__init__()
-        self.net = nn.Sequential(
+        self.feature = nn.Sequential(
             # layer 1
             nn.Conv2d(nc, ndf, 4, 2, 1),
             nn.LeakyReLU(0.2, inplace=True),
-
             # layer 2
             nn.Conv2d(ndf, ndf * 2, 4, 2, 1, bias=False),
             nn.BatchNorm2d(ndf * 2),
-            nn.LeakyReLU(0.2, inplace=True),
+            nn.LeakyReLU(0.2, inplace=True)
+        )
+        self.net = nn.Sequential(
             # layer 3
             nn.Conv2d(ndf * 2, ndf * 4, 4, 2, 1, bias=False),
             nn.BatchNorm2d(ndf * 4),
             nn.LeakyReLU(0.2, inplace=True),
-
             # layer 3
             nn.Conv2d(ndf * 4, ndf * 8, 4, 2, 1, bias=False),
             nn.BatchNorm2d(ndf * 8),
             nn.LeakyReLU(0.2, inplace=True),
-
             # layer 4
             nn.Conv2d(ndf * 8, 1, 4, 1, 0, bias=False),
             nn.Sigmoid()
         )
 
     def forward(self, x):
-        output = nn.parallel.data_parallel(self.net, x)
-        return output.view(-1, 1).squeeze(1)
+        feature = self.feature(x)
+        output = self.net(feature)
+        return feature, output.view(-1, 1).squeeze(1)
 
 
 G = generator(nz, 3, 64).apply(weights_init).to(DEVICE)
@@ -135,8 +122,9 @@ D = discriminator(3, 64).apply(weights_init).to(DEVICE)
 print(G)
 print(D)
 
-opt_G = optim.Adam(G.parameters(), lr, betas=[0.5, 0.99])
-opt_D = optim.Adam(D.parameters(), lr, betas=[0.5, 0.99])
+opt_G = optim.SGD(G.parameters(), lr)
+opt_D = optim.SGD(D.parameters(), lr)
+
 scheduler_lr = lr_scheduler.StepLR(opt_G, step_size=1, gamma=0.9)
 
 G.train()
@@ -144,9 +132,12 @@ D.train()
 
 fixed_noise = T.randn(batch_size, nz, 1, 1, device=DEVICE)
 
+real_label = 1
+fake_label = 0
+
 # train
 for epoch in range(0, n_epochs):
-
+    print('--' * 10)
     _batch = 0
     scheduler_lr.step()
     for X, _ in train_iter:
@@ -155,34 +146,34 @@ for epoch in range(0, n_epochs):
         x_real = X.to(DEVICE)
         z = fixed_noise
         fake_x = G(z)
-        fake_score = D(fake_x)
 
-        loss_G = T.mean(T.log(T.ones_like(fake_score) * 0.9 - fake_score))
-        # loss_G = -T.mean(T.log(fake_score))  # 相比较上面的loss， 这个收敛的更快
+        fake_score = D(fake_x)[1]
+        real_score = D(x_real)[1]
 
-        G.zero_grad()
-        loss_G.backward()
-        opt_G.step()
+        r_label = T.full((batch_size,), real_label, device=DEVICE)
+        f_label = T.full((batch_size,), fake_label, device=DEVICE)
 
-        # D
-        fake_score = D(fake_x.detach())
-        real_score = D(x_real)
-
-        loss_D = - T.mean(T.log(T.ones_like(fake_score) * 0.9 - fake_score) +
-                          T.log(real_score))
-
+        lss_D = F.binary_cross_entropy(real_score, r_label) + F.binary_cross_entropy(fake_score, f_label)
         D.zero_grad()
-        loss_D.backward()
+        lss_D.backward()
         opt_D.step()
+
+        fake_feature, fake_score = D(fake_x.detach())
+        real_feature, real_score = D(x_real)
+
+        lss_G = F.binary_cross_entropy(fake_score, r_label) + F.mse_loss(fake_feature, real_feature)
+        G.zero_grad()
+        lss_G.backward()
+        opt_G.step()
 
         if _batch % print_every == 0:
             print('Epoch %d Batch %d ' % (epoch, _batch) +
-                  'Loss D: %0.3f ' % loss_D.data[0] +
-                  'Loss G: %0.3f ' % loss_G.data[0] +
+                  'Loss D: %0.3f ' % lss_D.item() +
+                  'Loss G: %0.3f ' % lss_G.item() +
                   'F-score/R-score: [ %0.3f / %0.3f ]' %
-                  (T.mean(fake_score.data), T.mean(real_score.data)))
+                  (T.mean(fake_score).item(), T.mean(real_score).item()))
 
-    tv.utils.save_image(fake_x.detach()[:16], save_dir + '{}_{}.png'.format(epoch, _batch))
+            tv.utils.save_image((fake_x.detach()[:64] + 1.) / 2., save_dir + '{}_{}.png'.format(epoch, _batch))
 
     if epoch % save_epoch_freq == 0:
         T.save(D.state_dict(), 'G_{}.pt'.format(epoch))

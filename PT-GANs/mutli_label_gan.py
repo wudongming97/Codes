@@ -1,11 +1,12 @@
 import os
 
+import torch as T
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
+import torchvision as tv
 from torch.optim import lr_scheduler
 
-from data import *
 from utils import get_cls_accuracy
 
 _use_cuda = T.cuda.is_available()
@@ -24,6 +25,34 @@ save_epoch_freq = 2
 dim_z = 16
 dim_l = 11
 dim_im = 784
+
+batch_size = 64
+
+train_iter = T.utils.data.DataLoader(
+    dataset=tv.datasets.MNIST(
+        root='../../Datasets/MNIST/',
+        transform=tv.transforms.ToTensor(),
+        train=True,
+        download=True
+    ),
+    batch_size=batch_size,
+    shuffle=True,
+    drop_last=True,
+    num_workers=2,
+)
+
+test_iter = T.utils.data.DataLoader(
+    dataset=tv.datasets.MNIST(
+        root='../../Datasets/MNIST/',
+        transform=tv.transforms.ToTensor(),
+        train=False,
+        download=True
+    ),
+    batch_size=1000,
+    shuffle=True,
+    drop_last=True,
+    num_workers=2,
+)
 
 G = T.nn.Sequential(
     nn.Linear(dim_z, 256),

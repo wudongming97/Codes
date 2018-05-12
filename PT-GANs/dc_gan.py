@@ -16,10 +16,13 @@ n_epochs = 30
 save_dir = './results_dcgan/'
 os.makedirs(save_dir, exist_ok=True)
 
-print_every = 200
+print_every = 50
 save_epoch_freq = 1
 
 nz = 100
+nc = 3
+ndf = 128
+ngf = 128
 im_size = [64, 64]
 batch_size = 128
 
@@ -125,8 +128,8 @@ class discriminator(nn.Module):
         return nn.parallel.data_parallel(self.net, x).view(-1, 1).squeeze(1)
 
 
-G = generator(nz, 3, 64).apply(weights_init).to(DEVICE)
-D = discriminator(3, 64).apply(weights_init).to(DEVICE)
+G = generator(nz, nc, ngf).apply(weights_init).to(DEVICE)
+D = discriminator(3, ndf).apply(weights_init).to(DEVICE)
 
 print('网络结构!!' + '\n' + '--' * 30)
 print(G)
@@ -181,7 +184,7 @@ for epoch in range(0, n_epochs):
                   'F-score/R-score: [%0.3f/%0.3f]' %
                   (T.mean(fake_score).item(), T.mean(real_score).item()))
 
-            tv.utils.save_image((fake_x.detach()[:64] + 1.) / 2., save_dir + '{}_{}.png'.format(epoch, _batch))
+            tv.utils.save_image(fake_x.detach()[:64] * 0.5 + 0.5, save_dir + '{}_{}.png'.format(epoch, _batch))
 
     if epoch % save_epoch_freq == 0:
         T.save(D.state_dict(), 'dcgan_netd.pth')

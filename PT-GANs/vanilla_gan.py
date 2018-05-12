@@ -1,11 +1,11 @@
 import os
 
+import torch as T
 import torch.nn as nn
 import torch.optim as optim
+import torchvision as tv
 from torch.autograd import Variable
 from torch.optim import lr_scheduler
-
-from data import *
 
 lr = 1e-3
 epoch = 0
@@ -20,6 +20,34 @@ save_epoch_freq = 1
 
 dim_z = 16
 dim_im = 784
+
+batch_size = 64
+
+train_iter = T.utils.data.DataLoader(
+    dataset=tv.datasets.MNIST(
+        root='../../Datasets/MNIST/',
+        transform=tv.transforms.ToTensor(),
+        train=True,
+        download=True
+    ),
+    batch_size=batch_size,
+    shuffle=True,
+    drop_last=True,
+    num_workers=2,
+)
+
+test_iter = T.utils.data.DataLoader(
+    dataset=tv.datasets.MNIST(
+        root='../../Datasets/MNIST/',
+        transform=tv.transforms.ToTensor(),
+        train=False,
+        download=True
+    ),
+    batch_size=1000,
+    shuffle=True,
+    drop_last=True,
+    num_workers=2,
+)
 
 G = T.nn.Sequential(
     nn.Linear(dim_z, 256),

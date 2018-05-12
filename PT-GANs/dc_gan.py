@@ -75,7 +75,6 @@ class generator(nn.Module):
         self.net = nn.Sequential(
             # layer 1
             nn.ConvTranspose2d(nz, ngf * 8, 4, 1, 0, bias=False),
-            nn.Dropout(0.2),
             nn.ReLU(True),
             # layer 2 (ngf*8) x 4 x 4
             nn.ConvTranspose2d(ngf * 8, ngf * 4, 4, 2, 1, bias=False),
@@ -104,7 +103,6 @@ class discriminator(nn.Module):
         self.net = nn.Sequential(
             # layer 1
             nn.Conv2d(nc, ndf, 4, 2, 1, bias=False),
-            nn.Dropout(0.2),
             nn.LeakyReLU(0.2, True),
             # layer 2
             nn.Conv2d(ndf, ndf * 2, 4, 2, 1, bias=False),
@@ -142,8 +140,6 @@ scheduler_lr = lr_scheduler.StepLR(opt_G, step_size=1, gamma=0.9)
 G.train()
 D.train()
 
-fixed_noise = T.randn(batch_size, nz, 1, 1, device=DEVICE)
-
 real_label = 1
 fake_label = 0
 
@@ -156,9 +152,9 @@ for epoch in range(0, n_epochs):
         _batch += 1
 
         x_real = X.to(DEVICE)
-        z = fixed_noise
-        fake_x = G(z)
+        z = T.randn(x_real.size(0), nz, 1, 1, device=DEVICE)
 
+        fake_x = G(z)
         fake_score = D(fake_x)
         real_score = D(x_real)
 

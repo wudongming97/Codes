@@ -18,6 +18,16 @@ def to_categorical(labels):
     return one_hot
 
 
+def one_hot(labels, num_classes):
+    labels = labels.reshape(-1, 1)
+    return (labels == T.arange(num_classes).reshape(1, num_classes).long()).float()
+
+
+def one_hot_v2(labels, num_classes):
+    ones = T.sparse.torch.eye(num_classes)
+    return ones.index_select(0, labels)
+
+
 def plot_q_z(x, y, filename):
     from sklearn.manifold import TSNE
     colors = ["#2103c8", "#0e960e", "#e40402", "#05aaa8", "#ac02ab", "#aba808", "#151515", "#94a169", "#bec9cd",

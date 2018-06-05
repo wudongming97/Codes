@@ -1,4 +1,3 @@
-# network borrow from https://github.com/1Konny/Beta-VAE/blob/master/model.py
 import os
 
 import torch
@@ -6,8 +5,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import torchvision as tv
-
-from data import chairs_3d_iter
 
 _use_cuda = torch.cuda.is_available()
 DEVICE = torch.device('cuda' if _use_cuda else 'cpu')
@@ -28,6 +25,7 @@ class View(nn.Module):
         return input.view(self.size)
 
 
+# network borrow from https://github.com/1Konny/Beta-VAE/blob/master/model.py
 class BetaVAE_H(nn.Module):
     def __init__(self, z_dim=10, nc=3):
         super(BetaVAE_H, self).__init__()
@@ -72,18 +70,19 @@ class BetaVAE_H(nn.Module):
         return x_rec, mu, logvar
 
 
-def train(model, data_iter, lr=1e-3, n_epochs=10, save_dir='./results/'):
+def train(model, data_iter, lr=1e-3, n_epochs=10, beta=1, save_dir='./results/'):
     os.makedirs(save_dir, exist_ok=True)
     trainer = optim.Adam(model.parameters(), lr, betas=[0.5, 0.999])
 
     for e in range(n_epochs):
         model.train()
         for b, x in enumerate(data_iter):
+            x = x.to(DEVICE)
             rec_x, mu, logvar = model(x)
             kld_loss = torch.mean(0.5 * torch.sum(torch.exp(logvar) + mu ** 2 - logvar - 1, 1))
             rec_loss = F.binary_cross_entropy_with_logits(rec_x, x, size_average=False) / rec_x.size(0)
 
-            loss = kld_loss + rec_loss
+            loss = beta * kld_loss + rec_loss
             model.zero_grad()
             loss.backward()
             trainer.step()
@@ -92,6 +91,8 @@ def train(model, data_iter, lr=1e-3, n_epochs=10, save_dir='./results/'):
                 print('[ %2d / %2d ] [%5d] kld_loss: %.4f rec_loss: %4f ' % (
                     e, n_epochs, b, kld_loss.item(), rec_loss.item()))
 
+        # save
+        torch.save(model.state_dict(), save_dir + 'beta_{}_vae_{}.pth'.format(beta, e))
         # test
         with torch.no_grad():
             # 随机生成
@@ -101,7 +102,10 @@ def train(model, data_iter, lr=1e-3, n_epochs=10, save_dir='./results/'):
             tv.utils.save_image(test_ims, save_dir + 'im_{}.png'.format(e))
 
 
-if __name__ == '__main__':
-    model = BetaVAE_H(z_dim=32,
-                      nc=3).to(DEVICE)
-    train(model, chairs_3d_iter)
+def test(model, batch_size, width, save_dir='./results/'):
+    # 对隐层的某一维进行插值
+    for dim in range(model.z_dim):
+        z = torch.randn(batch_size, model.z_dim)
+        z[:, dim] = torch.linspace(-width, width, batch_size)
+        test_ims = F.sigmoid(model.decoder(z.to(DEVICE)))
+        tv.utils.save_image(test_ims, save_dir + 'im_w{}_d{}.png'.format(width, dim))

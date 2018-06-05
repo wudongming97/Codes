@@ -6,7 +6,7 @@ from data import chairs_3d_iter
 
 z_dim = 16
 beta = 4
-save_dir = './b10z16/'
+save_dir = './b4z16/'
 os.makedirs(save_dir, exist_ok=True)
 
 model = BetaVAE_H(z_dim, 3).to(DEVICE)

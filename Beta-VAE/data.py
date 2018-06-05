@@ -42,4 +42,8 @@ _transformer = tv.transforms.Compose([
 
 chairs_3d_iter = torch.utils.data.DataLoader(
     dataset=single_class_image_folder('../../Datasets/rendered_chairs/', transform=_transformer),
-    batch_size=32, drop_last=True, num_workers=2)
+    batch_size=64,
+    shuffle=True,
+    drop_last=True,
+    num_workers=4,
+)

@@ -13,11 +13,11 @@ model = BetaVAE_H(z_dim, 3).to(DEVICE)
 train(model,
       data_iter=chairs_3d_iter,
       lr=1e-4,
-      n_epochs=5,
+      n_epochs=1000,
       beta=beta,
       save_dir=save_dir)
 
-model.load_state_dict(torch.load(save_dir + 'beta_4_vae_4.pth'))
+model.load_state_dict(torch.load(save_dir + 'beta_4_vae_1000.pth'))
 
 test(model,
      batch_size=8,

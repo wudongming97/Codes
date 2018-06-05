@@ -87,19 +87,20 @@ def train(model, data_iter, lr=1e-3, n_epochs=10, beta=1, save_dir='./results/')
             loss.backward()
             trainer.step()
 
-            if (b + 1) % 50 == 0:
+            if (b + 1) % 100 == 0:
                 print('[ %2d / %2d ] [%5d] kld_loss: %.4f rec_loss: %4f ' % (
-                    e, n_epochs, b, kld_loss.item(), rec_loss.item()))
+                    e + 1, n_epochs, b + 1, kld_loss.item(), rec_loss.item()))
 
         # save
-        torch.save(model.state_dict(), save_dir + 'beta_{}_vae_{}.pth'.format(beta, e))
+        if (e + 1) % 5 == 0:
+            torch.save(model.state_dict(), save_dir + 'beta_{}_vae_{}.pth'.format(beta, e + 1))
         # test
         with torch.no_grad():
             # 随机生成
             model.eval()
             z = torch.randn(64, model.z_dim).to(DEVICE)
             test_ims = F.sigmoid(model.decoder(z))
-            tv.utils.save_image(test_ims, save_dir + 'im_{}.png'.format(e))
+            tv.utils.save_image(test_ims, save_dir + 'im_{}.png'.format(e + 1))
 
 
 def test(model, batch_size, width, save_dir='./results/'):

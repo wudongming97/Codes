@@ -117,7 +117,10 @@ class info_gan():
             for i, (x, l) in enumerate(self.data_iter):
                 batch_size = x.size(0)
                 z = torch.randn(batch_size, 62).to(DEVICE)
-                dist = torch.randint(0, 9, (batch_size,), dtype=torch.long).to(DEVICE)
+                if self.supervised:
+                    dist = l.to(DEVICE)
+                else:
+                    dist = torch.randint(0, 9, (batch_size,), dtype=torch.long).to(DEVICE)
                 one_hot_dist = one_hot(dist.cpu(), 10).to(DEVICE)
                 cont = torch.from_numpy(np.random.uniform(-1, 1, size=(batch_size, 2))).float().to(DEVICE)
 
@@ -197,5 +200,5 @@ class info_gan():
 
 
 if __name__ == '__main__':
-    model = info_gan()
+    model = info_gan(supervised=True)
     model.train()

@@ -1,12 +1,20 @@
 import matplotlib.pyplot as plt
 import numpy as np
-import torch as T
+import torch
+
+
+def print_network(net):
+    num_params = 0
+    for param in net.parameters():
+        num_params += param.numel()
+    print(net)
+    print('Total number of parameters: %d' % num_params)
 
 
 def get_cls_accuracy(score, label):
     total = label.size(0)
-    _, pred = T.max(score, dim=1)
-    correct = T.sum(pred == label)
+    _, pred = torch.max(score, dim=1)
+    correct = torch.sum(pred == label)
     accuracy = correct.float() / total
 
     return accuracy
@@ -20,11 +28,11 @@ def to_categorical(labels):
 
 def one_hot(labels, num_classes):
     labels = labels.reshape(-1, 1)
-    return (labels == T.arange(num_classes).reshape(1, num_classes).long()).float()
+    return (labels == torch.arange(num_classes).reshape(1, num_classes).long()).float()
 
 
 def one_hot_v2(labels, num_classes):
-    ones = T.sparse.torch.eye(num_classes)
+    ones = torch.sparse.torch.eye(num_classes)
     return ones.index_select(0, labels)
 
 

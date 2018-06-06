@@ -7,7 +7,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 import torchvision as tv
 
-from utils import one_hot
+from utils import one_hot, print_network
 
 _use_cuda = torch.cuda.is_available()
 DEVICE = torch.device('cuda' if _use_cuda else 'cpu')
@@ -91,7 +91,7 @@ class discriminator(nn.Module):
 class info_gan():
     def __init__(self, save_dir='./results/',
                  supervised=True, g_lr=1e-3, d_lr=2e-4,
-                 n_epochs=10, beta=1, to_display=100, ):
+                 n_epochs=10, beta=1, display_interval=100, ):
         os.makedirs(save_dir, exist_ok=True)
         self.G = generator()
         self.D = discriminator()
@@ -102,7 +102,7 @@ class info_gan():
         self.d_lr = d_lr
         self.n_epochs = n_epochs
         self.beta = beta
-        self.to_display = to_display
+        self.display_interval = display_interval
 
         self.bce_criterion = nn.BCELoss()
         self.ce_criterion = nn.CrossEntropyLoss()
@@ -110,7 +110,12 @@ class info_gan():
         self.g_trainer = optim.Adam(self.G.parameters(), lr=self.g_lr, betas=[0.5, 0.99])
         self.d_trainer = optim.Adam(self.D.parameters(), lr=self.d_lr, betas=[0.5, 0.99])
 
+        print('-' * 20 + 'network' + '-' * 20)
+        print_network(self.G)
+        print_network(self.D)
+
     def train(self):
+        print('-' * 50 + '\ntrain...')
         for e in range(self.n_epochs):
             self.G.train()
             self.D.train()
@@ -149,7 +154,7 @@ class info_gan():
                 loss_g.backward()
                 self.g_trainer.step()
 
-                if (i + 1) % self.to_display == 0:
+                if (i + 1) % self.display_interval == 0:
                     print('[%2d/%2d] loss_d: %.3f loss_g: %.3f r_score: %.3f f_score: %.3f' % (
                         e + 1, self.n_epochs, loss_d.item(), loss_g.item(), torch.mean(a), torch.mean(a_)
                     ))

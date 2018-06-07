@@ -105,8 +105,10 @@ def train(model, data_iter, lr=1e-3, n_epochs=10, beta=1, save_dir='./results/')
 
 def test(model, batch_size, width, save_dir='./results/'):
     # 对隐层的某一维进行插值， 其他维度不变
-    for dim in range(model.z_dim):
-        z = torch.randn(model.z_dim).repeat(batch_size, 1)
-        z[:, dim] = torch.linspace(-width, width, batch_size)
-        test_ims = F.sigmoid(model.decoder(z.to(DEVICE)))
-        tv.utils.save_image(test_ims, save_dir + 'im_w{}_d{}.png'.format(width, dim))
+    model.eval()
+    with torch.no_grad():
+        for dim in range(model.z_dim):
+            z = torch.randn(model.z_dim).repeat(batch_size, 1)
+            z[:, dim] = torch.linspace(-width, width, batch_size)
+            test_ims = F.sigmoid(model.decoder(z.to(DEVICE)))
+            tv.utils.save_image(test_ims, save_dir + 'im_w{}_d{}.png'.format(width, dim))

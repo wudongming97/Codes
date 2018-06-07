@@ -76,7 +76,7 @@ class BetaVAE_B(nn.Module):
         return x_rec, mu, logvar
 
 
-def train(model, data_iter, lr=5e-4, n_epochs=50, gamma=100, min_C=1, max_C=30, save_dir='./beta_vae_b/'):
+def train(model, data_iter, lr=5e-4, n_epochs=50, gamma=1000, min_C=1, max_C=30, save_dir='./beta_vae_b/'):
     os.makedirs(save_dir, exist_ok=True)
     trainer = optim.Adam(model.parameters(), lr, betas=[0.5, 0.999])
     c_it = 0
@@ -121,6 +121,15 @@ def train(model, data_iter, lr=5e-4, n_epochs=50, gamma=100, min_C=1, max_C=30, 
 
 if __name__ == '__main__':
     model2 = BetaVAE_B(nc=1).to(DEVICE)
-    train(model2, data_iter=dsprites_iter, save_dir='./dsprites/')
+    train(model2, data_iter=dsprites_iter, n_epochs=10, gamma=20, save_dir='./dsprites_b100/')
+
+    # this is ok
+    # model = BetaVAE_B(nc=3).to(DEVICE)
+    # train(model, data_iter=chairs_3d_iter, n_epochs=50, gamma=100, save_dir='./3dchars_b100/')
+
+    # this is ok
     model = BetaVAE_B(nc=3).to(DEVICE)
-    train(model, data_iter=chairs_3d_iter, save_dir='./3dchars_b/')
+    train(model, data_iter=chairs_3d_iter, n_epochs=10, gamma=100, save_dir='./3dchars_n10/')
+
+    # notes: 训练成功与否跟gamma的设置有关系，对于3dchairs数据集，若gamma设置为1000（原文设置），则训练失败，重构
+    # 误差基本降不下去，对dsprites，若gamma设置为100（100在3dchairs数据及上ok）则失败，设置为20就ok。 原因？？？

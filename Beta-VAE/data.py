@@ -1,6 +1,7 @@
 import os
 import random
 
+import numpy as np
 import torch
 import torch.utils.data as data
 import torchvision as tv
@@ -15,6 +16,17 @@ def _file_paths(dir, ext):
         elif entry.is_dir():
             paths.extend(_file_paths(entry.path, ext))
     return paths
+
+
+class single_tensor_dataset(data.Dataset):
+    def __init__(self, tensor):
+        self.tensor = tensor
+
+    def __getitem__(self, index):
+        return self.tensor[index]
+
+    def __len__(self):
+        return self.tensor.size(0)
 
 
 class single_class_image_folder(data.Dataset):
@@ -46,4 +58,16 @@ chairs_3d_iter = torch.utils.data.DataLoader(
     shuffle=True,
     drop_last=True,
     num_workers=4,
+)
+
+# load dsprites datasets
+_dsprites_array = np.load('../../Datasets/dsprites_ndarray.npz', encoding='bytes')
+_dsprites_tensor = torch.from_numpy(_dsprites_array['imgs']).unsqueeze(1).float()
+dsprites_iter = torch.utils.data.DataLoader(
+    dataset=single_tensor_dataset(_dsprites_tensor),
+    batch_size=64,
+    shuffle=True,
+    drop_last=True,
+    pin_memory=True,
+    num_workers=4
 )

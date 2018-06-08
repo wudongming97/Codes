@@ -1,5 +1,8 @@
+import os
+
 import torch.nn as nn
 import torch.optim as optim
+from torch.optim import lr_scheduler
 
 from utils import *
 
@@ -33,19 +36,24 @@ class VIB(nn.Module):
         return logits, mu, logvar
 
 
-z_dim = 256
-lr = 2e-4
-n_epochs = 10
+lr = 1e-3
 beta = 1e-3
+z_dim = 256
+n_epochs = 20
 display_interval = 50
+
+save_dir = './vib/'
+os.makedirs(save_dir, exist_ok=True)
 
 model = VIB(z_dim)
 print_network(model)
 trainer = optim.Adam(model.parameters(), lr, [0.5, 0.99])
+scheduler = lr_scheduler.ExponentialLR(trainer, gamma=0.97)
 ce_criterion = nn.CrossEntropyLoss(size_average=False)
 
 for e in range(n_epochs):
     model.train()
+    if (e + 1 % 2) == 0: scheduler.step()
     for b, (x, l) in enumerate(mnist_train_iter):
         x = x.view(-1, 784).to(DEVICE)
         l = l.to(DEVICE)
@@ -64,14 +72,17 @@ for e in range(n_epochs):
             print('[ %d / %d ] acc: %.4f ce_loss: %4f kl_loss: %.4f' % (
                 e + 1, n_epochs, acc.item(), ce_loss.item(), kl_loss.item()))
 
+    # test
     with torch.no_grad():
         model.eval()
         total_acc = 0
-        for x, l in mnist_test_iter:
+        for i, (x, l) in enumerate(mnist_test_iter):
             x = x.view(-1, 784).to(DEVICE)
             l = l.to(DEVICE)
 
-            logits, _, _ = model(x)
+            logits, mu, logvar = model(x)
+            z = reparametrize(mu, logvar)
+            if i == 0: plot_q_z(z, l, save_dir + 'z{}.png'.format(e + 1))
             total_acc += get_cls_accuracy(logits, l).item()
         acc = total_acc / len(mnist_test_iter)
         print('在测试集上的准确率为：%.3f ' % acc)

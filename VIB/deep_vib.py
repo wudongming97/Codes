@@ -39,7 +39,7 @@ class VIB(nn.Module):
 lr = 1e-3
 beta = 1e-3
 z_dim = 256
-n_epochs = 20
+n_epochs = 10
 display_interval = 50
 
 save_dir = './vib/'

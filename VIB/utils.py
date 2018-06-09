@@ -6,6 +6,9 @@ import torchvision as tv
 _use_cuda = torch.cuda.is_available()
 DEVICE = torch.device('cuda' if _use_cuda else 'cpu')
 
+seed = 77
+torch.manual_seed(seed)
+
 
 def print_network(net):
     num_params = 0
@@ -22,6 +25,11 @@ def get_cls_accuracy(score, label):
     accuracy = correct.float() / total
 
     return accuracy
+
+
+def one_hot(labels, num_classes):
+    labels = labels.reshape(-1, 1)
+    return (labels == torch.arange(num_classes).reshape(1, num_classes).long()).float()
 
 
 def plot_q_z(x, y, filename):

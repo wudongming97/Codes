@@ -8,8 +8,8 @@ from torch.optim import lr_scheduler
 
 from utils import *
 
-lr = 2e-5
-n_epochs = 8
+lr = 2e-4
+n_epochs = 5
 
 batch_size = 32
 
@@ -64,8 +64,8 @@ G = nn.Sequential(
 class Discriminator(nn.Module):
     def __init__(self):
         super(Discriminator, self).__init__()
-        self.fc1 = nn.Linear(dim_im, 64)
-        self.fc2 = nn.Linear(64, dim_l)
+        self.fc1 = nn.Linear(dim_im, 256)
+        self.fc2 = nn.Linear(256, dim_l)
         self.to(DEVICE)
 
     def forward(self, x):

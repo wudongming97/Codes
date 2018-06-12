@@ -14,6 +14,7 @@ DEVICE = T.device('cuda' if _use_cuda else 'cpu')
 lr = 2e-4
 n_epochs = 30
 
+instance_noise_trick = False
 initial_noise_strength = 0.1
 anneal_epoch = int(n_epochs * 2 / 3)
 
@@ -129,15 +130,13 @@ for epoch in range(0, n_epochs):
         _batch += 1
 
         real_x = X.to(DEVICE)
-        # real_img = add_noise(real_img, initial_noise_strength,
-        #                      anneal_epoch, epoch, device=self.device)
         z = T.randn(real_x.size(0), nz, 1, 1, device=DEVICE)
-
         fake_x = G(z)
 
         # instance noise trick
-        add_noise(real_x, initial_noise_strength, anneal_epoch, epoch)
-        add_noise(fake_x, initial_noise_strength, anneal_epoch, epoch)
+        if instance_noise_trick:
+            real_x = add_noise(real_x, initial_noise_strength, anneal_epoch, epoch)
+            fake_x = add_noise(fake_x, initial_noise_strength, anneal_epoch, epoch)
 
         fake_score = D(fake_x.detach())
         real_score = D(real_x)

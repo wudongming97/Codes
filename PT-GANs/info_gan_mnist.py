@@ -89,8 +89,8 @@ class discriminator(nn.Module):
 
 
 class info_gan():
-    def __init__(self, save_dir='./results/',
-                 supervised=True, g_lr=1e-3, d_lr=2e-4,
+    def __init__(self, save_dir='./info_gan/',
+                 supervised=True, g_lr=1e-3, d_lr=5e-4,
                  n_epochs=10, beta=1, display_interval=100, ):
         os.makedirs(save_dir, exist_ok=True)
         self.G = generator()
@@ -133,7 +133,7 @@ class info_gan():
                 real_x = x.to(DEVICE)
                 a, b, c = self.D(real_x)
                 fake_x = self.G(z, one_hot_dist, cont)
-                a_, b_, c_ = self.D(fake_x)
+                a_, b_, c_ = self.D(fake_x.detach())
 
                 loss_d = self.bce_criterion(a, torch.ones_like(a)) + self.bce_criterion(a_, torch.zeros_like(a_))
                 loss_d += self.beta * self.ce_criterion(b_, dist)
@@ -145,7 +145,7 @@ class info_gan():
 
                 # train G
                 a, _, _ = self.D(real_x)
-                a_, b_, c_ = self.D(fake_x.detach())
+                a_, b_, c_ = self.D(fake_x)
                 loss_g = self.bce_criterion(a_, torch.ones_like(a_))
                 loss_g += self.beta * self.ce_criterion(b_, dist)
                 loss_g += self.beta * self.mse_criterion(c_, cont)
@@ -159,8 +159,9 @@ class info_gan():
                         e + 1, self.n_epochs, loss_d.item(), loss_g.item(), torch.mean(a), torch.mean(a_)
                     ))
             # save
-            torch.save(self.G.state_dict(), self.save_dir + 'net_g_{}.pth'.format(e + 1))
-            torch.save(self.D.state_dict(), self.save_dir + 'net_d_{}.pth'.format(e + 1))
+            if (e + 1) % 10 == 0:
+                torch.save(self.G.state_dict(), self.save_dir + 'net_g_{}.pth'.format(e + 1))
+                torch.save(self.D.state_dict(), self.save_dir + 'net_d_{}.pth'.format(e + 1))
 
             # test
             with torch.no_grad():
@@ -174,20 +175,21 @@ class info_gan():
                 cont = torch.from_numpy(np.random.uniform(-1, 1, size=(batch_size, 2))).float().to(DEVICE)
                 fake_x = self.G(z, one_hot_dist, cont)
                 tv.utils.save_image(fake_x, self.save_dir + 't1_{}.png'.format(e + 1))
-                # 2: 离散code
+                # 2: 只改变离散code
                 batch_size = 10
-                z = torch.randn(batch_size, 62).to(DEVICE)
+                z = torch.randn(1, 62).repeat(batch_size, 1).to(DEVICE)
                 one_hot_dist = one_hot(torch.range(0, 9, dtype=torch.long), 10).to(DEVICE)
-                cont = torch.from_numpy(np.random.uniform(-1, 1, size=(batch_size, 2))).float().to(DEVICE)
+                cont = torch.from_numpy(np.random.uniform(-1, 1, size=(1, 2))).repeat(batch_size, 1).float().to(DEVICE)
                 fake_x = self.G(z, one_hot_dist, cont)
                 tv.utils.save_image(fake_x, self.save_dir + 't2_{}.png'.format(e + 1))
                 # 3: 连续code 01
                 batch_size = 8
-                z = torch.randn(batch_size, 62).to(DEVICE)
-                dist = torch.randint(0, 9, (batch_size,), dtype=torch.long).to(DEVICE)
-                one_hot_dist = one_hot(dist.cpu(), 10).to(DEVICE)
+                z = torch.randn(1, 62).repeat(batch_size, 1).to(DEVICE)
+                dist = torch.randint(0, 9, (1, 1), dtype=torch.long)
+                one_hot_dist = one_hot(dist, 10).repeat(batch_size, 1).to(DEVICE)
                 cont01 = torch.linspace(-1, 1, batch_size).view(batch_size, 1).to(DEVICE)
-                cont02 = torch.from_numpy(np.random.uniform(-1, 1, size=(batch_size, 1))).float().to(DEVICE)
+                cont02 = torch.from_numpy(np.random.uniform(-1, 1, size=(1, 1))).repeat(batch_size, 1).float().to(
+                    DEVICE)
                 cont = torch.cat([cont01, cont02], 1)
                 fake_x = self.G(z, one_hot_dist, cont)
                 tv.utils.save_image(fake_x, self.save_dir + 't3_{}.png'.format(e + 1))
@@ -195,15 +197,16 @@ class info_gan():
                 # 4: 连续code 02
                 batch_size = 8
                 z = torch.randn(batch_size, 62).to(DEVICE)
-                dist = torch.randint(0, 9, (batch_size,), dtype=torch.long).to(DEVICE)
-                one_hot_dist = one_hot(dist.cpu(), 10).to(DEVICE)
+                dist = torch.randint(0, 9, (1, 1), dtype=torch.long)
+                one_hot_dist = one_hot(dist, 10).repeat(batch_size, 1).to(DEVICE)
                 cont02 = torch.linspace(-1, 1, batch_size).view(batch_size, 1).to(DEVICE)
-                cont01 = torch.from_numpy(np.random.uniform(-1, 1, size=(batch_size, 1))).float().to(DEVICE)
+                cont01 = torch.from_numpy(np.random.uniform(-1, 1, size=(1, 1))).repeat(batch_size, 1).float().to(
+                    DEVICE)
                 cont = torch.cat([cont01, cont02], 1)
                 fake_x = self.G(z, one_hot_dist, cont)
                 tv.utils.save_image(fake_x, self.save_dir + 't4_{}.png'.format(e + 1))
 
 
 if __name__ == '__main__':
-    model = info_gan(supervised=True)
+    model = info_gan(n_epochs=20, supervised=True)
     model.train()

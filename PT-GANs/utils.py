@@ -65,3 +65,10 @@ def plot_q_z(x, y, filename):
 
     plt.savefig(filename)
     plt.close()
+
+
+def add_noise(imgs, start_strength, end_epoch, current_epoch):
+    if current_epoch >= end_epoch:
+        return imgs
+    return imgs + max(0, start_strength - start_strength * current_epoch / (
+        end_epoch)) * torch.randn(size=imgs.shape, device=DEVICE)

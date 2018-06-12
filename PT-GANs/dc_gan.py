@@ -2,10 +2,11 @@ import os
 
 import torch as T
 import torch.nn as nn
-import torch.nn.functional as F
 import torch.optim as optim
 import torchvision as tv
 from torch.optim import lr_scheduler
+
+from utils import print_network, add_noise
 
 _use_cuda = T.cuda.is_available()
 DEVICE = T.device('cuda' if _use_cuda else 'cpu')
@@ -13,11 +14,14 @@ DEVICE = T.device('cuda' if _use_cuda else 'cpu')
 lr = 2e-4
 n_epochs = 30
 
+initial_noise_strength = 0.1
+anneal_epoch = int(n_epochs * 2 / 3)
+
 save_dir = './results_dcgan/'
 os.makedirs(save_dir, exist_ok=True)
 
 print_every = 50
-save_epoch_freq = 1
+save_epoch_freq = 5
 
 nz = 100
 nc = 3
@@ -43,29 +47,6 @@ train_iter = T.utils.data.DataLoader(
     drop_last=True,
     num_workers=2,
 )
-
-
-# train_iter = T.utils.data.DataLoader(
-#     dataset=tv.datasets.CIFAR100(
-#         root='../../Datasets/CIFAR100/',
-#         transform=_transformer,
-#         download=True,
-#         train=True,
-#     ),
-#     batch_size=batch_size,
-#     shuffle=True,
-#     drop_last=True,
-#     num_workers=2,
-# )
-
-
-def weights_init(m):
-    classname = m.__class__.__name__
-    if classname.find('Conv') != -1:
-        m.weight.data.normal_(0.0, 0.02)
-    elif classname.find('BatchNorm') != -1:
-        m.weight.data.normal_(1.0, 0.02)
-        m.bias.data.fill_(0)
 
 
 class generator(nn.Module):
@@ -95,6 +76,8 @@ class generator(nn.Module):
             nn.ConvTranspose2d(ngf, nc, 4, 2, 1, bias=False),
             nn.Tanh()
         )
+        self.to(DEVICE)
+        print_network(self)
 
     def forward(self, z):
         return nn.parallel.data_parallel(self.net, z)
@@ -123,57 +106,53 @@ class discriminator(nn.Module):
             nn.Conv2d(ndf * 8, 1, 4, 1, 0, bias=False),
             nn.Sigmoid()
         )
+        self.to(DEVICE)
+        print_network(self)
 
     def forward(self, x):
         return nn.parallel.data_parallel(self.net, x).view(-1, 1).squeeze(1)
 
 
-G = generator(nz, nc, ngf).apply(weights_init).to(DEVICE)
-D = discriminator(3, ndf).apply(weights_init).to(DEVICE)
-
-print('网络结构!!' + '\n' + '--' * 30)
-print(G)
-print(D)
-
+G = generator(nz, nc, ngf)
+D = discriminator(3, ndf)
 opt_G = optim.Adam(G.parameters(), lr, betas=[0.5, 0.999])
 opt_D = optim.Adam(D.parameters(), lr, betas=[0.5, 0.999])
-
 scheduler_lr = lr_scheduler.StepLR(opt_G, step_size=1, gamma=0.9)
+criterion = nn.BCELoss()
 
-G.train()
-D.train()
-
-real_label = 1
-fake_label = 0
-
-# train
 for epoch in range(0, n_epochs):
-    print('训练：%d' % epoch + '--' * 30)
+    G.train()
+    D.train()
     _batch = 0
     scheduler_lr.step()
     for X, _ in train_iter:
         _batch += 1
 
-        x_real = X.to(DEVICE)
-        z = T.randn(x_real.size(0), nz, 1, 1, device=DEVICE)
+        real_x = X.to(DEVICE)
+        # real_img = add_noise(real_img, initial_noise_strength,
+        #                      anneal_epoch, epoch, device=self.device)
+        z = T.randn(real_x.size(0), nz, 1, 1, device=DEVICE)
 
         fake_x = G(z)
-        fake_score = D(fake_x)
-        real_score = D(x_real)
 
-        r_label = T.full((batch_size,), real_label, device=DEVICE)
-        f_label = T.full((batch_size,), fake_label, device=DEVICE)
+        # instance noise trick
+        add_noise(real_x, initial_noise_strength, anneal_epoch, epoch)
+        add_noise(fake_x, initial_noise_strength, anneal_epoch, epoch)
+
+        fake_score = D(fake_x.detach())
+        real_score = D(real_x)
 
         D.zero_grad()
-        lss_D = F.binary_cross_entropy(real_score, r_label) + F.binary_cross_entropy(fake_score, f_label)
+        lss_D = criterion(real_score, T.ones_like(real_score)) + \
+                criterion(fake_score, T.zeros_like(fake_score))
         lss_D.backward()
         opt_D.step()
 
-        fake_score = D(fake_x.detach())
-        real_score = D(x_real)
+        fake_score = D(fake_x)
+        real_score = D(real_x)
 
         G.zero_grad()
-        lss_G = F.binary_cross_entropy(fake_score, r_label)
+        lss_G = criterion(fake_score, T.ones_like(fake_score))
         lss_G.backward()
         opt_G.step()
 
@@ -184,8 +163,8 @@ for epoch in range(0, n_epochs):
                   'F-score/R-score: [%0.3f/%0.3f]' %
                   (T.mean(fake_score).item(), T.mean(real_score).item()))
 
-            tv.utils.save_image(fake_x.detach()[:64] * 0.5 + 0.5, save_dir + '{}_{}.png'.format(epoch, _batch))
+            tv.utils.save_image(fake_x.detach()[:64] * 0.5 + 0.5, save_dir + '{}_{}.png'.format(epoch + 1, _batch))
 
-    if epoch % save_epoch_freq == 0:
-        T.save(D.state_dict(), 'dcgan_netd.pth')
-        T.save(G.state_dict(), 'dcgan_netg.pth')
+    if (epoch + 1) % save_epoch_freq == 0:
+        T.save(D.state_dict(), 'dcgan_netd_{}.pth'.format(epoch + 1))
+        T.save(G.state_dict(), 'dcgan_netg_{}.pth'.format(epoch + 1))

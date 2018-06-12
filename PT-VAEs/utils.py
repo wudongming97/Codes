@@ -3,6 +3,9 @@ import numpy as np
 import torch as T
 import torchvision as tv
 
+_use_cuda = T.cuda.is_available()
+DEVICE = T.device('cuda' if _use_cuda else 'cpu')
+
 batch_size = 64
 
 train_iter = T.utils.data.DataLoader(

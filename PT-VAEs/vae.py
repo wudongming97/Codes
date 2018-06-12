@@ -6,9 +6,6 @@ import torch.optim as optim
 
 from utils import *
 
-_use_cuda = T.cuda.is_available()
-DEVICE = T.device('cuda' if _use_cuda else 'cpu')
-
 save_dirs = './results/'
 os.makedirs(save_dirs, exist_ok=True)
 

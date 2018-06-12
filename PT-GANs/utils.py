@@ -1,6 +1,11 @@
+import os
+import random
+
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+import torch.utils.data as data
+from PIL import Image
 
 _use_cuda = torch.cuda.is_available()
 DEVICE = torch.device('cuda' if _use_cuda else 'cpu')
@@ -72,3 +77,30 @@ def add_noise(imgs, start_strength, end_epoch, current_epoch):
         return imgs
     return imgs + max(0, start_strength - start_strength * current_epoch / (
         end_epoch)) * torch.randn(size=imgs.shape, device=DEVICE)
+
+
+def _file_paths(dir, ext):
+    paths = []
+    for entry in os.scandir(dir):
+        if entry.is_file() and entry.path.endswith(ext):
+            paths.append(entry.path)
+        elif entry.is_dir():
+            paths.extend(_file_paths(entry.path, ext))
+    return paths
+
+
+class single_class_image_folder(data.Dataset):
+    def __init__(self, root, ext='.png', transform=None):
+        self.img_paths = _file_paths(root, ext)
+        self.L = len(self.img_paths)
+        self.transform = transform
+
+    def __len__(self):
+        return self.L
+
+    def __getitem__(self, item):
+        f_path = self.img_paths[random.choice(range(self.L))]
+        img = Image.open(f_path)
+        if self.transform is not None:
+            img = self.transform(img)
+        return img

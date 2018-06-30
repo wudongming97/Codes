@@ -65,5 +65,8 @@ nf = 32
 input_nc = 1
 
 
-def get_model():
-    return dsh_network(input_nc, nf)
+def get_network(is_training=True):
+    if is_training:
+        return dsh_network(input_nc, nf).apply(init_weights)
+    else:
+        return dsh_network(input_nc, nf)

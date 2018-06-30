@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 from dataloader import data_iter
-from model import get_model
+from network import get_network
 from utils import *
 
 m = 4
@@ -15,7 +15,7 @@ n_epochs = 20
 save_dir = './Results/'
 os.makedirs(save_dir, exist_ok=True)
 
-model = get_model().to(DEVICE)
+model = get_network().to(DEVICE)
 print_network(model)
 trainer = optim.Adam(model.parameters(), lr=lr, betas=[0.5, 0.999])
 

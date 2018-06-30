@@ -1,6 +1,6 @@
 import os
-import random
 
+import numpy as np
 import torch
 import torch.utils.data as data
 import torchvision as tv
@@ -29,25 +29,29 @@ class ImageFolder(data.Dataset):
         return self.L
 
     def __getitem__(self, item):
-        rand_num_1 = random.choice(range(self.L))
-        tuple_paths_1 = self.paired_paths[rand_num_1]
-
-        pos_img_1 = Image.open(tuple_paths_1[0]).convert("L")
-        pos_img_2 = Image.open(tuple_paths_1[1]).convert("L")
-        if self.transform is not None:
-            pos_img_1 = self.transform(pos_img_1)
-            pos_img_2 = self.transform(pos_img_2)
-
         if self.is_training:
-            rand_num_2 = random.choice(range(self.L * 2))
-            while rand_num_1 * 2 == rand_num_2 or rand_num_1 * 2 + 1 == rand_num_2:
-                rand_num_2 = random.choice(range(self.L * 2))
-            neg_img = Image.open(self.sorted_paths[rand_num_2]).convert("L")
+            rand_1, rand_2 = np.random.choice(range(self.L), 2, False)
+            tuple_1, tuple_2 = self.paired_paths[rand_1], self.paired_paths[rand_2]
+
+            pos_1 = Image.open(tuple_1[0]).convert("L")
+            neg_1 = Image.open(tuple_1[0]).convert("L")
+            pos_2 = Image.open(tuple_2[0]).convert("L")
+            neg_2 = Image.open(tuple_2[0]).convert("L")
+
             if self.transform is not None:
-                neg_img = self.transform(neg_img)
-            return pos_img_1, pos_img_2, neg_img
+                pos_1 = self.transform(pos_1)
+                neg_1 = self.transform(neg_1)
+                pos_2 = self.transform(pos_2)
+                neg_2 = self.transform(neg_2)
+            return pos_1, neg_1, pos_2, neg_2
         else:
-            return pos_img_1, pos_img_2
+            paths = self.paired_paths[item]
+            pos = Image.open(paths[0]).convert("L")
+            neg = Image.open(paths[0]).convert("L")
+            if self.transform is not None:
+                pos = self.transform(pos)
+                neg = self.transform(neg)
+            return pos, neg
 
 
 _transformer = tv.transforms.Compose([
@@ -58,7 +62,7 @@ _transformer = tv.transforms.Compose([
 
 data_iter = torch.utils.data.DataLoader(
     dataset=ImageFolder('../../Datasets/Dicom512_train/', transform=_transformer),
-    batch_size=10,
+    batch_size=20,
     shuffle=True,
     drop_last=True
 )

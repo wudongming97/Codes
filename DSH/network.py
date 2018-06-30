@@ -32,21 +32,30 @@ class dsh_network(nn.Module):
     def __init__(self, input_nc, nf=64):
         super(dsh_network, self).__init__()
 
-        self.net = nn.Sequential(
+        self.up = nn.Sequential(
+            Conv2dBlock(input_nc, nf, 4, 2, 1),
+            Conv2dBlock(nf, nf * 2, 4, 2, 1)
+        )
+        self.down = nn.Sequential(
             Conv2dBlock(input_nc, nf, 4, 2, 1),
             Conv2dBlock(nf, nf * 2, 4, 2, 1),
-            ResnetBlock(nf * 2),
-            ResnetBlock(nf * 2),
+        )
+        self.share = nn.Sequential(
             # 128 x 128
             Conv2dBlock(nf * 2, nf * 4, 4, 2, 1),
+            ResnetBlock(nf * 4),
+            nn.ReLU(True),
+            ResnetBlock(nf * 4),
+            nn.ReLU(True),
             Conv2dBlock(nf * 4, nf * 2, 4, 2, 1),  # 32 x 32
             Conv2dBlock(nf * 2, nf, 4, 2, 1),
             nn.Conv2d(nf, 1, 4, 2, 1),  # 8 x 8
             nn.Tanh()
         )
 
-    def forward(self, x):
-        out = nn.parallel.data_parallel(self.net, x)
+    def forward(self, x, up=True):
+        out = self.up(x) if up else self.down(x)
+        out = nn.parallel.data_parallel(self.share, out)
         return out.view(-1, 8 * 8)
 
 

@@ -51,14 +51,12 @@ class dsh_network(nn.Module):
 
 
 def init_weights(m):
-    if type(m) == nn.Conv2d:
-        nn.init.xavier_uniform_(m.weight)
-        # nn.init.kaiming_normal_(m.weight, nonlinearity='relu')
+    if isinstance(m, nn.Conv2d):
+        # nn.init.xavier_uniform_(m.weight)
+        nn.init.kaiming_normal_(m.weight, nonlinearity='relu')
         # nn.init.orthogonal_(m.weight)
         # nn.init.sparse_(m.weight, 0.1)
-        m.bias.data.fill_(0.0001)
-    else:
-        raise ValueError
+        # m.bias.data.fill_(0.0001)
 
 
 nf = 32

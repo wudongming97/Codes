@@ -7,7 +7,7 @@ from dataloader import data_iter
 from networks import dsh_network
 from utils import *
 
-nf = 64
+nf = 32
 lr = 1e-3
 input_nc = 1
 save_dir = './Results/'
@@ -48,7 +48,7 @@ for epoch in range(n_epochs):
         loss.backward()
         trainer.step()
 
-        if (b + 1) % 20 == 0:
+        if (b + 1) % 5 == 0:
             print('[%3d/%3d] [%3d] loss: %.6f' % (epoch + 1, n_epochs, b + 1, loss.item()))
 
     # save
@@ -56,4 +56,3 @@ for epoch in range(n_epochs):
     # test
     with torch.no_grad():
         model.eval()
-

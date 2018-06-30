@@ -4,22 +4,20 @@ import torch.nn.functional as F
 import torch.optim as optim
 
 from dataloader import data_iter
-from networks import dsh_network
+from model import get_model
 from utils import *
 
-nf = 32
-lr = 1e-3
-input_nc = 1
+m = 4
+alpha = 0.05
+
+lr = 2e-4
+n_epochs = 20
 save_dir = './Results/'
 os.makedirs(save_dir, exist_ok=True)
 
-model = dsh_network(input_nc, nf).to(DEVICE)
+model = get_model().to(DEVICE)
 print_network(model)
 trainer = optim.Adam(model.parameters(), lr=lr, betas=[0.5, 0.999])
-
-alpha = 0.05
-m = 3
-n_epochs = 20
 
 for epoch in range(n_epochs):
     model.train()
@@ -54,5 +52,3 @@ for epoch in range(n_epochs):
     # save
     torch.save(model.state_dict(), save_dir + '%d.pth' % (epoch + 1))
     # test
-    with torch.no_grad():
-        model.eval()

@@ -59,3 +59,11 @@ def init_weights(m):
         m.bias.data.fill_(0.0001)
     else:
         raise ValueError
+
+
+nf = 32
+input_nc = 1
+
+
+def get_model():
+    return dsh_network(input_nc, nf)

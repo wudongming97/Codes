@@ -34,9 +34,9 @@ class ImageFolder(data.Dataset):
             tuple_1, tuple_2 = self.paired_paths[rand_1], self.paired_paths[rand_2]
 
             pos_1 = Image.open(tuple_1[0]).convert("L")
-            neg_1 = Image.open(tuple_1[0]).convert("L")
+            neg_1 = Image.open(tuple_1[1]).convert("L")
             pos_2 = Image.open(tuple_2[0]).convert("L")
-            neg_2 = Image.open(tuple_2[0]).convert("L")
+            neg_2 = Image.open(tuple_2[1]).convert("L")
 
             if self.transform is not None:
                 pos_1 = self.transform(pos_1)

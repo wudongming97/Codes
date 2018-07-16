@@ -47,7 +47,7 @@ class ImageFolder(data.Dataset):
         else:
             paths = self.paired_paths[item]
             pos = Image.open(paths[0]).convert("L")
-            neg = Image.open(paths[0]).convert("L")
+            neg = Image.open(paths[1]).convert("L")
             if self.transform is not None:
                 pos = self.transform(pos)
                 neg = self.transform(neg)

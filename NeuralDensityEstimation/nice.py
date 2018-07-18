@@ -13,6 +13,20 @@ DEVICE = torch.device('cuda' if _use_cuda else 'cpu')
 EPS = 1e-10
 
 
+class residual_block(nn.Module):
+    def __init__(self, in_features):
+        super(residual_block, self).__init__()
+        _block = [
+            nn.Linear(in_features, in_features),
+            nn.ReLU(),
+            nn.Linear(in_features, in_features)
+        ]
+        self.block = nn.Sequential(*_block)
+
+    def forward(self, x):
+        return x + self.block(x)
+# 在additive_coupling_layer用residual_block效果没有提升
+
 class additive_coupling_layer(nn.Module):
     def __init__(self, in_features, hidden_dim, reverse=True):
         super(additive_coupling_layer, self).__init__()

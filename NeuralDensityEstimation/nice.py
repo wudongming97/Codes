@@ -14,64 +14,45 @@ EPS = 1e-10
 
 
 class additive_coupling_layer(nn.Module):
-    def __init__(self, in_features):
+    def __init__(self, in_features, hidden_dim, reverse=True):
         super(additive_coupling_layer, self).__init__()
+        self.in_features = in_features
+        self.hidden_dim = hidden_dim
+        self.reverse = reverse
+        self.permutation = torch.range(self.in_features - 1, 0, -1, dtype=torch.long)
         assert in_features % 2 == 0
         self.split = in_features // 2
-        self.in_features = in_features
-        self.m1 = nn.Sequential(
-            nn.Linear(self.split, self.split),
-            nn.ReLU()
-        )
-        self.m2 = nn.Sequential(
-            nn.Linear(self.split, self.split),
-            nn.ReLU()
-        )
-        self.m3 = nn.Sequential(
-            nn.Linear(self.split, self.split),
-            nn.ReLU()
-        )
-        self.m4 = nn.Sequential(
-            nn.Linear(self.split, self.split),
-            nn.ReLU()
+        self.m = nn.Sequential(
+            nn.Linear(self.split, self.hidden_dim),
+            nn.LeakyReLU(),
+            nn.Linear(self.hidden_dim, self.hidden_dim),
+            nn.LeakyReLU(),
+            nn.Linear(self.hidden_dim, self.hidden_dim),
+            nn.LeakyReLU(),
+            nn.Linear(self.hidden_dim, self.split)
         )
 
     def forward(self, x, inv=False):
         if not inv:
-            h0_0 = x[:, :self.split]
-            h0_1 = x[:, self.split:]
-            h1_1 = h0_1
-            h1_0 = self.m1(h0_1) + h0_0
-            h2_0 = h1_0
-            h2_1 = self.m2(h1_0) + h1_1
-            h3_1 = h2_1
-            h3_0 = self.m3(h2_1) + h2_0
-            h4_0 = h3_0
-            h4_1 = self.m4(h3_0) + h3_1
-
-            return torch.cat([h4_0, h4_1], 1)
+            right = x[:, self.split:]
+            left = self.m(x[:, self.split:]) + x[:, :self.split]
         else:
-            h4_0 = x[:, :self.split]
-            h4_1 = x[:, self.split:]
-            h3_0 = h4_0
-            h3_1 = h4_1 - self.m4(h4_0)
-            h2_1 = h3_1
-            h2_0 = h3_0 - self.m3(h3_1)
-            h1_0 = h2_0
-            h1_1 = h2_1 - self.m2(h2_0)
-            h0_1 = h1_1
-            h0_0 = h1_0 - self.m1(h1_1)
-            return torch.cat([h0_0, h0_1], 1)
+            right = x[:, self.split:]
+            left = x[:, :self.split] - self.m(x[:, self.split:])
+        if self.reverse:
+            # return torch.cat([right, left], 1)  # 交换会导致生成图像错乱？？？
+            return torch.cat([left, right], 1)[:, self.permutation]
+        else:
+            return torch.cat([left, right], 1)
 
 
 class nice(nn.Module):
     def __init__(self, im_size):
         super(nice, self).__init__()
-        self.cp1 = additive_coupling_layer(im_size)
-        self.cp2 = additive_coupling_layer(im_size)
-        self.cp3 = additive_coupling_layer(im_size)
-        self.cp4 = additive_coupling_layer(im_size)
-
+        self.cp1 = additive_coupling_layer(im_size, 1000)
+        self.cp2 = additive_coupling_layer(im_size, 1000)
+        self.cp3 = additive_coupling_layer(im_size, 1000)
+        self.cp4 = additive_coupling_layer(im_size, 1000)
         self.scale = Parameter(torch.zeros(im_size))
         self.to(DEVICE)
 
@@ -93,7 +74,7 @@ class nice(nn.Module):
         return -(F.softplus(h) + F.softplus(-h))
 
     def train_loss(self, h):
-        return -(self.log_logistic(h).sum(1).mean() + self.scale.sum())
+        return -(self.log_logistic(h).sum(1).mean() + self.scale.sum())  # + 0.1 * torch.abs(self.scale).sum()
 
 
 # train
@@ -111,13 +92,15 @@ mnist_iter = torch.utils.data.DataLoader(
     num_workers=2,
 )
 trainer = optim.Adam(model.parameters(), lr=1e-3, betas=[0.5, 0.99])
+lr_scheduler = torch.optim.lr_scheduler.StepLR(trainer, step_size=2, gamma=0.9)
 
-n_epochs = 100
+n_epochs = 300
 save_dir = './results/'
 os.makedirs(save_dir, exist_ok=True)
 
 for epoch in range(n_epochs):
     model.train()
+    lr_scheduler.step()
     for batch_idx, (x, _) in enumerate(mnist_iter):
         x = x.view(x.size(0), -1).to(DEVICE)
         h = model(x)
@@ -133,7 +116,8 @@ for epoch in range(n_epochs):
     with torch.no_grad():
         model.eval()
         # 从logistics中采样
-        z = torch.rand(64, 784).to(DEVICE)
+        batch_size = 64
+        z = torch.rand(batch_size, 784).to(DEVICE)
         h = torch.log(z + EPS) - torch.log(1 - z)
-        x = model(h, True)
-        tv.utils.save_image(x.view(64, 1, 28, 28), save_dir + '%d.png' % epoch)
+        x = model(h, inv=True)
+        tv.utils.save_image(x.view(batch_size, 1, 28, 28), save_dir + 'nice_%d.png' % epoch)

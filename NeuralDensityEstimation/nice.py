@@ -1,15 +1,9 @@
-import os
-
-import numpy as np
-import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
-import torchvision as tv
 from torch.nn.parameter import Parameter
 
-_use_cuda = torch.cuda.is_available()
-DEVICE = torch.device('cuda' if _use_cuda else 'cpu')
+from utils import *
 
 EPS = 1e-10
 
@@ -129,29 +123,16 @@ class nice(nn.Module):
 
 # train
 model = nice(784)
-mnist_iter = torch.utils.data.DataLoader(
-    dataset=tv.datasets.MNIST(
-        root='../../Datasets/MNIST/',
-        transform=tv.transforms.ToTensor(),
-        train=True,
-        download=True
-    ),
-    batch_size=64,
-    shuffle=True,
-    drop_last=True,
-    num_workers=2,
-)
+print_network(model)
 trainer = optim.Adam(model.parameters(), lr=1e-3, betas=[0.5, 0.99])
 lr_scheduler = torch.optim.lr_scheduler.StepLR(trainer, step_size=2, gamma=0.9)
 
 n_epochs = 300
-save_dir = './results/'
-os.makedirs(save_dir, exist_ok=True)
 
 for epoch in range(n_epochs):
     model.train()
     lr_scheduler.step()
-    for batch_idx, (x, _) in enumerate(mnist_iter):
+    for batch_idx, (x, _) in enumerate(train_iter):
         x = x.view(x.size(0), -1).to(DEVICE)
         h = model(x)
 
@@ -170,4 +151,4 @@ for epoch in range(n_epochs):
         z = torch.rand(batch_size, 784).to(DEVICE)
         h = torch.log(z + EPS) - torch.log(1 - z)
         x = model(h, inv=True)
-        tv.utils.save_image(x.view(batch_size, 1, 28, 28), save_dir + 'nice_%d.png' % epoch)
+        tv.utils.save_image(x.view(batch_size, 1, 28, 28), SAVE_DIR + 'nice_%d.png' % epoch)

@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import torch
 import torchvision as tv
@@ -5,6 +7,9 @@ from torch.utils import data
 
 _use_cuda = torch.cuda.is_available()
 DEVICE = torch.device('cuda' if _use_cuda else 'cpu')
+
+SAVE_DIR = './results/'
+os.makedirs(SAVE_DIR, exist_ok=True)
 
 
 def batch_images_to_one(batches_images):

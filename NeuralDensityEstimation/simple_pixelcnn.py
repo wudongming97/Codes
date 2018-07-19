@@ -1,6 +1,5 @@
-import os
-
 import torch.nn as nn
+import torch.nn.functional as F
 import torch.optim as optim
 
 from utils import *
@@ -43,8 +42,6 @@ criterion = torch.nn.CrossEntropyLoss()
 
 lr = 1e-3
 n_epochs = 30
-save_dir = './results/'
-os.makedirs(save_dir, exist_ok=True)
 
 for epoch in range(n_epochs):
     net.train()
@@ -73,11 +70,10 @@ for epoch in range(n_epochs):
         print('VALID_loss: %.3f' % loss)
 
         sample = torch.zeros(64, 1, 28, 28, device=DEVICE)
-        import torch.nn.functional as F
 
         for i in range(28):
             for j in range(28):
                 out = net(sample)
                 probs = F.softmax(out[:, :, i, j])
                 sample[:, :, i, j] = torch.multinomial(probs, 1).float() / 255.
-        tv.utils.save_image(sample, save_dir + 'simple_pixelcnn_{}.png'.format(epoch + 1))
+        tv.utils.save_image(sample, SAVE_DIR + 'simple_pixelcnn_{}.png'.format(epoch + 1))

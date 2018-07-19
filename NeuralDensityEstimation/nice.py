@@ -1,5 +1,6 @@
 import os
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -13,27 +14,22 @@ DEVICE = torch.device('cuda' if _use_cuda else 'cpu')
 EPS = 1e-10
 
 
-class residual_block(nn.Module):
-    def __init__(self, in_features):
-        super(residual_block, self).__init__()
-        _block = [
-            nn.Linear(in_features, in_features),
-            nn.ReLU(),
-            nn.Linear(in_features, in_features)
-        ]
-        self.block = nn.Sequential(*_block)
-
-    def forward(self, x):
-        return x + self.block(x)
-# 在additive_coupling_layer用residual_block效果没有提升
-
 class additive_coupling_layer(nn.Module):
-    def __init__(self, in_features, hidden_dim, reverse=True):
+    def __init__(self, in_features, hidden_dim, permutation='reverse'):
+        """
+        由于pytorch不能很好的支持高级索引，该模块暂时不能使用
+        :param in_features:
+        :param hidden_dim:
+        :param permutation: shuffle or reverse
+        """
         super(additive_coupling_layer, self).__init__()
         self.in_features = in_features
         self.hidden_dim = hidden_dim
-        self.reverse = reverse
-        self.permutation = torch.range(self.in_features - 1, 0, -1, dtype=torch.long)
+
+        self.permutation = np.arange(in_features)[::-1]
+        if permutation == 'shuffle':
+            np.random.shuffle(self.permutation)
+
         assert in_features % 2 == 0
         self.split = in_features // 2
         self.m = nn.Sequential(
@@ -50,23 +46,65 @@ class additive_coupling_layer(nn.Module):
         if not inv:
             right = x[:, self.split:]
             left = self.m(x[:, self.split:]) + x[:, :self.split]
+            return torch.cat([left, right], 1)[:, torch.tensor(self.permutation, dtype=torch.long)]
         else:
-            right = x[:, self.split:]
-            left = x[:, :self.split] - self.m(x[:, self.split:])
-        if self.reverse:
-            # return torch.cat([right, left], 1)  # 交换会导致生成图像错乱？？？
-            return torch.cat([left, right], 1)[:, self.permutation]
-        else:
+            rx = x[:, torch.tensor(np.argsort(self.permutation), dtype=torch.long)]
+            right = rx[:, self.split:]
+            left = rx[:, :self.split] - self.m(rx[:, self.split:])
             return torch.cat([left, right], 1)
+
+
+class additive_alternant_coupling_layer(nn.Module):
+    def __init__(self, in_features, hidden_dim):
+        super(additive_alternant_coupling_layer, self).__init__()
+        self.in_features = in_features
+        self.hidden_dim = hidden_dim
+        assert in_features % 2 == 0
+        self.split = in_features // 2
+        self.m1 = nn.Sequential(
+            nn.Linear(self.split, self.hidden_dim),
+            nn.LeakyReLU(),
+            nn.Linear(self.hidden_dim, self.hidden_dim),
+            nn.LeakyReLU(),
+            nn.Linear(self.hidden_dim, self.hidden_dim),
+            nn.LeakyReLU(),
+            nn.Linear(self.hidden_dim, self.split)
+        )
+        self.m2 = nn.Sequential(
+            nn.Linear(self.split, self.hidden_dim),
+            nn.LeakyReLU(),
+            nn.Linear(self.hidden_dim, self.hidden_dim),
+            nn.LeakyReLU(),
+            nn.Linear(self.hidden_dim, self.hidden_dim),
+            nn.LeakyReLU(),
+            nn.Linear(self.hidden_dim, self.split)
+        )
+
+    def forward(self, x, inv=False):
+        if not inv:
+            x0 = x[:, :self.split]
+            x1 = x[:, self.split:]
+            h1 = self.m1(x0) + x1
+            h0 = x0
+            y0 = h0 + self.m2(h1)
+            y1 = h1
+            return torch.cat([y0, y1], 1)
+        else:
+            y0 = x[:, :self.split]
+            y1 = x[:, self.split:]
+            h1 = y1
+            h0 = y0 - self.m2(y1)
+            x0 = h0
+            x1 = h1 - self.m1(h0)
+            return torch.cat([x0, x1], 1)
 
 
 class nice(nn.Module):
     def __init__(self, im_size):
         super(nice, self).__init__()
-        self.cp1 = additive_coupling_layer(im_size, 1000)
-        self.cp2 = additive_coupling_layer(im_size, 1000)
-        self.cp3 = additive_coupling_layer(im_size, 1000)
-        self.cp4 = additive_coupling_layer(im_size, 1000)
+        self.cp1 = additive_alternant_coupling_layer(im_size, 1024)
+        self.cp2 = additive_alternant_coupling_layer(im_size, 1024)
+        self.cp3 = additive_alternant_coupling_layer(im_size, 1024)
         self.scale = Parameter(torch.zeros(im_size))
         self.to(DEVICE)
 
@@ -75,11 +113,9 @@ class nice(nn.Module):
             cp1 = self.cp1(x)
             cp2 = self.cp2(cp1)
             cp3 = self.cp3(cp2)
-            cp4 = self.cp4(cp3)
-            return torch.exp(self.scale) * cp4
+            return torch.exp(self.scale) * cp3
         else:
-            cp4 = x * torch.exp(-self.scale)
-            cp3 = self.cp4(cp4, True)
+            cp3 = x * torch.exp(-self.scale)
             cp2 = self.cp3(cp3, True)
             cp1 = self.cp2(cp2, True)
             return self.cp1(cp1, True)
@@ -88,7 +124,7 @@ class nice(nn.Module):
         return -(F.softplus(h) + F.softplus(-h))
 
     def train_loss(self, h):
-        return -(self.log_logistic(h).sum(1).mean() + self.scale.sum())  # + 0.1 * torch.abs(self.scale).sum()
+        return -(self.log_logistic(h).sum(1).mean() + self.scale.sum())
 
 
 # train

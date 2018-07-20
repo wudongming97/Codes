@@ -9,8 +9,6 @@ import torchvision as tv
 _use_cuda = torch.cuda.is_available()
 DEVICE = torch.device('cuda' if _use_cuda else 'cpu')
 
-EPS = 1e-10
-
 _transformer = tv.transforms.Compose([
     tv.transforms.Resize([64, 64]),
     tv.transforms.ToTensor(),
@@ -57,10 +55,6 @@ class Encoder(nn.Module):
         hidden = self.features(x)
         common = self.fc(hidden.view(x.size(0), -1))
         return common[:, :self.z_dim], common[:, self.z_dim:]
-
-
-def reparam(mu, logvar):
-    return mu + torch.exp(0.5 * logvar) * torch.randn(mu.size()).to(DEVICE)
 
 
 class Decoder(nn.Module):
@@ -173,6 +167,7 @@ for epoch in range(n_epochs):
         pz = torch.randn(x.size(0), z_dim).to(DEVICE)
         px = vae.dec(pz)
         # gan_loss = (torch.log(dis(x) + EPS) + torch.log(1 - dis(rx) + EPS) + torch.log(1 - dis(px) + EPS)).sum(1).mean()
+        # 用下面的loss要数值更加稳定点
         rl_score, fk_score, rc_score = dis(x), dis(px), dis(rx)
         gan_loss = bce_criterion(rl_score, torch.ones_like(rl_score)) + bce_criterion(fk_score, torch.zeros_like(
             fk_score)) + bce_criterion(rc_score, torch.zeros_like(rc_score))

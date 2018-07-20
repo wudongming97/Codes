@@ -55,20 +55,26 @@ class ImageFolder(data.Dataset):
 
 
 _transformer = tv.transforms.Compose([
-    tv.transforms.Resize([512, 512]),
+    tv.transforms.Resize([256, 256]),
     tv.transforms.ToTensor(),
     tv.transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
 ])
 
-data_iter = torch.utils.data.DataLoader(
+train_iter = torch.utils.data.DataLoader(
     dataset=ImageFolder('../../Datasets/Dicom512_train/', transform=_transformer),
-    batch_size=20,
+    batch_size=50,
     shuffle=True,
     drop_last=True
 )
 
 test_iter = torch.utils.data.DataLoader(
     dataset=ImageFolder('../../Datasets/Dicom512_test/', is_training=False, transform=_transformer),
+    batch_size=10,
+    drop_last=True
+)
+
+train_as_test_iter = torch.utils.data.DataLoader(
+    dataset=ImageFolder('../../Datasets/Dicom512_train/', is_training=False, transform=_transformer),
     batch_size=10,
     drop_last=True
 )

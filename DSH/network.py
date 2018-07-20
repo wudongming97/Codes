@@ -29,27 +29,24 @@ class ResnetBlock(nn.Module):
 
 
 class dsh_network(nn.Module):
-    def __init__(self, input_nc, nf=64):
+    def __init__(self, input_nc, nf=32):
         super(dsh_network, self).__init__()
 
         self.up = nn.Sequential(
             Conv2dBlock(input_nc, nf, 4, 2, 1),
-            Conv2dBlock(nf, nf * 2, 4, 2, 1)
+            Conv2dBlock(nf, nf * 2, 4, 2, 1),
+            Conv2dBlock(nf * 2, nf, 4, 2, 1),
         )
         self.down = nn.Sequential(
             Conv2dBlock(input_nc, nf, 4, 2, 1),
             Conv2dBlock(nf, nf * 2, 4, 2, 1),
+            Conv2dBlock(nf * 2, nf, 4, 2, 1),
         )
         self.share = nn.Sequential(
-            # 128 x 128
-            Conv2dBlock(nf * 2, nf * 4, 4, 2, 1),
-            ResnetBlock(nf * 4),
-            nn.ReLU(True),
-            ResnetBlock(nf * 4),
-            nn.ReLU(True),
-            Conv2dBlock(nf * 4, nf * 2, 4, 2, 1),  # 32 x 32
-            Conv2dBlock(nf * 2, nf, 4, 2, 1),
-            nn.Conv2d(nf, 1, 4, 2, 1),  # 8 x 8
+            ResnetBlock(nf),
+            nn.ReLU(),
+            Conv2dBlock(nf, nf * 2, 4, 2, 1),
+            nn.Conv2d(nf * 2, 1, 4, 2, 1),  # 8 x 8
             nn.Tanh()
         )
 
@@ -59,21 +56,9 @@ class dsh_network(nn.Module):
         return out.view(-1, 8 * 8)
 
 
-def init_weights(m):
-    if isinstance(m, nn.Conv2d):
-        # nn.init.xavier_uniform_(m.weight)
-        nn.init.kaiming_normal_(m.weight, nonlinearity='relu')
-        # nn.init.orthogonal_(m.weight)
-        # nn.init.sparse_(m.weight, 0.1)
-        # m.bias.data.fill_(0.0001)
-
-
 nf = 32
 input_nc = 1
 
 
-def get_network(is_training=True):
-    if is_training:
-        return dsh_network(input_nc, nf).apply(init_weights)
-    else:
-        return dsh_network(input_nc, nf)
+def get_network():
+    return dsh_network(input_nc, nf)

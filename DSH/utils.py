@@ -6,6 +6,7 @@ DEVICE = torch.device('cuda' if _use_cuda else 'cpu')
 _seed = 77
 torch.manual_seed(_seed)
 
+save_dir = './Results/'
 
 def print_network(net):
     num_params = 0

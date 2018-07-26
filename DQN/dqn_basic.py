@@ -119,7 +119,7 @@ while len(replay_buffer) < REPLAY_SIZE:
     explore_env(env, replay_buffer)
 
 episode_reward = 0
-total_rewards = []
+last_100_rewards = deque(maxlen=100)
 state = env.reset()
 best_mean_reward = None
 
@@ -134,7 +134,7 @@ for frame_idx in range(N_FRAMES):
 
     if is_done:
         state = env.reset()
-        total_rewards.append(episode_reward)
+        last_100_rewards.append(episode_reward)
         episode_reward = 0
 
     # update
@@ -143,10 +143,11 @@ for frame_idx in range(N_FRAMES):
     loss.backward()
     trainer.step()
 
-    if frame_idx % SYNC_TARGET_FRAMES == 0:
+    if (frame_idx + 1) % SYNC_TARGET_FRAMES == 0:
         tgt_net.load_state_dict(net.state_dict())
-        mean_reward = np.mean(total_rewards[-1000:])
+        mean_reward = np.mean(last_100_rewards)
         if best_mean_reward is None or best_mean_reward < mean_reward:
             best_mean_reward = mean_reward
             torch.save(net.state_dict(), env_id + "-best.pth")
-        print("frame_idx: %d loss: %.3f mean_reward: %.3f" % (frame_idx, loss.item(), mean_reward))
+        print("frame_idx: %d loss: %.3f mean_reward: %.3f best_mean_reward: %.3f" % (
+            frame_idx, loss.item(), mean_reward, best_mean_reward))

@@ -252,3 +252,10 @@ class ImageToPyTorch(gym.ObservationWrapper):
 
     def observation(self, observation):
         return np.moveaxis(observation, 2, 0)
+
+
+def get_env(env_id):
+    env = make_atari(env_id)
+    env = wrap_deepmind(env)
+    env = ImageToPyTorch(env)
+    return env

@@ -1,4 +1,5 @@
 import torch.optim as optim
+from tensorboardX import SummaryWriter
 
 from atari_wrappers import get_env
 from models import *
@@ -22,6 +23,7 @@ replay_buffer = ReplayBuffer(REPLAY_SIZE)
 net = DQN(env.observation_space.shape, env.action_space.n).to(DEVICE)
 tgt_net = DQN(env.observation_space.shape, env.action_space.n).to(DEVICE)
 trainer = optim.Adam(net.parameters(), lr=LR, betas=[0.5, 0.99])
+writer = SummaryWriter(comment="dqn_basic")
 
 episode_reward = 0
 last_100_rewards = deque(maxlen=100)
@@ -69,6 +71,7 @@ for frame_idx in range(N_FRAMES):
     if (frame_idx + 1) % SYNC_TARGET_FRAMES == 0:
         tgt_net.load_state_dict(net.state_dict())
         mean_reward = np.mean(last_100_rewards)
+        writer.add_scalar('mean_reward', mean_reward, frame_idx)
         if best_mean_reward is None or best_mean_reward < mean_reward:
             best_mean_reward = mean_reward
             torch.save(net.state_dict(), env_id + "-dqn_basic.pth")
@@ -78,3 +81,5 @@ for frame_idx in range(N_FRAMES):
         if mean_reward > 21:  # 停时条件
             print('Solved!!')
             break
+
+writer.close()

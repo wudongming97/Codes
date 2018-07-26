@@ -72,14 +72,6 @@ def n_step(n, first_state, epsilon, gamma):
 state = env.reset()
 for frame_idx in range(N_FRAMES):
     epsilon = max(EPSILON_FINAL, EPSILON_START - frame_idx / EPSILON_DECAY_LAST_FRAME)
-    # # 只实现2_step
-    # if random.random() > epsilon:
-    #     state_v = torch.tensor(state).unsqueeze(0).to(DEVICE)
-    #     _, action = net.optimal_q_and_action(state_v)
-    #     action = action.detach().item()
-    # else:
-    #     action = random.randrange(env.action_space.n)
-    # next_state, reward, is_done, _ = env.step(action)
     first_state, first_action, reward, last_state, is_done = n_step(N_STEP, state, epsilon, GAMMA)
     replay_buffer.append(first_state, first_action, reward, last_state, is_done)
     episode_reward += reward

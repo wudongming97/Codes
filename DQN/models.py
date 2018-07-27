@@ -55,3 +55,45 @@ class DQN(nn.Module):
     def optimal_q_and_action(self, state):
         out = self.forward(state)
         return out.max(1)[0], out.max(1)[1]
+
+
+class DuelingDQN(nn.Module):
+    def __init__(self, input_shape, n_actions):
+        super(DuelingDQN, self).__init__()
+        self.input_shape = input_shape
+        self.n_actions = n_actions
+
+        self.conv = nn.Sequential(
+            nn.Conv2d(input_shape[0], 32, 8, 4),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, 4, 2),
+            nn.ReLU(),
+            nn.Conv2d(64, 64, 3, 1),
+            nn.ReLU()
+        )
+        conv_out_size = self._get_conv_out(input_shape)
+        self.advantage = nn.Sequential(
+            nn.Linear(conv_out_size, 512),
+            nn.ReLU(),
+            nn.Linear(512, n_actions)
+        )
+        self.value = nn.Sequential(
+            nn.Linear(conv_out_size, 512),
+            nn.ReLU(),
+            nn.Linear(512, 1)
+        )
+
+    def _get_conv_out(self, shape):
+        o = self.conv(torch.zeros(1, *shape))
+        return int(np.prod(o.size()))
+
+    def forward(self, x):
+        x = self.conv(x)
+        x = x.view(x.size(0), -1)
+        advantage = self.advantage(x)
+        value = self.value(x)
+        return value + advantage - advantage.mean()
+
+    def optimal_q_and_action(self, state):
+        out = self.forward(state)
+        return out.max(1)[0], out.max(1)[1]

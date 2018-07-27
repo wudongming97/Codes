@@ -72,12 +72,12 @@ class DuelingDQN(nn.Module):
             nn.ReLU()
         )
         conv_out_size = self._get_conv_out(input_shape)
-        self.advantage = nn.Sequential(
+        self.fc_adv = nn.Sequential(
             nn.Linear(conv_out_size, 512),
             nn.ReLU(),
             nn.Linear(512, n_actions)
         )
-        self.value = nn.Sequential(
+        self.fc_val = nn.Sequential(
             nn.Linear(conv_out_size, 512),
             nn.ReLU(),
             nn.Linear(512, 1)
@@ -90,9 +90,9 @@ class DuelingDQN(nn.Module):
     def forward(self, x):
         x = self.conv(x)
         x = x.view(x.size(0), -1)
-        advantage = self.advantage(x)
-        value = self.value(x)
-        return value + advantage - advantage.mean()
+        adv = self.fc_adv(x)
+        val = self.fc_val(x)
+        return val + adv - adv.mean()
 
     def optimal_q_and_action(self, state):
         out = self.forward(state)

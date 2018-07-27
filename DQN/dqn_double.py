@@ -83,7 +83,7 @@ for frame_idx in range(N_FRAMES):
         print("frame_idx: %d loss: %.3f mean_reward: %.3f best_mean_reward: %.3f" % (
             frame_idx, loss.item(), mean_reward, best_mean_reward))
 
-        if mean_reward > 21:  # 停时条件
+        if mean_reward >= 20:  # 停时条件
             print('Solved!!')
             break
 

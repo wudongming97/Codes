@@ -2,11 +2,13 @@ from atari_wrappers import get_env
 from models import *
 from utils import *
 
-env_id = "PongNoFrameskip-v4"
+model_name = 'dqn_prioritization'
+env_id = "SpaceInvadersNoFrameskip-v4"
 env = get_env(env_id)
+save_file_name = env_id + "-" + model_name + ".pth"
 
 net = DQN(env.observation_space.shape, env.action_space.n).to(DEVICE)
-net.load_state_dict(torch.load(env_id + '-dqn_basic.pth'))
+net.load_state_dict(torch.load(save_file_name))
 
 for _ in range(10):
     state = env.reset()

@@ -22,6 +22,49 @@ class ReplayBuffer(object):
         return len(self.buffer)
 
 
+class NaivePrioritizedBuffer(object):
+    def __init__(self, capacity, prob_alpha=0.6):
+        self.prob_alpha = prob_alpha
+        self.capacity = capacity
+        self.buffer = []
+        self.pos = 0
+        self.priorities = np.zeros((capacity,), dtype=np.float32)
+
+    def __len__(self):
+        return len(self.buffer)
+
+    def populate(self, state, action, reward, next_state, done):
+        max_prio = self.priorities.max() if self.buffer else 1.0
+        if len(self.buffer) < self.capacity:
+            self.buffer.append((state[np.newaxis, :], action, reward, next_state[np.newaxis, :], done))
+        else:
+            self.buffer[self.pos] = (state[np.newaxis, :], action, reward, next_state[np.newaxis, :], done)
+        self.priorities[self.pos] = max_prio
+        self.pos = (self.pos + 1) % self.capacity
+
+    def sample(self, batch_size, beta=0.4):
+        if len(self.buffer) == self.capacity:
+            prios = self.priorities
+        else:
+            prios = self.priorities[:self.pos]
+        probs = prios ** self.prob_alpha
+        probs /= probs.sum()
+
+        indices = np.random.choice(len(self.buffer), batch_size, p=probs)
+        state, action, reward, next_state, done = zip(*[self.buffer[idx] for idx in indices])
+        samples = np.vstack(state), action, reward, np.vstack(next_state), done
+
+        total = len(self.buffer)
+        weights = (total * probs[indices]) ** (-beta)
+        weights /= weights.max()
+
+        return samples, indices, np.array(weights, dtype=np.float32)
+
+    def update_priorities(self, batch_indices, batch_priorities):
+        for idx, prio in zip(batch_indices, batch_priorities):
+            self.priorities[idx] = prio
+
+
 class DQN(nn.Module):
     def __init__(self, input_shape, n_actions):
         super(DQN, self).__init__()

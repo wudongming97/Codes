@@ -1,10 +1,43 @@
+import math
 import random
 from collections import deque
 
 import numpy as np
 import torch.nn as nn
+import torch.nn.functional as F
 
 from utils import *
+
+
+class NoisyLinear(nn.Module):
+    # independent gaussian case
+    def __init__(self, in_features, out_features, std_init=0.017):
+        super(NoisyLinear, self).__init__()
+        self.in_features = in_features
+        self.out_features = out_features
+        self.std_init = std_init
+
+        self.weight_mu = nn.Parameter(torch.Tensor(out_features, in_features))
+        self.weight_sigma = nn.Parameter(torch.Tensor(out_features, in_features))
+        self.register_buffer('weight_epsilon', torch.Tensor(out_features, in_features))
+
+        self.bias_mu = nn.Parameter(torch.Tensor(out_features))
+        self.bias_sigma = nn.Parameter(torch.Tensor(out_features))
+        self.register_buffer('bias_epsilon', torch.Tensor(out_features))
+        self.reset_parameters()
+
+    def reset_parameters(self):
+        std = math.sqrt(3 / self.in_features)
+        self.weight_mu.data.uniform_(-std, std)
+        self.weight_sigma.data.fill_(self.std_init)
+        self.bias_mu.data.uniform_(-std, std)
+        self.bias_sigma.data.fill_(self.std_init)
+
+    def forward(self, x):
+        self.weight_epsilon.data.normal_()
+        self.bias_epsilon.data.normal_()
+        return F.linear(x, self.weight_mu + self.weight_sigma * self.weight_epsilon,
+                        self.bias_mu + self.bias_sigma * self.bias_epsilon)
 
 
 class ReplayBuffer(object):
@@ -136,6 +169,41 @@ class DuelingDQN(nn.Module):
         adv = self.fc_adv(x)
         val = self.fc_val(x)
         return val + adv - adv.mean()
+
+    def optimal_q_and_action(self, state):
+        out = self.forward(state)
+        return out.max(1)[0], out.max(1)[1]
+
+
+class NoisyDQN(nn.Module):
+    def __init__(self, input_shape, n_actions):
+        super(NoisyDQN, self).__init__()
+        self.input_shape = input_shape
+        self.n_actions = n_actions
+
+        self.conv = nn.Sequential(
+            nn.Conv2d(input_shape[0], 32, 8, 4),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, 4, 2),
+            nn.ReLU(),
+            nn.Conv2d(64, 64, 3, 1),
+            nn.ReLU()
+        )
+        conv_out_size = self._get_conv_out(input_shape)
+        self.fc = nn.Sequential(
+            NoisyLinear(conv_out_size, 512),
+            nn.ReLU(),
+            NoisyLinear(512, self.n_actions),
+        )
+
+    def _get_conv_out(self, shape):
+        o = self.conv(torch.zeros(1, *shape))
+        return int(np.prod(o.size()))
+
+    def forward(self, x):
+        x = self.conv(x)
+        x = x.view(x.size(0), -1)
+        return self.fc(x)
 
     def optimal_q_and_action(self, state):
         out = self.forward(state)

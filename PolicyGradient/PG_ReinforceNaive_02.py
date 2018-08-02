@@ -10,6 +10,7 @@ from models import *
 LR = 0.0005
 GAMMA = 0.99
 ENTROPY_BETA = 0.0001
+GRAD_L2_CLIP = 0.1
 EPISODES_TO_TRAIN = 4
 
 model_name = 'ReinforceNaive_02'
@@ -68,6 +69,7 @@ for i_episode in count(1):
     loss = (pg_loss - entropy_loss) / EPISODES_TO_TRAIN
     trainer.zero_grad()
     loss.backward()
+    nn.utils.clip_grad_norm_(net.parameters(), GRAD_L2_CLIP)
     trainer.step()
 
     last_100_rewards.extend(episode_rewards)

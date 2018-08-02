@@ -2,12 +2,15 @@ from collections import deque
 from itertools import count
 
 import torch.optim as optim
+from tensorboardX import SummaryWriter
 
 from atari_wrappers import get_env
 from models import *
 
-GAMMA = 0.99
 LR = 0.0005
+GAMMA = 0.99
+ENTROPY_BETA = 0.0001
+EPISODES_TO_TRAIN = 4
 
 model_name = 'ReinforceNaive_02'
 env_id = "PongNoFrameskip-v4"
@@ -23,42 +26,60 @@ def calc_qvals(rewards):
         sum_r *= GAMMA
         sum_r += r
         res.append(sum_r)
-    return list(reversed(res))
+    res = list(reversed(res))
+    mean_q = sum(res) / len(res)  # baseline
+    return [q - mean_q for q in res]
 
 
-def one_episode():
-    rewards = []
+def n_episode(n):
+    episode_rewards = []
+    qvals = []
+    entropy_list = []
     selected_logprobs = []
 
-    state = env.reset()
-    while True:
-        action, log_prob = net.action_and_logprob(state)
-        state, reward, is_done, _ = env.step(action)
-        rewards.append(float(reward))
-        selected_logprobs.append(log_prob)
-        if is_done:
-            break
+    for _ in range(n):
+        state = env.reset()
+        rewards = []
+        while True:
+            action, log_prob, entropy = net.action_and_logprob(state)
+            state, reward, is_done, _ = env.step(action)
+            rewards.append(float(reward))
+            entropy_list.append(entropy)
+            selected_logprobs.append(log_prob)
+            if is_done:
+                episode_rewards.append(sum(rewards))
+                qvals.extend(calc_qvals(rewards))
+                break
 
-    return rewards, selected_logprobs
+    return episode_rewards, qvals, selected_logprobs, entropy_list
 
 
 # train
 last_100_rewards = deque(maxlen=100)
 trainer = optim.Adam(net.parameters(), lr=LR, betas=[0.5, 0.999])
+writer = SummaryWriter(comment=identity)
+
 for i_episode in count(1):
-    loss = 0.0
-    rewards, selected_logprobs = one_episode()
-    qvals = calc_qvals(rewards)
+    pg_loss = 0.0
+    episode_rewards, qvals, selected_logprobs, entropy_list = n_episode(EPISODES_TO_TRAIN)
     for qval, logprob in zip(qvals, selected_logprobs):
-        loss -= qval * logprob
+        pg_loss -= qval * logprob
+    entropy_loss = ENTROPY_BETA * sum(entropy_list)
+    loss = (pg_loss - entropy_loss) / EPISODES_TO_TRAIN
     trainer.zero_grad()
     loss.backward()
     trainer.step()
 
-    last_100_rewards.append(sum(rewards))
+    last_100_rewards.extend(episode_rewards)
     mean_reward = np.mean(last_100_rewards)
+
+    writer.add_scalar('mean_reward', mean_reward, i_episode)
+    writer.add_scalar('entropy_loss', entropy_loss.item(), i_episode)
+    writer.add_scalar('pg_loss', pg_loss.item(), i_episode)
+    writer.add_scalar('loss', loss.item(), i_episode)
+
     if i_episode % 1 == 0:
-        print('Episode: %d, loss: %.3f, mean_reward: %.3f' % (i_episode, loss.item(), mean_reward))
+        print('Episode: %d, loss: %.3f, mean_reward: %.3f' % (i_episode, loss.item(), float(mean_reward)))
 
     # 停时条件
     if mean_reward >= 18:

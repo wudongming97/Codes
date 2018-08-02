@@ -1,6 +1,8 @@
-import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.distributions import Categorical
+
+from utils import *
 
 
 class PolicyNet(nn.Module):
@@ -12,11 +14,14 @@ class PolicyNet(nn.Module):
             nn.ReLU(),
             nn.Linear(128, n_actions)
         )
+        self.to(DEVICE)
 
     def forward(self, x):
         return self.net(x)
 
-    def action(self, x):
-        logits = self.forward(x).squeeze()
-        probs = F.softmax(logits, -1)
-        return np.random.choice(self.n_actions, p=probs.cpu().data.numpy())
+    def action_and_logprob(self, state):
+        state = torch.from_numpy(state).float().unsqueeze(0).to(DEVICE)
+        m = Categorical(F.softmax(self.forward(state)))
+        action = m.sample()
+        log_prob = m.log_prob(action)
+        return action.item(), log_prob

@@ -2,16 +2,14 @@ from collections import deque
 from itertools import count
 
 import gym
-import numpy as np
-import torch
 import torch.optim as optim
 
-from models import PolicyNet
+from models import *
 
 GAMMA = 0.99
 LR = 0.01
 
-model_name = 'ReinforceNaive'
+model_name = 'ReinforceNaive_00'
 env_id = "CartPole-v0"
 identity = env_id + '_' + model_name
 env = gym.make(env_id)

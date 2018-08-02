@@ -1,19 +1,21 @@
 from collections import deque
 from itertools import count
 
+import gym
 import torch.optim as optim
+from tensorboardX import SummaryWriter
 
-from atari_wrappers import get_env
 from models import *
 
+LR = 0.001
 GAMMA = 0.99
-LR = 0.0005
+ENTROPY_BETA = 0.0001
 
-model_name = 'ReinforceNaive_01 '
-env_id = "PongNoFrameskip-v4"
+model_name = 'ReinforceNaive_01'
+env_id = "CartPole-v0"
 identity = env_id + '_' + model_name
-env = get_env(env_id)
-net = AtariPolicyNet(env.observation_space.shape, env.action_space.n)
+env = gym.make(env_id)
+net = PolicyNet(env.observation_space.shape[0], env.action_space.n)
 
 
 def calc_qvals(rewards):
@@ -28,40 +30,52 @@ def calc_qvals(rewards):
 
 def one_episode():
     rewards = []
+    entropy_list = []
     selected_logprobs = []
 
     state = env.reset()
     while True:
-        action, log_prob = net.action_and_logprob(state)
+        action, log_prob, entropy = net.action_and_logprob(state)
         state, reward, is_done, _ = env.step(action)
-        rewards.append(float(reward))
+        rewards.append(reward)
+        entropy_list.append(entropy)
         selected_logprobs.append(log_prob)
         if is_done:
             break
 
-    return rewards, selected_logprobs
+    return rewards, selected_logprobs, entropy_list
 
 
 # train
 last_100_rewards = deque(maxlen=100)
 trainer = optim.Adam(net.parameters(), lr=LR, betas=[0.5, 0.999])
+writer = SummaryWriter(comment=identity)
+
 for i_episode in count(1):
-    loss = 0.0
-    rewards, selected_logprobs = one_episode()
+    pg_loss = 0.0
+    rewards, selected_logprobs, entropy_list = one_episode()
     qvals = calc_qvals(rewards)
     for qval, logprob in zip(qvals, selected_logprobs):
-        loss -= qval * logprob
+        pg_loss -= qval * logprob
+    entropy_loss = ENTROPY_BETA * sum(entropy_list)
+    loss = pg_loss - entropy_loss
     trainer.zero_grad()
     loss.backward()
     trainer.step()
 
     last_100_rewards.append(sum(rewards))
     mean_reward = np.mean(last_100_rewards)
-    if i_episode % 1 == 0:
-        print('Episode: %d, loss: %.3f, mean_reward: %.3f' % (i_episode, loss.item(), mean_reward))
+
+    writer.add_scalar('mean_reward', mean_reward, i_episode)
+    writer.add_scalar('entropy_loss', entropy_loss.item(), i_episode)
+    writer.add_scalar('pg_loss', pg_loss.item(), i_episode)
+    writer.add_scalar('loss', loss.item(), i_episode)
+
+    if i_episode % 10 == 0:
+        print('Episode: %d, loss: %.3f, mean_reward: %.3f' % (i_episode, loss.item(), float(mean_reward)))
 
     # 停时条件
-    if mean_reward >= 18:
+    if mean_reward >= 198:
         print("Solved!")
         torch.save(net.state_dict(), identity + '.pth')
         break

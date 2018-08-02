@@ -23,9 +23,10 @@ class PolicyNet(nn.Module):
     def action_and_logprob(self, state):
         state = torch.tensor(state).float().unsqueeze(0).to(DEVICE)
         m = Categorical(F.softmax(self.forward(state), -1))
+        m.probs
         action = m.sample()
         log_prob = m.log_prob(action)
-        return action.item(), log_prob
+        return action.item(), log_prob, m.entropy()
 
 
 class AtariPolicyNet(nn.Module):
@@ -64,4 +65,4 @@ class AtariPolicyNet(nn.Module):
         m = Categorical(F.softmax(self.forward(state), -1))
         action = m.sample()
         log_prob = m.log_prob(action)
-        return action.item(), log_prob
+        return action.item(), log_prob, m.entropy()

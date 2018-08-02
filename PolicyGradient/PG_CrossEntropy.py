@@ -28,7 +28,7 @@ def iterate_batches(env, net, batch_size):
     episode_steps = []
     obs = env.reset()
     while True:
-        action, _ = net.action_and_logprob(obs)
+        action, _, _ = net.action_and_logprob(obs)
         next_obs, reward, is_done, _ = env.step(action)
         episode_reward += reward
         episode_steps.append(EpisodeStep(observation=obs, action=action))

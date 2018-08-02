@@ -1,19 +1,19 @@
 from collections import deque
 from itertools import count
 
-import gym
 import torch.optim as optim
 
+from atari_wrappers import get_env
 from models import *
 
-LR = 0.001
 GAMMA = 0.99
+LR = 0.0005
 
-model_name = 'ReinforceNaive_00'
-env_id = "CartPole-v0"
+model_name = 'ReinforceNaive_02'
+env_id = "PongNoFrameskip-v4"
 identity = env_id + '_' + model_name
-env = gym.make(env_id)
-net = PolicyNet(env.observation_space.shape[0], env.action_space.n)
+env = get_env(env_id)
+net = AtariPolicyNet(env.observation_space.shape, env.action_space.n)
 
 
 def calc_qvals(rewards):
@@ -32,9 +32,9 @@ def one_episode():
 
     state = env.reset()
     while True:
-        action, log_prob, _ = net.action_and_logprob(state)
+        action, log_prob = net.action_and_logprob(state)
         state, reward, is_done, _ = env.step(action)
-        rewards.append(reward)
+        rewards.append(float(reward))
         selected_logprobs.append(log_prob)
         if is_done:
             break
@@ -57,11 +57,11 @@ for i_episode in count(1):
 
     last_100_rewards.append(sum(rewards))
     mean_reward = np.mean(last_100_rewards)
-    if i_episode % 10 == 0:
-        print('Episode: %d, loss: %.3f, mean_reward: %.3f' % (i_episode, loss.item(), float(mean_reward)))
+    if i_episode % 1 == 0:
+        print('Episode: %d, loss: %.3f, mean_reward: %.3f' % (i_episode, loss.item(), mean_reward))
 
     # 停时条件
-    if mean_reward >= 198:
+    if mean_reward >= 18:
         print("Solved!")
         torch.save(net.state_dict(), identity + '.pth')
         break

@@ -10,6 +10,7 @@ from models import *
 LR = 0.001
 GAMMA = 0.99
 ENTROPY_BETA = 0.0001
+EPISODES_TO_TRAIN = 4
 
 model_name = 'ReinforceNaive_01'
 env_id = "CartPole-v0"
@@ -25,25 +26,32 @@ def calc_qvals(rewards):
         sum_r *= GAMMA
         sum_r += r
         res.append(sum_r)
-    return list(reversed(res))
+    res = list(reversed(res))
+    mean_q = sum(res) / len(res)  # baseline
+    return [q - mean_q for q in res]
 
 
-def one_episode():
-    rewards = []
+def n_episode(n):
+    episode_rewards = []
+    qvals = []
     entropy_list = []
     selected_logprobs = []
 
-    state = env.reset()
-    while True:
-        action, log_prob, entropy = net.action_and_logprob(state)
-        state, reward, is_done, _ = env.step(action)
-        rewards.append(reward)
-        entropy_list.append(entropy)
-        selected_logprobs.append(log_prob)
-        if is_done:
-            break
+    for _ in range(n):
+        state = env.reset()
+        rewards = []
+        while True:
+            action, log_prob, entropy = net.action_and_logprob(state)
+            state, reward, is_done, _ = env.step(action)
+            rewards.append(reward)
+            entropy_list.append(entropy)
+            selected_logprobs.append(log_prob)
+            if is_done:
+                episode_rewards.append(sum(rewards))
+                qvals.extend(calc_qvals(rewards))
+                break
 
-    return rewards, selected_logprobs, entropy_list
+    return episode_rewards, qvals, selected_logprobs, entropy_list
 
 
 # train
@@ -53,17 +61,16 @@ writer = SummaryWriter(comment=identity)
 
 for i_episode in count(1):
     pg_loss = 0.0
-    rewards, selected_logprobs, entropy_list = one_episode()
-    qvals = calc_qvals(rewards)
+    episode_rewards, qvals, selected_logprobs, entropy_list = n_episode(EPISODES_TO_TRAIN)
     for qval, logprob in zip(qvals, selected_logprobs):
         pg_loss -= qval * logprob
     entropy_loss = ENTROPY_BETA * sum(entropy_list)
-    loss = pg_loss - entropy_loss
+    loss = (pg_loss - entropy_loss) / EPISODES_TO_TRAIN
     trainer.zero_grad()
     loss.backward()
     trainer.step()
 
-    last_100_rewards.append(sum(rewards))
+    last_100_rewards.extend(episode_rewards)
     mean_reward = np.mean(last_100_rewards)
 
     writer.add_scalar('mean_reward', mean_reward, i_episode)

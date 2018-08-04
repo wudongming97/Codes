@@ -5,11 +5,12 @@ N_EPISODES = 2
 from models import *
 from utils import *
 
-model_name = 'ReinforceNaive'
+model_name = 'PG_NaiveAC'
+# model_name = 'ReinforceNaive_01'
 env_id = "CartPole-v0"
 identity = env_id + '_' + model_name
 env = gym.make(env_id)
-net = PolicyNet(env.observation_space.shape[0], env.action_space.n)
+net = NaiveAC(env.observation_space.shape[0], env.action_space.n)
 net.load_state_dict(torch.load(identity + '.pth'))
 
 for i_episode in range(N_EPISODES):
@@ -18,7 +19,7 @@ for i_episode in range(N_EPISODES):
     total_reward = 0
     is_done = False
     while not is_done:
-        action, _ = net.action_and_logprob(state)
+        action, _, _, _ = net.action_and_logprob(state)
         state, reward, is_done, _ = env.step(action)
         total_reward += reward
         env.render()

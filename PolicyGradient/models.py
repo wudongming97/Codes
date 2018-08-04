@@ -23,7 +23,6 @@ class PolicyNet(nn.Module):
     def action_and_logprob(self, state):
         state = torch.tensor(state).float().unsqueeze(0).to(DEVICE)
         m = Categorical(F.softmax(self.forward(state), -1))
-        m.probs
         action = m.sample()
         log_prob = m.log_prob(action)
         return action.item(), log_prob, m.entropy()
@@ -66,3 +65,66 @@ class AtariPolicyNet(nn.Module):
         action = m.sample()
         log_prob = m.log_prob(action)
         return action.item(), log_prob, m.entropy()
+
+
+class NaiveAC(nn.Module):
+    def __init__(self, obs_size, n_actions):
+        super(NaiveAC, self).__init__()
+        self.obs_size = obs_size
+        self.n_actions = n_actions
+
+        self.common = nn.Sequential(
+            nn.Linear(obs_size, 128),
+            nn.ReLU()
+        )
+        self.action_head = nn.Linear(128, n_actions)
+        self.value_head = nn.Linear(128, 1)
+        self.to(DEVICE)
+
+    def forward(self, x):
+        out = self.common(x)
+        return self.action_head(out), self.value_head(out)
+
+    def action_and_logprob(self, state):
+        state = torch.tensor(state).float().unsqueeze(0).to(DEVICE)
+        action_logit, value = self.forward(state)
+        m = Categorical(F.softmax(action_logit, -1))
+        action = m.sample()
+        log_prob = m.log_prob(action)
+        return action.item(), log_prob, value, m.entropy()
+
+
+class AtariA2C(nn.Module):
+    def __init__(self, input_shape, n_actions):
+        super(AtariA2C, self).__init__()
+        self.input_shape = input_shape
+        self.n_actions = n_actions
+
+        self.conv = nn.Sequential(
+            nn.Conv2d(input_shape[0], 32, 8, 4),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, 4, 2),
+            nn.ReLU(),
+            nn.Conv2d(64, 64, 3, 1),
+            nn.ReLU()
+        )
+        conv_out_size = self._get_conv_out(input_shape)
+
+        self.policy = nn.Sequential(
+            nn.Linear(conv_out_size, 512),
+            nn.ReLU(),
+            nn.Linear(512, n_actions)
+        )
+        self.value = nn.Sequential(
+            nn.Linear(conv_out_size, 512),
+            nn.ReLU(),
+            nn.Linear(512, 1)
+        )
+
+    def _get_conv_out(self, shape):
+        o = self.conv(torch.zeros(1, *shape))
+        return int(np.prod(o.size()))
+
+    def forward(self, x):
+        out = self.conv(x).view(x.size(0), -1)
+        return self.policy(out), self.value(out)

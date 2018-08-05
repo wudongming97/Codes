@@ -106,11 +106,13 @@ class AtariA2C(nn.Module):
             nn.ReLU(),
             nn.Linear(512, 1)
         )
+        self.to(DEVICE)
 
     def _get_conv_out(self, shape):
         o = self.conv(torch.zeros(1, *shape))
         return int(np.prod(o.size()))
 
-    def forward(self, x):
-        out = self.conv(x).view(x.size(0), -1)
-        return self.policy(out), self.value(out)
+    def forward(self, state):
+        state = torch.tensor(state).float().to(DEVICE)
+        out = self.conv(state).view(state.size(0), -1)
+        return Categorical(F.softmax(self.policy(out), -1)), self.value(out)

@@ -41,7 +41,7 @@ def n_episode(n):
         state = env.reset()
         rewards = []
         while True:
-            dist, value = net(state)
+            dist, value = net([state])
             action = dist.sample()
             log_prob = dist.log_prob(action)
             entropy = dist.entropy()

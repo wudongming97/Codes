@@ -21,7 +21,7 @@ class PolicyNet(nn.Module):
         return self.net(x)
 
     def action_dist(self, state):
-        state = torch.tensor(state).float().unsqueeze(0).to(DEVICE)
+        state = torch.tensor(state).float().to(DEVICE)
         return Categorical(F.softmax(self.forward(state), -1))
 
 
@@ -52,7 +52,7 @@ class AtariPolicyNet(nn.Module):
         return int(np.prod(o.size()))
 
     def forward(self, state):
-        state = torch.tensor(state).float().unsqueeze(0).to(DEVICE)
+        state = torch.tensor(state).float().to(DEVICE)
         state = self.conv(state)
         state = state.view(state.size(0), -1)
         action_logit = self.fc(state)
@@ -74,7 +74,7 @@ class NaiveAC(nn.Module):
         self.to(DEVICE)
 
     def forward(self, state):
-        state = torch.tensor(state).float().unsqueeze(0).to(DEVICE)
+        state = torch.tensor(state).float().to(DEVICE)
         out = self.common(state)
         action_logit, value = self.action_head(out), self.value_head(out)
         return Categorical(F.softmax(action_logit, -1)), value

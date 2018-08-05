@@ -60,12 +60,11 @@ trainer = optim.Adam(net.parameters(), lr=LR, betas=[0.5, 0.999])
 writer = SummaryWriter(comment=identity)
 
 for i_episode in count(1):
-    pg_loss = 0.0
+    loss = 0.0
     episode_rewards, qvals, selected_logprobs, entropy_list = n_episode(EPISODES_TO_TRAIN)
-    for qval, logprob in zip(qvals, selected_logprobs):
-        pg_loss -= qval * logprob
-    entropy_loss = ENTROPY_BETA * sum(entropy_list)
-    loss = (pg_loss - entropy_loss) / EPISODES_TO_TRAIN
+    for qval, logprob, entropy in zip(qvals, selected_logprobs, entropy_list):
+        loss -= (qval * logprob + ENTROPY_BETA * entropy)
+    loss /= EPISODES_TO_TRAIN
     trainer.zero_grad()
     loss.backward()
     trainer.step()
@@ -74,8 +73,6 @@ for i_episode in count(1):
     mean_reward = np.mean(last_100_rewards)
 
     writer.add_scalar('mean_reward', mean_reward, i_episode)
-    writer.add_scalar('entropy_loss', entropy_loss.item(), i_episode)
-    writer.add_scalar('pg_loss', pg_loss.item(), i_episode)
     writer.add_scalar('loss', loss.item(), i_episode)
 
     if i_episode % 10 == 0:

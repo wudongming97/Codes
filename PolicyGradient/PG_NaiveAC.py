@@ -8,7 +8,9 @@ from models import *
 
 LR = 0.0005
 GAMMA = 0.99
+CLIP_GRAD = 0.2
 ENTROPY_BETA = 0.001
+EPISODES_TO_TRAIN = 4
 
 model_name = 'PG_NaiveAC'
 env_id = "CartPole-v0"
@@ -28,24 +30,29 @@ def calc_returns(rewards):
 
 
 #  蒙特卡洛方法，需要完整的episode，
-def one_episode():
-    rewards = []
-    values = []
-    selected_logprobs = []
+def n_episode(n):
+    episode_rewards = []
+    returns = []
     entropy_list = []
+    selected_logprobs = []
+    vals = []
 
-    state = env.reset()
-    while True:
-        action, log_prob, val, entropy = net.action_and_logprob(state)
-        state, reward, is_done, _ = env.step(action)
-        rewards.append(reward)
-        selected_logprobs.append(log_prob)
-        entropy_list.append(entropy)
-        values.append(val)
-        if is_done:
-            break
+    for _ in range(n):
+        state = env.reset()
+        rewards = []
+        while True:
+            action, log_prob, value, entropy = net.action_and_logprob(state)
+            state, reward, is_done, _ = env.step(action)
+            rewards.append(reward)
+            vals.append(value)
+            entropy_list.append(entropy)
+            selected_logprobs.append(log_prob)
+            if is_done:
+                episode_rewards.append(sum(rewards))
+                returns.extend(calc_returns(rewards))
+                break
 
-    return rewards, selected_logprobs, values, entropy_list
+    return episode_rewards, returns, selected_logprobs, vals, entropy_list
 
 
 # train
@@ -54,18 +61,18 @@ trainer = optim.Adam(net.parameters(), lr=LR, betas=[0.5, 0.999])
 for i_episode in count(1):
     p_loss = 0.0
     v_loss = 0.0
-    rewards, selected_logprobs, values, entropy_list = one_episode()
-    returns = calc_returns(rewards)
-    for ret, val, logprob, entropy in zip(returns, values, selected_logprobs, entropy_list):
+    episode_rewards, returns, selected_logprobs, vals, entropy_list = n_episode(EPISODES_TO_TRAIN)
+    for ret, val, logprob, entropy in zip(returns, vals, selected_logprobs, entropy_list):
         advantage = ret - val
         p_loss -= (advantage * logprob + ENTROPY_BETA * entropy)
-        v_loss += F.smooth_l1_loss(val, torch.tensor([ret]).unsqueeze(0).to(DEVICE))
-    loss = p_loss + v_loss
+        v_loss += F.smooth_l1_loss(val.squeeze(), torch.tensor([ret]).to(DEVICE))
+    loss = (p_loss + v_loss) / EPISODES_TO_TRAIN
     trainer.zero_grad()
     loss.backward()
+    # nn.utils.clip_grad_norm_(net.parameters(), CLIP_GRAD)
     trainer.step()
 
-    last_100_rewards.append(sum(rewards))
+    last_100_rewards.extend(episode_rewards)
     mean_reward = np.mean(last_100_rewards)
     if i_episode % 10 == 0:
         print('Episode: %d, loss: %.3f, p_loss: %.3f, v_loss: %.3f,  mean_reward: %.3f' % (

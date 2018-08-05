@@ -32,8 +32,10 @@ def one_episode():
 
     state = env.reset()
     while True:
-        action, log_prob, _ = net.action_and_logprob(state)
-        state, reward, is_done, _ = env.step(action)
+        dist = net.action_dist(state)
+        action = dist.sample()
+        log_prob = dist.log_prob(action)
+        state, reward, is_done, _ = env.step(action.item())
         rewards.append(reward)
         selected_logprobs.append(log_prob)
         if is_done:

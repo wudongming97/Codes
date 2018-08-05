@@ -20,12 +20,9 @@ class PolicyNet(nn.Module):
     def forward(self, x):
         return self.net(x)
 
-    def action_and_logprob(self, state):
+    def action_dist(self, state):
         state = torch.tensor(state).float().unsqueeze(0).to(DEVICE)
-        m = Categorical(F.softmax(self.forward(state), -1))
-        action = m.sample()
-        log_prob = m.log_prob(action)
-        return action.item(), log_prob, m.entropy()
+        return Categorical(F.softmax(self.forward(state), -1))
 
 
 class AtariPolicyNet(nn.Module):
@@ -54,17 +51,12 @@ class AtariPolicyNet(nn.Module):
         o = self.conv(torch.zeros(1, *shape))
         return int(np.prod(o.size()))
 
-    def forward(self, x):
-        x = self.conv(x)
-        x = x.view(x.size(0), -1)
-        return self.fc(x)
-
-    def action_and_logprob(self, state):
+    def forward(self, state):
         state = torch.tensor(state).float().unsqueeze(0).to(DEVICE)
-        m = Categorical(F.softmax(self.forward(state), -1))
-        action = m.sample()
-        log_prob = m.log_prob(action)
-        return action.item(), log_prob, m.entropy()
+        state = self.conv(state)
+        state = state.view(state.size(0), -1)
+        action_logit = self.fc(state)
+        return Categorical(F.softmax(action_logit, -1))
 
 
 class NaiveAC(nn.Module):
@@ -81,17 +73,11 @@ class NaiveAC(nn.Module):
         self.value_head = nn.Linear(128, 1)
         self.to(DEVICE)
 
-    def forward(self, x):
-        out = self.common(x)
-        return self.action_head(out), self.value_head(out)
-
-    def action_and_logprob(self, state):
+    def forward(self, state):
         state = torch.tensor(state).float().unsqueeze(0).to(DEVICE)
-        action_logit, value = self.forward(state)
-        m = Categorical(F.softmax(action_logit, -1))
-        action = m.sample()
-        log_prob = m.log_prob(action)
-        return action.item(), log_prob, value, m.entropy()
+        out = self.common(state)
+        action_logit, value = self.action_head(out), self.value_head(out)
+        return Categorical(F.softmax(action_logit, -1)), value
 
 
 class AtariA2C(nn.Module):

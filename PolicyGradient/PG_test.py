@@ -1,16 +1,15 @@
-import gym
-
 N_EPISODES = 2
 
+from atari_wrappers import get_env
 from models import *
 from utils import *
 
-model_name = 'PG_A2C_01'
+model_name = 'PG_A2C_02'
 # model_name = 'ReinforceNaive_01'
-env_id = "CartPole-v0"
+env_id = "PongNoFrameskip-v4"
 identity = env_id + '_' + model_name
-env = gym.make(env_id)
-net = NaiveAC(env.observation_space.shape[0], env.action_space.n)
+env = get_env(env_id)
+net = AtariA2C(env.observation_space.shape, env.action_space.n)
 net.load_state_dict(torch.load(identity + '.pth'))
 
 for i_episode in range(N_EPISODES):

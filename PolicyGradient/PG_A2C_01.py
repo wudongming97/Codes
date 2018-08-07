@@ -49,13 +49,12 @@ def n_step(num_steps, state):
     for _ in range(num_steps):
         dist, val = net(state)
         action = dist.sample().squeeze()
-        next_state, reward, done, _ = envs.step(action.cpu().numpy())
+        state, reward, done, _ = envs.step(action.cpu().numpy())
         values.append(val)
         log_probs.append(dist.log_prob(action).unsqueeze(1))
         entropy_list.append(dist.entropy().unsqueeze(1))
         rewards.append(torch.tensor(reward).float().unsqueeze(1).to(DEVICE))
         masks.append(torch.tensor(1 - done).float().unsqueeze(1).to(DEVICE))
-        state = next_state
     _, next_val = net(state)
     returns = calc_returns(next_val, rewards, masks)
 
@@ -65,14 +64,14 @@ def n_step(num_steps, state):
     advantage = returns - values
     entropy_v = torch.cat(entropy_list, 1)
 
-    return advantage.squeeze(), log_probs, entropy_v
+    return advantage.squeeze(), log_probs, entropy_v, state
 
 
 state = envs.reset()
 trainer = optim.Adam(net.parameters(), lr=5e-4, betas=[0.5, 0.999])
 
 for idx in count(1):
-    advantage, log_probs, entropy_v = n_step(STEP_TO_TRAIN, state)
+    advantage, log_probs, entropy_v, state = n_step(STEP_TO_TRAIN, state)
     a_loss = -(log_probs * advantage.detach()).sum(1).mean()
     c_loss = 0.5 * advantage.pow(2).sum(1).mean()
     e_loss = ENTROPY_BETA * entropy_v.sum(1).mean()

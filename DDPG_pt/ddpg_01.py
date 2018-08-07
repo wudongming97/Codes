@@ -7,7 +7,7 @@ import torch.optim as optim
 
 from env_wrappers import ActionNormalizedEnv
 from models import *
-from ou_noise import OUNoise
+from ou import OUNoise
 from replay_buffer import ReplayBuffer
 from utils import *
 

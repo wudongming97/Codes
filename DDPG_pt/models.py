@@ -7,14 +7,17 @@ from utils import DEVICE
 class DDPG_Actor(nn.Module):
     def __init__(self, obs_size, act_size):
         super(DDPG_Actor, self).__init__()
-        self.actor = nn.Sequential(
+        _block = [
             nn.Linear(obs_size, 400),
             nn.ReLU(),
             nn.Linear(400, 300),
             nn.ReLU(),
             nn.Linear(300, act_size),
             nn.Tanh()
-        )
+        ]
+        _block[-2].weight.data.uniform_(-3e-3, 3e-3)
+
+        self.actor = nn.Sequential(*_block)
         self.to(DEVICE)
 
     def forward(self, x):
@@ -29,17 +32,17 @@ class DDPG_Actor(nn.Module):
 class DDPG_Critic(nn.Module):
     def __init__(self, obs_size, act_size):
         super(DDPG_Critic, self).__init__()
-        self.h1 = nn.Sequential(
-            nn.Linear(obs_size, 400),
-            nn.ReLU()
-        )
-        self.out = nn.Sequential(
-            nn.Linear(400 + act_size, 300),
+        _block = [
+            nn.Linear(obs_size + act_size, 400),
+            nn.ReLU(),
+            nn.Linear(400, 300),
             nn.ReLU(),
             nn.Linear(300, 1)
-        )
+        ]
+        _block[-1].weight.data.uniform_(-3e-3, 3e-3)
+
+        self.critic = nn.Sequential(*_block)
         self.to(DEVICE)
 
     def forward(self, x, a):
-        h1 = self.h1(x)
-        return self.out(torch.cat([h1, a], -1))
+        return self.critic(torch.cat([x, a], -1))

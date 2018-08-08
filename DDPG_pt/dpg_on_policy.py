@@ -80,7 +80,13 @@ for frame_idx in count(1):
     loss_act.backward()
     act_trainer.step()
 
+    mean_reward = test_policy(act_net, test_env, n_episodes=10)
     if frame_idx % 200 == 0:
-        mean_reward = test_policy(act_net, test_env, n_episodes=10)
         print('Frame_idx: %d, loss_critic: %.3f, loss_actor: %.3f, mean_reward: %.3f' % (
             frame_idx, loss_cri.item(), loss_act.item(), float(mean_reward)))
+
+    if mean_reward > -300:
+        torch.save(act_net.state_dict(), identity + '_act.pth')
+        torch.save(act_net.state_dict(), identity + '_cri.pth')
+        print('Solved!')
+        break

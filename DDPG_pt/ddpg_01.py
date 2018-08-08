@@ -13,8 +13,11 @@ from utils import *
 GAMMA = 0.99
 SOFT_TAU = 1e-2
 
+model_name = 'ddpg_01'
 env_id = "Pendulum-v0"
+identity = model_name + '_' + env_id
 env = ActionNormalizedEnv(gym.make(env_id))
+
 ou_noise = OUNoise(env.action_space)
 
 obs_size = env.observation_space.shape[0]
@@ -29,7 +32,7 @@ hard_update(act_net_t, act_net)
 hard_update(cri_net_t, cri_net)
 
 mse_criterion = nn.MSELoss()
-replay_buffer = ReplayBuffer(100000)
+replay_buffer = ReplayBuffer(10000)
 act_trainer = optim.Adam(act_net.parameters(), lr=1e-4)
 cri_trainer = optim.Adam(cri_net.parameters(), lr=1e-3)
 
@@ -58,9 +61,9 @@ def ddpg_update(batch_size):
 
 # train
 max_steps = 500
-batch_size = 128
+batch_size = 64
 frame_idx = 0
-latest_100_returns = deque(maxlen=100)
+latest_10_returns = deque(maxlen=10)
 
 while True:
     state = env.reset()
@@ -80,8 +83,13 @@ while True:
         episode_reward += reward
         if done:
             break
-    latest_100_returns.append(episode_reward)
+    latest_10_returns.append(episode_reward)
+    mean_return = np.mean(latest_10_returns)
     if frame_idx % 500 == 0:
-        mean_return = np.mean(latest_100_returns)
         print('Frame_idx: %d, loss_act: %.3f, loss_cri： %.3f, mean_return: %.3f' % (
             frame_idx, loss_act, loss_cri, float(mean_return)))
+    if mean_return > -300:
+        torch.save(act_net.state_dict(), identity + '_act.pth')
+        torch.save(act_net.state_dict(), identity + '_cri.pth')
+        print('Solved!')
+        break

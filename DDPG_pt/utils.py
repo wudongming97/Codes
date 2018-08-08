@@ -7,8 +7,12 @@ def to_numpy(var):
     return var.cpu().data.numpy()
 
 
-def to_tensor(v_list):
+def to_tensors(v_list):
     return list(map(lambda x: torch.tensor(x).float().to(DEVICE), v_list))
+
+
+def to_tensor(var):
+    return torch.tensor(var).float().to(DEVICE)
 
 
 def soft_update(target, source, tau):
@@ -30,7 +34,7 @@ def test_policy(actor, env, vis=False, n_episodes=2, max_len=500):
         if vis: env.render()
         episode_return = 0
         for t in range(max_len):
-            action = actor.action(state)
+            action = actor.get_action(state)
             state, reward, done, _ = env.step(action)
             episode_return += reward
             if vis: env.render()

@@ -38,7 +38,7 @@ cri_trainer = optim.Adam(cri_net.parameters(), lr=1e-3)
 
 
 def ddpg_update(batch_size):
-    state, action, reward, next_state, done = to_tensor(replay_buffer.sample(batch_size))
+    state, action, reward, next_state, done = to_tensors(replay_buffer.sample(batch_size))
     loss_act = -cri_net(state, act_net(state)).sum(1).mean()
     qval = cri_net(state, action)
     t_qval = cri_net_t(next_state, act_net_t(next_state))
@@ -72,7 +72,7 @@ while True:
     loss_act, loss_cri = 0, 0
 
     for t in range(max_steps):
-        action = act_net.action(state)
+        action = act_net.get_action([state])[0][0]
         action = ou_noise.get_action(action, t)
         next_state, reward, done, _ = env.step(action)
         replay_buffer.append(state, action, reward, next_state, done)

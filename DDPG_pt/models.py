@@ -23,10 +23,10 @@ class DDPG_Actor(nn.Module):
     def forward(self, x):
         return self.actor(x)
 
-    def action(self, state):
-        state = torch.FloatTensor(state).unsqueeze(0).to(DEVICE)
+    def get_action(self, state):
+        state = torch.FloatTensor(state).to(DEVICE)
         action = self.forward(state)
-        return action.detach().cpu().numpy()[0, 0]
+        return action.detach().cpu().numpy()
 
 
 class DDPG_Critic(nn.Module):

@@ -1,5 +1,4 @@
 from collections import deque
-from itertools import count
 
 import gym
 import numpy as np
@@ -30,22 +29,23 @@ hard_update(act_net_t, act_net)
 hard_update(cri_net_t, cri_net)
 
 mse_criterion = nn.MSELoss()
-replay_buffer = ReplayBuffer(10000)
+replay_buffer = ReplayBuffer(100000)
 act_trainer = optim.Adam(act_net.parameters(), lr=1e-4)
 cri_trainer = optim.Adam(cri_net.parameters(), lr=1e-3)
 
 
 def ddpg_update(batch_size):
     state, action, reward, next_state, done = to_tensor(replay_buffer.sample(batch_size))
-    value = cri_net(state, act_net(state))
-    loss_act = - value.sum(1).mean()
-    t_value = cri_net_t(next_state, act_net_t(next_state))
-    expected_value = reward.unsqueeze(1) + (1.0 - done.unsqueeze(1)) * GAMMA * t_value
-    loss_cri = mse_criterion(value, expected_value.detach())
+    loss_act = -cri_net(state, act_net(state)).sum(1).mean()
+    qval = cri_net(state, action)
+    t_qval = cri_net_t(next_state, act_net_t(next_state))
+    expected_qval = reward.unsqueeze(1) + (1.0 - done.unsqueeze(1)) * GAMMA * t_qval
+    loss_cri = mse_criterion(qval, expected_qval.detach())
 
     act_trainer.zero_grad()
     loss_act.backward(retain_graph=True)
     act_trainer.step()
+
     cri_trainer.zero_grad()
     loss_cri.backward()
     cri_trainer.step()
@@ -59,9 +59,10 @@ def ddpg_update(batch_size):
 # train
 max_steps = 500
 batch_size = 128
+frame_idx = 0
 latest_100_returns = deque(maxlen=100)
 
-for frame_idx in count(1):
+while True:
     state = env.reset()
     ou_noise.reset()
     episode_reward = 0
@@ -73,13 +74,14 @@ for frame_idx in count(1):
         next_state, reward, done, _ = env.step(action)
         replay_buffer.append(state, action, reward, next_state, done)
         state = next_state
+        frame_idx += 1
         if len(replay_buffer) > batch_size:
             loss_act, loss_cri = ddpg_update(batch_size)
         episode_reward += reward
         if done:
             break
     latest_100_returns.append(episode_reward)
-    if frame_idx % 20 == 0:
+    if frame_idx % 500 == 0:
         mean_return = np.mean(latest_100_returns)
         print('Frame_idx: %d, loss_act: %.3f, loss_cri： %.3f, mean_return: %.3f' % (
             frame_idx, loss_act, loss_cri, float(mean_return)))

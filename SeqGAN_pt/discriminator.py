@@ -5,7 +5,7 @@ from utils import DEVICE
 
 
 class Discriminator(nn.Module):
-    def __init__(self, voc_size, emb_size, hid_size, max_seq_len=20, dropout_prob=0.5):
+    def __init__(self, voc_size, emb_size, hid_size, max_seq_len=20, dropout_prob=0.1):
         super(Discriminator, self).__init__()
         self.max_seq_len = max_seq_len
         self.hid_size = hid_size

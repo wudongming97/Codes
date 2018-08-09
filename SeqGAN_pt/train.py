@@ -46,6 +46,13 @@ g_trainer = optim.Adam(G.parameters())
 d_trainer = optim.Adam(D.parameters())
 
 
+def get_d_acc(real, fake):
+    real_score = D(real)
+    fake_score = D(fake)
+    acc = 0.5 * ((real_score > 0.5).float().mean() + (fake_score <= 0.5).float().mean())
+    return acc.item()
+
+
 def update_G(x):
     log_probs, outs = G.log_pt(x)
     rewards = 0
@@ -72,7 +79,8 @@ def update_D(real, fake):
     d_trainer.zero_grad()
     d_loss.backward()
     d_trainer.step()
-    return d_loss.item(), real_score.mean().item(), fake_score.mean().item()
+    acc = get_d_acc(real, fake)
+    return d_loss.item(), real_score.mean().item(), fake_score.mean().item(), acc
 
 
 def train_PG(frame_idx):
@@ -86,15 +94,17 @@ def train_PG(frame_idx):
     oracle_loss = nll_loss(Ora, eval_samples)
 
     # d
-    d_loss, real_score, fake_score = 0, 0, 0
+    d_loss, real_score, fake_score, acc = 0, 0, 0, 0
     for _ in range(D_EPOCHS):
-        real = next(iter(d_data_iter)).to(DEVICE)
-        fake = G.sample(torch.zeros(BATCH_SIZE, 1).long().to(DEVICE), MAX_SEQ_LEN)
-        d_loss, real_score, fake_score = update_D(real, fake)
+        for real in d_data_iter:
+            real = real.to(DEVICE)
+            fake = G.sample(torch.zeros(BATCH_SIZE, 1).long().to(DEVICE), MAX_SEQ_LEN)
+            d_loss, real_score, fake_score, acc = update_D(real, fake)
 
-    print('Iter: %d, g_loss: %.3f, mse_loss: %.3f, oracle_loss: %.3f, d_loss: %.3f, r_score: %.3f, f_score: %.3f' % (
-        frame_idx, g_loss, mse_loss.item(), oracle_loss.item(), d_loss, real_score, fake_score))
-    return mse_loss.item(), oracle_loss.item(), g_loss, d_loss, real_score, fake_score
+    print(
+        'Iter: %d, g_loss: %.3f, mse_loss: %.3f, oracle_loss: %.3f, d_loss: %.3f, r_score: %.3f, f_score: %.3f, acc: %.3f' % (
+            frame_idx, g_loss, mse_loss.item(), oracle_loss.item(), d_loss, real_score, fake_score, acc))
+    return mse_loss.item(), oracle_loss.item(), g_loss, d_loss, real_score, fake_score, acc
 
 
 def pre_train(frame_idx):
@@ -109,13 +119,13 @@ def pre_train(frame_idx):
     oracle_loss = nll_loss(Ora, eval_samples)
 
     fake = G.sample(torch.zeros(BATCH_SIZE, 1).long().to(DEVICE), MAX_SEQ_LEN)
-    d_loss, real_score, fake_score = update_D(real, fake)
+    d_loss, real_score, fake_score, acc = update_D(real, fake)
 
     if frame_idx % 100 == 0:
-        print('Iter: %d, mle_loss: %.3f, oracle_loss: %.3f, d_loss: %.3f, r_score: %.3f, f_score: %.3f' % (
-            frame_idx, loss.item(), oracle_loss.item(), d_loss, real_score, fake_score))
+        print('Iter: %d, mle_loss: %.3f, oracle_loss: %.3f, d_loss: %.3f, r_score: %.3f, f_score: %.3f, acc: %.3f' % (
+            frame_idx, loss.item(), oracle_loss.item(), d_loss, real_score, fake_score, acc))
 
-    return loss.item(), oracle_loss.item(), d_loss, real_score, fake_score
+    return loss.item(), oracle_loss.item(), d_loss, real_score, fake_score, acc
 
 
 if __name__ == '__main__':
@@ -123,11 +133,12 @@ if __name__ == '__main__':
         if frame_idx < 30000:
             losses = pre_train(frame_idx)
             writer.add_scalars('pre_train', {'mse_loss': losses[0], 'oracle_loss': losses[1], 'd_loss': losses[2],
-                                             'real_score': losses[3], 'fake_score': losses[4]}, frame_idx)
+                                             'real_score': losses[3], 'fake_score': losses[4], 'acc': losses[5]},
+                               frame_idx)
             hard_update(G_t, G)
         else:
             losses = train_PG(frame_idx)
             writer.add_scalars('train_PG', {'mse_loss': losses[0], 'oracle_loss': losses[1], 'g_loss': losses[2],
-                                            'd_loss': losses[3], 'real_score': losses[4], 'fake_score': losses[5]},
-                               frame_idx)
+                                            'd_loss': losses[3], 'real_score': losses[4], 'fake_score': losses[5],
+                                            'acc': losses[6]}, frame_idx)
             hard_update(G_t, G)

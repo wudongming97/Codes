@@ -3,18 +3,18 @@ from itertools import count
 import torch.optim as optim
 from tensorboardX import SummaryWriter
 
-from discriminator import Discriminator
+from discriminator import *
 from generator import Generator
 from utils import *
 
 SOS = 0
 D_EPOCHS = 10
-N_ROLLS = 4
-EMB_SIZE = 64
-HID_SIZE = 64
+N_ROLLS = 8
+EMB_SIZE = 32
+HID_SIZE = 32
 N_EPOCHS = 20
 VOC_SIZE = 5000
-BATCH_SIZE = 32
+BATCH_SIZE = 64
 MAX_SEQ_LEN = 20
 NUM_SAMPLES = 10000
 
@@ -40,7 +40,8 @@ d_data_iter = data_iter(oracle_samples_file, BATCH_SIZE)
 writer = SummaryWriter()
 G = Generator(VOC_SIZE, EMB_SIZE, HID_SIZE, MAX_SEQ_LEN, SOS)
 G_t = Generator(VOC_SIZE, EMB_SIZE, HID_SIZE, MAX_SEQ_LEN, SOS)
-D = Discriminator(VOC_SIZE, EMB_SIZE, HID_SIZE, MAX_SEQ_LEN)
+# D = RNNDiscriminator(VOC_SIZE, EMB_SIZE, HID_SIZE, MAX_SEQ_LEN)
+D = CNNDiscriminator(VOC_SIZE, EMB_SIZE)
 bce_loss = nn.BCELoss()
 g_trainer = optim.Adam(G.parameters(), lr=1e-2)
 d_trainer = optim.Adagrad(D.parameters())
@@ -61,7 +62,7 @@ def update_G(x):
         rewards += D.rewards(rolls)
     rewards /= N_ROLLS
 
-    loss_pg = -(log_probs * (rewards.detach() - 0.4)).sum(1).mean()
+    loss_pg = -(log_probs * rewards.detach()).sum(1).mean()
 
     g_trainer.zero_grad()
     loss_pg.backward()

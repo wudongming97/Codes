@@ -14,9 +14,9 @@ EMB_SIZE = 64
 HID_SIZE = 64
 N_EPOCHS = 20
 VOC_SIZE = 5000
-BATCH_SIZE = 50
+BATCH_SIZE = 32
 MAX_SEQ_LEN = 20
-NUM_SAMPLES = 50000
+NUM_SAMPLES = 10000
 
 # create data
 oracle_samples_file = './oracle_samples.trc'
@@ -42,8 +42,8 @@ G = Generator(VOC_SIZE, EMB_SIZE, HID_SIZE, MAX_SEQ_LEN, SOS)
 G_t = Generator(VOC_SIZE, EMB_SIZE, HID_SIZE, MAX_SEQ_LEN, SOS)
 D = Discriminator(VOC_SIZE, EMB_SIZE, HID_SIZE, MAX_SEQ_LEN)
 bce_loss = nn.BCELoss()
-g_trainer = optim.Adam(G.parameters())
-d_trainer = optim.Adam(D.parameters())
+g_trainer = optim.Adam(G.parameters(), lr=1e-2)
+d_trainer = optim.Adagrad(D.parameters())
 
 
 def get_d_acc(real, fake):
@@ -61,7 +61,7 @@ def update_G(x):
         rewards += D.rewards(rolls)
     rewards /= N_ROLLS
 
-    loss_pg = -(log_probs * rewards.detach()).sum(1).mean()
+    loss_pg = -(log_probs * (rewards.detach() - 0.4)).sum(1).mean()
 
     g_trainer.zero_grad()
     loss_pg.backward()
@@ -104,7 +104,7 @@ def train_PG(frame_idx):
     print(
         'Iter: %d, g_loss: %.3f, mse_loss: %.3f, oracle_loss: %.3f, d_loss: %.3f, r_score: %.3f, f_score: %.3f, acc: %.3f' % (
             frame_idx, g_loss, mse_loss.item(), oracle_loss.item(), d_loss, real_score, fake_score, acc))
-    return mse_loss.item(), oracle_loss.item(), g_loss, d_loss, real_score, fake_score, acc
+    return mse_loss.item(), oracle_loss.item(), d_loss, real_score, fake_score, acc
 
 
 def pre_train(frame_idx):
@@ -132,13 +132,10 @@ if __name__ == '__main__':
     for frame_idx in count(1):
         if frame_idx < 30000:
             losses = pre_train(frame_idx)
-            writer.add_scalars('pre_train', {'mse_loss': losses[0], 'oracle_loss': losses[1], 'd_loss': losses[2],
-                                             'real_score': losses[3], 'fake_score': losses[4], 'acc': losses[5]},
-                               frame_idx)
             hard_update(G_t, G)
         else:
             losses = train_PG(frame_idx)
-            writer.add_scalars('train_PG', {'mse_loss': losses[0], 'oracle_loss': losses[1], 'g_loss': losses[2],
-                                            'd_loss': losses[3], 'real_score': losses[4], 'fake_score': losses[5],
-                                            'acc': losses[6]}, frame_idx)
-            hard_update(G_t, G)
+            soft_update(G_t, G)
+
+        writer.add_scalars('SeqGAN', {'mse_loss': losses[0], 'oracle_loss': losses[1], 'd_loss': losses[2],
+                                      'real_score': losses[3], 'fake_score': losses[4], 'acc': losses[5]}, frame_idx)

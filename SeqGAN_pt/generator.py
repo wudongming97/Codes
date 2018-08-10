@@ -10,7 +10,7 @@ class Generator(nn.Module):
         self.max_seq_len = max_seq_len
         self.sos = sos
 
-        self.embeddings = nn.Embedding(voc_size, emb_size)
+        self.embedding = nn.Embedding(voc_size, emb_size)
         self.gru = nn.GRU(emb_size, hid_size, batch_first=True)
         self.fc_out = nn.Linear(hid_size, voc_size)
 
@@ -21,7 +21,7 @@ class Generator(nn.Module):
         self.to(DEVICE)
 
     def forward(self, input, hidden=None):
-        emb = self.embeddings(input)
+        emb = self.embedding(input)
         out, hidden = self.gru(emb, hidden)
         out = self.fc_out(out)
         out = F.log_softmax(out, -1)

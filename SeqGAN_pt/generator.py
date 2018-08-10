@@ -47,9 +47,8 @@ class Generator(nn.Module):
         inp = prepare_gru_inputs(input, self.sos)
         out = self(inp.to(DEVICE))[0]
         out = out.view(-1, out.size(-1))
-        output = torch.multinomial(out.exp(), 1)  # multinomial 最多接受2维
-        log_probs = out.gather(-1, output)
-        return log_probs.view(batch_size, seq_len), output.view(batch_size, seq_len)
+        log_probs = out.gather(-1, input.view(-1, 1))
+        return log_probs.view(batch_size, seq_len)
 
     def roll_out(self, input):
         """

@@ -58,4 +58,4 @@ def soft_update(target, source, rate=0.8):
         if name.startswith('emb'):
             param.data.copy_(dic[name])
         else:
-            param.data = rate * param.data + (1 - rate) * dic[name]
+            param.data.copy_(rate * param.data + (1 - rate) * dic[name])

@@ -9,7 +9,7 @@ from utils import *
 
 SOS = 0
 D_EPOCHS = 10
-N_ROLLS = 8
+N_ROLLS = 5
 EMB_SIZE = 32
 HID_SIZE = 32
 N_EPOCHS = 20
@@ -33,8 +33,7 @@ def _create_data():
 
 _create_data()
 
-g_data_iter = data_iter(oracle_samples_file, BATCH_SIZE)
-d_data_iter = data_iter(oracle_samples_file, BATCH_SIZE)
+oracle_iter = data_iter(oracle_samples_file, BATCH_SIZE)
 
 # model
 writer = SummaryWriter()
@@ -54,11 +53,13 @@ def get_d_acc(real, fake):
     return acc.item()
 
 
-def update_G(x):
-    log_probs, outs = G.log_pt(x)
+def update_G():
+    x = G.sample(torch.zeros(BATCH_SIZE, 1).long().to(DEVICE), MAX_SEQ_LEN)
+    log_probs = G.log_pt(x)
+
     rewards = 0
     for i in range(N_ROLLS):
-        rolls = G_t.roll_out(outs)
+        rolls = G_t.roll_out(x)
         rewards += D.rewards(rolls)
     rewards /= N_ROLLS
 
@@ -86,18 +87,18 @@ def update_D(real, fake):
 
 def train_PG(frame_idx):
     # g
-    x = next(iter(g_data_iter)).to(DEVICE)
-    g_loss = update_G(x)
+    g_loss = update_G()
 
     # eval
-    mse_loss = nll_loss(G, x)
+    real = next(iter(oracle_iter)).to(DEVICE)
+    mse_loss = nll_loss(G, real)
     eval_samples = G.sample(torch.zeros(BATCH_SIZE, 1).long().to(DEVICE), MAX_SEQ_LEN)
     oracle_loss = nll_loss(Ora, eval_samples)
 
     # d
     d_loss, real_score, fake_score, acc = 0, 0, 0, 0
     for _ in range(D_EPOCHS):
-        for real in d_data_iter:
+        for real in oracle_iter:
             real = real.to(DEVICE)
             fake = G.sample(torch.zeros(BATCH_SIZE, 1).long().to(DEVICE), MAX_SEQ_LEN)
             d_loss, real_score, fake_score, acc = update_D(real, fake)
@@ -109,7 +110,7 @@ def train_PG(frame_idx):
 
 
 def pre_train(frame_idx):
-    real = next(iter(g_data_iter)).to(DEVICE)
+    real = next(iter(oracle_iter)).to(DEVICE)
     loss = nll_loss(G, real)
     g_trainer.zero_grad()
     loss.backward()

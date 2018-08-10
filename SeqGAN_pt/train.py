@@ -25,8 +25,7 @@ Ora = Generator(VOC_SIZE, EMB_SIZE, HID_SIZE, MAX_SEQ_LEN, SOS, True)
 
 
 def _create_data():
-    start = torch.zeros(NUM_SAMPLES, 1).long().to(DEVICE)
-    samples = Ora.sample(start, MAX_SEQ_LEN)
+    samples = Ora.sample(NUM_SAMPLES)
     torch.save(samples.cpu(), oracle_samples_file)
     torch.save(Ora.state_dict(), oracle_state_dict_file)
 
@@ -54,12 +53,11 @@ def get_d_acc(real, fake):
 
 
 def update_G():
-    x = G.sample(torch.zeros(BATCH_SIZE, 1).long().to(DEVICE), MAX_SEQ_LEN)
-    log_probs = G.log_pt(x)
+    samples, log_probs = G.log_probs(BATCH_SIZE)
 
     rewards = 0
     for i in range(N_ROLLS):
-        rolls = G_t.roll_out(x)
+        rolls = G_t.roll_out(samples)
         rewards += D.rewards(rolls)
     rewards /= N_ROLLS
 
@@ -92,7 +90,7 @@ def train_PG(frame_idx):
     # eval
     real = next(iter(oracle_iter)).to(DEVICE)
     mse_loss = nll_loss(G, real)
-    eval_samples = G.sample(torch.zeros(BATCH_SIZE, 1).long().to(DEVICE), MAX_SEQ_LEN)
+    eval_samples = G.sample(BATCH_SIZE)
     oracle_loss = nll_loss(Ora, eval_samples)
 
     # d
@@ -100,7 +98,7 @@ def train_PG(frame_idx):
     for _ in range(D_EPOCHS):
         for real in oracle_iter:
             real = real.to(DEVICE)
-            fake = G.sample(torch.zeros(BATCH_SIZE, 1).long().to(DEVICE), MAX_SEQ_LEN)
+            fake = G.sample(BATCH_SIZE)
             d_loss, real_score, fake_score, acc = update_D(real, fake)
 
     print(
@@ -117,10 +115,10 @@ def pre_train(frame_idx):
     g_trainer.step()
 
     # eval
-    eval_samples = G.sample(torch.zeros(BATCH_SIZE, 1).long().to(DEVICE), MAX_SEQ_LEN)
+    eval_samples = G.sample(BATCH_SIZE)
     oracle_loss = nll_loss(Ora, eval_samples)
 
-    fake = G.sample(torch.zeros(BATCH_SIZE, 1).long().to(DEVICE), MAX_SEQ_LEN)
+    fake = G.sample(BATCH_SIZE)
     d_loss, real_score, fake_score, acc = update_D(real, fake)
 
     if frame_idx % 100 == 0:
@@ -132,7 +130,7 @@ def pre_train(frame_idx):
 
 if __name__ == '__main__':
     for frame_idx in count(1):
-        if frame_idx < 30000:
+        if frame_idx < 15000:
             losses = pre_train(frame_idx)
             hard_update(G_t, G)
         else:

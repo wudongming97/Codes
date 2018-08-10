@@ -1,7 +1,10 @@
+import os
+
 import torch
 import torch.nn as nn
 import torch.utils.data as data
 
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 

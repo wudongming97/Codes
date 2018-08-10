@@ -28,27 +28,30 @@ class Generator(nn.Module):
 
         return out, hidden
 
-    def sample(self, input, seq_len):
-        assert seq_len > 0
+    def sample(self, num):
         output = []
-        for t in range(seq_len):
-            out = self.forward(input)[0].squeeze()
-            input = torch.multinomial(torch.exp(out), 1)
+        hidden = None
+        input = self.sos * torch.ones(num, 1).long().to(DEVICE)
+        for t in range(self.max_seq_len):
+            rnn_out, hidden = self.forward(input, hidden)
+            rnn_out = rnn_out.squeeze()
+            input = torch.multinomial(torch.exp(rnn_out), 1)
             output.append(input)
         return torch.cat(output, -1)
 
-    def log_pt(self, input):
-        """
-        :param G: 生成器
-        :param input: batch_size x seq_len
-        :return:
-        """
-        batch_size, seq_len = input.size()
-        inp = prepare_gru_inputs(input, self.sos)
-        out = self(inp.to(DEVICE))[0]
-        out = out.view(-1, out.size(-1))
-        log_probs = out.gather(-1, input.view(-1, 1))
-        return log_probs.view(batch_size, seq_len)
+    def log_probs(self, num):
+        output = []
+        selected_log_probs = []
+        hidden = None
+        input = self.sos * torch.ones(num, 1).long().to(DEVICE)
+        for t in range(self.max_seq_len):
+            rnn_out, hidden = self.forward(input, hidden)
+            rnn_out = rnn_out.squeeze()
+            input = torch.multinomial(torch.exp(rnn_out), 1)
+            log_prob = rnn_out.gather(-1, input)
+            output.append(input)
+            selected_log_probs.append(log_prob)
+        return torch.cat(output, -1), torch.cat(selected_log_probs, -1)
 
     def roll_out(self, input):
         """
@@ -56,11 +59,23 @@ class Generator(nn.Module):
         :return:
         """
         seq_len = input.size(1)
-        out = []
+        rollouts = []
+
+        hidden = None
         for t in range(seq_len - 1):
-            inp = input[:, t]
-            remains = self.sample(inp.unsqueeze(-1), seq_len - t - 1)
-            res = torch.cat([input[:, :t + 1], remains], 1)
-            out.append(res)
-        out.append(input)
-        return out
+            out = [input[:, :t + 1]]
+            inp = prepare_gru_inputs(input)
+
+            for i in range(t + 2):
+                rnn_out, hidden = self.forward(inp[:, i].unsqueeze(1), hidden)
+            pred = torch.multinomial(torch.exp(rnn_out.squeeze()), 1)
+            out.append(pred)
+            for j in range(seq_len - t - 2):
+                rnn_out, hidden = self.forward(pred, hidden)
+                pred = torch.multinomial(torch.exp(rnn_out.squeeze()), 1)
+                out.append(pred)
+
+            out = torch.cat(out, 1)
+            rollouts.append(out)
+        rollouts.append(input)
+        return rollouts

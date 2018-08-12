@@ -35,7 +35,7 @@ _create_data()
 oracle_iter = data_iter(oracle_samples_file, BATCH_SIZE)
 
 # model
-writer = SummaryWriter()
+writer = SummaryWriter(log_dir='./seq_gan/')
 G = Generator(VOC_SIZE, EMB_SIZE, HID_SIZE, MAX_SEQ_LEN, SOS)
 G_t = Generator(VOC_SIZE, EMB_SIZE, HID_SIZE, MAX_SEQ_LEN, SOS)
 # D = RNNDiscriminator(VOC_SIZE, EMB_SIZE, HID_SIZE, MAX_SEQ_LEN)
@@ -104,7 +104,7 @@ def train_PG(frame_idx):
     print(
         'Iter: %d, g_loss: %.3f, mse_loss: %.3f, oracle_loss: %.3f, d_loss: %.3f, r_score: %.3f, f_score: %.3f, acc: %.3f' % (
             frame_idx, g_loss, mse_loss.item(), oracle_loss.item(), d_loss, real_score, fake_score, acc))
-    return mse_loss.item(), oracle_loss.item(), d_loss, real_score, fake_score, acc
+    return mse_loss.item(), oracle_loss.item()
 
 
 def pre_train(frame_idx):
@@ -125,17 +125,17 @@ def pre_train(frame_idx):
         print('Iter: %d, mle_loss: %.3f, oracle_loss: %.3f, d_loss: %.3f, r_score: %.3f, f_score: %.3f, acc: %.3f' % (
             frame_idx, loss.item(), oracle_loss.item(), d_loss, real_score, fake_score, acc))
 
-    return loss.item(), oracle_loss.item(), d_loss, real_score, fake_score, acc
+    return loss.item(), oracle_loss.item()
 
 
 if __name__ == '__main__':
     for frame_idx in count(1):
         if frame_idx < 15000:
-            losses = pre_train(frame_idx)
+            mle_loss, oracle_loss = pre_train(frame_idx)
             hard_update(G_t, G)
         else:
-            losses = train_PG(frame_idx)
+            mle_loss, oracle_loss = train_PG(frame_idx)
             soft_update(G_t, G)
 
-        writer.add_scalars('SeqGAN', {'mse_loss': losses[0], 'oracle_loss': losses[1], 'd_loss': losses[2],
-                                      'real_score': losses[3], 'fake_score': losses[4], 'acc': losses[5]}, frame_idx)
+        writer.add_scalar('mse_loss', mle_loss, frame_idx)
+        writer.add_scalar('oracle_loss', oracle_loss, frame_idx)

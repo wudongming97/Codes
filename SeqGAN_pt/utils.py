@@ -62,3 +62,10 @@ def soft_update(target, source, rate=0.8):
             param.data.copy_(dic[name])
         else:
             param.data.copy_(rate * param.data + (1 - rate) * dic[name])
+
+
+def get_accuracy(net, real, fake):
+    real_score = net(real)
+    fake_score = net(fake)
+    acc = 0.5 * ((real_score > 0.5).float().mean() + (fake_score <= 0.5).float().mean())
+    return acc.item()

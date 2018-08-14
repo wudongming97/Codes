@@ -44,13 +44,6 @@ g_trainer = optim.Adam(G.parameters(), lr=1e-2)
 d_trainer = optim.Adagrad(D.parameters())
 
 
-def get_d_acc(real, fake):
-    real_score = D(real)
-    fake_score = D(fake)
-    acc = 0.5 * ((real_score > 0.5).float().mean() + (fake_score <= 0.5).float().mean())
-    return acc.item()
-
-
 def update_G():
     samples, log_probs = G.sample_and_logprobs(BATCH_SIZE)
 
@@ -78,7 +71,7 @@ def update_D(real, fake):
     d_trainer.zero_grad()
     d_loss.backward()
     d_trainer.step()
-    acc = get_d_acc(real, fake)
+    acc = get_accuracy(D, real, fake)
     return d_loss.item(), real_score.mean().item(), fake_score.mean().item(), acc
 
 

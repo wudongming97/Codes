@@ -25,7 +25,7 @@ Ora = Generator(VOC_SIZE, EMB_SIZE, HID_SIZE, MAX_SEQ_LEN, SOS, True)
 
 
 def _create_data():
-    samples = Ora.sample(NUM_SAMPLES)
+    samples = Ora.sample_and_logprobs(NUM_SAMPLES)[0]
     torch.save(samples.cpu(), oracle_samples_file)
     torch.save(Ora.state_dict(), oracle_state_dict_file)
 
@@ -53,7 +53,7 @@ def get_d_acc(real, fake):
 
 
 def update_G():
-    samples, log_probs = G.log_probs(BATCH_SIZE)
+    samples, log_probs = G.sample_and_logprobs(BATCH_SIZE)
 
     rewards = 0
     for i in range(N_ROLLS):
@@ -90,7 +90,7 @@ def train_PG(frame_idx):
     # eval
     real = next(iter(oracle_iter)).to(DEVICE)
     mse_loss = nll_loss(G, real)
-    eval_samples = G.sample(BATCH_SIZE)
+    eval_samples = G.sample_and_logprobs(BATCH_SIZE)[0]
     oracle_loss = nll_loss(Ora, eval_samples)
 
     # d
@@ -98,7 +98,7 @@ def train_PG(frame_idx):
     for _ in range(D_EPOCHS):
         for real in oracle_iter:
             real = real.to(DEVICE)
-            fake = G.sample(BATCH_SIZE)
+            fake = G.sample_and_logprobs(BATCH_SIZE)[0]
             d_loss, real_score, fake_score, acc = update_D(real, fake)
 
     print(
@@ -115,10 +115,10 @@ def pre_train(frame_idx):
     g_trainer.step()
 
     # eval
-    eval_samples = G.sample(BATCH_SIZE)
+    eval_samples = G.sample_and_logprobs(BATCH_SIZE)[0]
     oracle_loss = nll_loss(Ora, eval_samples)
 
-    fake = G.sample(BATCH_SIZE)
+    fake = G.sample_and_logprobs(BATCH_SIZE)[0]
     d_loss, real_score, fake_score, acc = update_D(real, fake)
 
     if frame_idx % 100 == 0:

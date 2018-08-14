@@ -28,18 +28,7 @@ class Generator(nn.Module):
 
         return out, hidden
 
-    def sample(self, num):
-        output = []
-        hidden = None
-        input = self.sos * torch.ones(num, 1).long().to(DEVICE)
-        for t in range(self.max_seq_len):
-            rnn_out, hidden = self.forward(input, hidden)
-            rnn_out = rnn_out.squeeze()
-            input = torch.multinomial(torch.exp(rnn_out), 1)
-            output.append(input)
-        return torch.cat(output, -1)
-
-    def log_probs(self, num):
+    def sample_and_logprobs(self, num):
         output = []
         selected_log_probs = []
         hidden = None

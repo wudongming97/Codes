@@ -1,6 +1,7 @@
 import torch.nn.functional as F
 import torch.nn.init as init
 
+from beam import batch_beam
 from utils import *
 
 
@@ -28,7 +29,16 @@ class Generator(nn.Module):
 
         return out, hidden
 
-    def sample_and_logprobs(self, num):
+    def sample_and_logprobs(self, num, k=10, method=None):
+        if method == 'beam':
+            return self.beam_sample(num, k)
+        else:
+            return self.rand_sample(num)
+
+    def beam_sample(self, num, k):
+        return batch_beam(self, num, k)
+
+    def rand_sample(self, num):
         output = []
         selected_log_probs = []
         hidden = None

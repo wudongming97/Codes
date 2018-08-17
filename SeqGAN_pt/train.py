@@ -25,7 +25,10 @@ Ora = Generator(VOC_SIZE, EMB_SIZE, HID_SIZE, MAX_SEQ_LEN, SOS, True)
 
 
 def _create_data():
-    samples = Ora.sample_and_logprobs(NUM_SAMPLES)[0]
+    samples = []
+    for ix in range(100):
+        samples.append(Ora.sample_and_logprobs(NUM_SAMPLES // 100)[0])
+    samples = torch.cat(samples)
     torch.save(samples.cpu(), oracle_samples_file)
     torch.save(Ora.state_dict(), oracle_state_dict_file)
 
@@ -45,7 +48,7 @@ d_trainer = optim.Adagrad(D.parameters())
 
 
 def update_G():
-    samples, log_probs = G.sample_and_logprobs(BATCH_SIZE)
+    samples, log_probs = G.sample_and_logprobs(BATCH_SIZE, method='beam')
 
     rewards = 0
     for i in range(N_ROLLS):
@@ -106,11 +109,8 @@ def pre_train(frame_idx):
     loss.backward()
     g_trainer.step()
 
-    # eval
-    eval_samples = G.sample_and_logprobs(BATCH_SIZE)[0]
-    oracle_loss = nll_loss(Ora, eval_samples)
-
     fake = G.sample_and_logprobs(BATCH_SIZE)[0]
+    oracle_loss = nll_loss(Ora, fake)
     d_loss, real_score, fake_score, acc = update_D(real, fake)
 
     if frame_idx % 100 == 0:

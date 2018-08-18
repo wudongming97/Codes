@@ -3,16 +3,16 @@ import os
 import torch.nn.functional as F
 import torch.optim as optim
 
-from dataloader import train_iter, test_iter, train_as_test_iter
+from dataloader import train_iter, test_iter
 from network import get_network
 from test import test
 from utils import *
 
-m = 16
+m = 4
 alpha = 0.001
 
 lr = 2e-4
-n_epochs = 20
+n_epochs = 100
 os.makedirs(save_dir, exist_ok=True)
 
 model = get_network().to(DEVICE)
@@ -59,9 +59,9 @@ for epoch in range(n_epochs):
             print('[%3d/%3d] [%3d] loss: %.6f' % (epoch + 1, n_epochs, b + 1, loss.item()))
 
     # save
-    torch.save(model.state_dict(), save_dir + '%d.pth' % (epoch + 1))
+    # torch.save(model.state_dict(), save_dir + '%d.pth' % (epoch + 1))
     # test
-    top_k = test(model, train_as_test_iter)
+    top_k = test(model, train_iter)
     print('[Train] top_k: %.3f' % (sum(top_k) / len(top_k)))
     top_k = test(model, test_iter)
     print('[Test] top_k: %.3f' % (sum(top_k) / len(top_k)))

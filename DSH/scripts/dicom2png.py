@@ -16,8 +16,8 @@ def _file_paths(dir):
 
 
 if __name__ == '__main__':
-    target_dir = '../../Datasets/Dicom512/'
-    root = '../../Datasets/Dicom/'
+    target_dir = '../../../Datasets/Dicom512/'
+    root = '../../../Datasets/体检胸片/'
     paths = _file_paths(root)
 
     for path in paths:

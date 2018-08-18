@@ -1,5 +1,3 @@
-from dataloader import test_iter, train_as_test_iter
-from network import get_network
 from utils import *
 
 
@@ -9,7 +7,7 @@ def test(model, data_iter):
         model.eval()
         pb = []
         nb = []
-        for pos, neg in data_iter:
+        for pos, neg, _, _ in data_iter:
             pos = pos.to(DEVICE)
             neg = neg.to(DEVICE)
             pb.append(model(pos))
@@ -33,12 +31,12 @@ def test(model, data_iter):
         return top_k
 
 
-if __name__ == '__main__':
-    saved_model = '20.pth'
-    model = get_network().to(DEVICE)
-    model.load_state_dict(torch.load(save_dir + saved_model))
-    top_k = test(model, test_iter)
-    print('[test] top_k: %.3f' % (sum(top_k) / len(top_k)))
-    print(",".join(str(i) for i in top_k))
-    top_k = test(model, train_as_test_iter)
-    print('[Train] top_k: %.3f' % (sum(top_k) / len(top_k)))
+# if __name__ == '__main__':
+    # saved_model = '20.pth'
+# model = get_network().to(DEVICE)
+# model.load_state_dict(torch.load(save_dir + saved_model))
+# top_k = test(model, test_iter)
+# print('[test] top_k: %.3f' % (sum(top_k) / len(top_k)))
+# print(",".join(str(i) for i in top_k))
+# top_k = test(model, train_as_test_iter)
+# print('[Train] top_k: %.3f' % (sum(top_k) / len(top_k)))

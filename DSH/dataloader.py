@@ -1,4 +1,5 @@
 import os
+import random
 
 import numpy as np
 import torch
@@ -18,20 +19,30 @@ def _file_paths(dir, ext):
 
 
 class ImageFolder(data.Dataset):
-    def __init__(self, root, ext='.png', is_training=True, transform=None):
+    def __init__(self, root, ext='.png', is_training=True, transform=None, test_ratio=0.2):
+        self.transform = transform
         self.is_training = is_training
         self.sorted_paths = sorted(_file_paths(root, ext))
+        assert len(self.sorted_paths) % 2 == 0
         self.L = len(self.sorted_paths) // 2
         self.paired_paths = [(self.sorted_paths[2 * l], self.sorted_paths[2 * l + 1]) for l in range(self.L)]
-        self.transform = transform
+        random.shuffle(self.paired_paths)
+        num_test = int(self.L * test_ratio)
+        self.test_paths = self.paired_paths[:num_test]
+        self.train_paths = self.paired_paths[num_test:]
+        print('数据总量：{}， 其中{}条用于训练{}条用于测试........................'.format(
+            self.L, len(self.train_paths), len(self.test_paths)))
 
     def __len__(self):
-        return self.L
+        if self.is_training:
+            return len(self.train_paths)
+        else:
+            return len(self.test_paths)
 
     def __getitem__(self, item):
         if self.is_training:
-            rand_1, rand_2 = np.random.choice(range(self.L), 2, False)
-            tuple_1, tuple_2 = self.paired_paths[rand_1], self.paired_paths[rand_2]
+            rand_1, rand_2 = np.random.choice(range(len(self.train_paths)), 2, False)
+            tuple_1, tuple_2 = self.train_paths[rand_1], self.paired_paths[rand_2]
 
             pos_1 = Image.open(tuple_1[0]).convert("L")
             neg_1 = Image.open(tuple_1[1]).convert("L")
@@ -45,36 +56,32 @@ class ImageFolder(data.Dataset):
                 neg_2 = self.transform(neg_2)
             return pos_1, neg_1, pos_2, neg_2
         else:
-            paths = self.paired_paths[item]
+            paths = self.test_paths[item]
             pos = Image.open(paths[0]).convert("L")
             neg = Image.open(paths[1]).convert("L")
             if self.transform is not None:
                 pos = self.transform(pos)
                 neg = self.transform(neg)
-            return pos, neg
+            return pos, neg, 0, 0
 
 
 _transformer = tv.transforms.Compose([
+    tv.transforms.Grayscale(),
+    # tv.transforms.CenterCrop(1000),
     tv.transforms.Resize([256, 256]),
     tv.transforms.ToTensor(),
     tv.transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
 ])
 
 train_iter = torch.utils.data.DataLoader(
-    dataset=ImageFolder('../../Datasets/Dicom512_train/', transform=_transformer),
+    dataset=ImageFolder('../../Datasets/shougong/', is_training=True, transform=_transformer),
     batch_size=50,
     shuffle=True,
     drop_last=True
 )
 
 test_iter = torch.utils.data.DataLoader(
-    dataset=ImageFolder('../../Datasets/Dicom512_test/', is_training=False, transform=_transformer),
-    batch_size=10,
-    drop_last=True
-)
-
-train_as_test_iter = torch.utils.data.DataLoader(
-    dataset=ImageFolder('../../Datasets/Dicom512_train/', is_training=False, transform=_transformer),
+    dataset=ImageFolder('../../Datasets/shougong/', is_training=False, transform=_transformer),
     batch_size=10,
     drop_last=True
 )

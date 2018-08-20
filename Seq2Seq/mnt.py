@@ -12,8 +12,7 @@ class MNT:
     def __init__(self, save_dir, src, trg, tri_iter, val_iter, tst_iter,
                  e_emb_size=512, e_hid_size=512, e_n_layers=1,
                  d_emb_size=512, d_hid_size=512, d_n_layers=1,
-                 lr=1e-3, n_epochs=20, tf_ratio=0.8,
-                 grad_clip=5, print_every=100, device_id=None):
+                 lr=1e-3, n_epochs=20, grad_clip=5, print_every=100, device_id=None):
         if device_id is not None:
             T.cuda.set_device(device_id)
         self.save_dir = save_dir
@@ -21,7 +20,6 @@ class MNT:
 
         self.lr = lr
         self.n_epochs = n_epochs
-        self.tf_ratio = tf_ratio
         self.grad_clip = grad_clip
         self.print_every = print_every
 

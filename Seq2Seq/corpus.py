@@ -16,10 +16,9 @@ NEU_tri, NEU_val, NEU_tst = tt.datasets.TranslationDataset.splits(
     test='newstest2014.tok.bpe.32000', filter_pred=lambda ex: len(ex.src) <= 50 and len(ex.trg) <= 50
 )
 
-SRC.build_vocab(NEU_tri, min_freq=5)
-TRG.build_vocab(NEU_tri, min_freq=5)
+SRC.build_vocab(NEU_tri, NEU_val, NEU_tst, min_freq=5)
+TRG.build_vocab(NEU_tri, NEU_val, NEU_tst, min_freq=5)
 
 NEU_tri_iter, NEU_val_iter, NEU_tst_iter = tt.data.BucketIterator.splits(
-    datasets=(NEU_tri, NEU_val, NEU_tst), batch_sizes=(32, 100, 100), repeat=False,
-    sort_within_batch=True, sort_key=lambda x: tt.data.interleave_keys(len(x.src), len(x.trg))
+    datasets=(NEU_tri, NEU_val, NEU_tst), batch_sizes=(32, 100, 100), repeat=False
 )

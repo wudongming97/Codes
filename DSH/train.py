@@ -60,9 +60,11 @@ for epoch in range(n_epochs):
 
     # eval
     train_top_k = mean_topk(model, train_iter)
-    print('[Train] top_k: %.3f' % (sum(train_top_k) / len(train_top_k)))
+    train_top_k = sum(train_top_k) / len(train_top_k)
+    print('[Train] top_k: %.3f' % train_top_k)
     test_top_k = mean_topk(model, test_iter)
-    print('[Test] top_k: %.3f' % (sum(test_top_k) / len(test_top_k)))
+    test_top_k = sum(test_top_k) / len(test_top_k)
+    print('[Test] top_k: %.3f' % test_top_k)
     if best_topk > train_top_k + test_top_k:
         best_topk = train_top_k + test_top_k
         print('Saving! best_topk: %.3f' % best_topk)

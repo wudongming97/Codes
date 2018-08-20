@@ -5,7 +5,6 @@ import torch.optim as optim
 
 from dataloader import train_iter, test_iter
 from network import get_network
-from test import test
 from utils import *
 
 m = 4
@@ -19,6 +18,7 @@ model = get_network().to(DEVICE)
 print_network(model)
 trainer = optim.Adam(model.parameters(), lr=lr, betas=[0.5, 0.999])
 
+best_topk = 10
 for epoch in range(n_epochs):
     model.train()
     for b, (pos_1, neg_1, pos_2, neg_2) in enumerate(train_iter):
@@ -58,10 +58,12 @@ for epoch in range(n_epochs):
         if (b + 1) % 5 == 0:
             print('[%3d/%3d] [%3d] loss: %.6f' % (epoch + 1, n_epochs, b + 1, loss.item()))
 
-    # save
-    # torch.save(model.state_dict(), save_dir + '%d.pth' % (epoch + 1))
-    # test
-    top_k = test(model, train_iter)
-    print('[Train] top_k: %.3f' % (sum(top_k) / len(top_k)))
-    top_k = test(model, test_iter)
-    print('[Test] top_k: %.3f' % (sum(top_k) / len(top_k)))
+    # eval
+    train_top_k = mean_topk(model, train_iter)
+    print('[Train] top_k: %.3f' % (sum(train_top_k) / len(train_top_k)))
+    test_top_k = mean_topk(model, test_iter)
+    print('[Test] top_k: %.3f' % (sum(test_top_k) / len(test_top_k)))
+    if best_topk > train_top_k + test_top_k:
+        best_topk = train_top_k + test_top_k
+        print('Saving! best_topk: %.3f' % best_topk)
+        torch.save(model.state_dict(), save_dir + 'best_dsh.pth')

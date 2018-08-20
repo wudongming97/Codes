@@ -50,10 +50,5 @@ class Seq2Seq(nn.Module):
         print(self)
 
     def forward(self, src, trg):
-        """
-        :param src:
-        :param trg:
-        :return:
-        """
         _, hidden = self.enc(src)
         return self.dec(trg, hidden[-self.dec.n_layers:, :, :])[0]

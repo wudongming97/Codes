@@ -68,8 +68,8 @@ class MNT:
         for e in range(epoch, self.n_epochs):
             print('--' * 10)
             # train
-            self.seq2seq.train()
             for b, batch in enumerate(self.tri_iter):
+                self.seq2seq.train()
                 outputs = self.seq2seq(batch.src, batch.trg[:-1])
                 loss = self.criterion(outputs.view(-1, self.d_vocab_size), batch.trg[1:].contiguous().view(-1))
                 self.optimizer.zero_grad()

@@ -10,7 +10,7 @@ def split_file_by_lines(f_name, *args):
     with open(f_name) as f:
         lines = f.readlines()
         L = len(lines)
-        assert sum(args) < L
+        assert sum(args) <= L
         for arg in args:
             with open(f_name + str(i), 'w') as wf:
                 wf.writelines(lines[cur_line: cur_line + arg])
@@ -39,3 +39,10 @@ def tensor_to_sentences(idxs, itos):
         outputs.append(one_batch)
 
     return outputs
+
+
+if __name__ == '__main__':
+    file = '../../Datasets/WMT17/neu2017/NEU_cn.txt'
+    split_file_by_lines(file, 200000, 200000)
+    file = '../../Datasets/WMT17/neu2017/NEU_en.txt'
+    split_file_by_lines(file, 200000, 200000)

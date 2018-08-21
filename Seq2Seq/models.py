@@ -6,14 +6,14 @@ from utils import DEVICE
 
 
 class Encoder(nn.Module):
-    def __init__(self, voc_size, emb_size, hid_size, n_layers, drop_prob=0.5, embedding=None):
+    def __init__(self, voc_size, emb_size, hid_size, n_layers, embedding=None):
         super(Encoder, self).__init__()
         self.hid_size = hid_size
         if embedding is None:
             self.embedding = nn.Embedding(voc_size, emb_size)
         else:
             self.embedding = embedding
-        self.gru = nn.GRU(emb_size, hid_size, n_layers, dropout=drop_prob, bidirectional=True)
+        self.gru = nn.GRU(emb_size, hid_size, n_layers, bidirectional=True)
         self.to(DEVICE)
 
     def forward(self, x):
@@ -55,13 +55,13 @@ class BahdanauAttn(nn.Module):
 
     def score(self, ST, HT):
         energy = self.attn(torch.cat([HT, ST], -1)).transpose(1, 2)  # [B*H*T]
-        v = self.v.repeat(HT.size(1), 1).unsqueeze(1)  # # [B*1*H]
-        return (v @ energy).squeeze(1)  # [B*T]
+        v = self.v.repeat(HT.size(0), 1).unsqueeze(1)  # # [B*1*H]
+        return v @ energy  # [B*1*T]
 
     def forward(self, St, HT):
-        HT = HT.transpose(0, 1)
         ST = St.repeat(HT.size(0), 1, 1).transpose(0, 1)  # [B*T*H]
-        attn_weight = F.softmax(self.score(ST, HT), -1).unsqueeze(1)  # [B*1*T]
+        HT = HT.transpose(0, 1)  # [B*T*H]
+        attn_weight = F.softmax(self.score(ST, HT), -1)
         context = (attn_weight @ HT).transpose(0, 1)  # (1,B,N)
         return context, attn_weight
 
@@ -81,7 +81,7 @@ class BahdanauAttnDecoder(nn.Module):
 
     def forward(self, x, latest_hid, HT):
         embedd = self.embedding(x)
-        context, attn_weight = self.attn(latest_hid[-1], HT)
+        context, attn_weight = self.attn(latest_hid[-1:], HT)
         rnn_inp = torch.cat([embedd, context], -1)
         output, hidden = self.gru(rnn_inp, latest_hid)
         log_prob = F.log_softmax(self.out(output), -1)

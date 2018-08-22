@@ -152,7 +152,7 @@ class Seq2Seq(nn.Module):
                 pre_score = score.t().repeat(1, k)  # kxk
                 pre_mask = mask.t().repeat(1, k)
                 pre_length = length.t().repeat(1, k)
-                length = (pre_length + (idx != eos_idx)).view(1, -1)
+                length = (pre_length + (idx != eos_idx) * pre_mask).view(1, -1)
                 cur_score = (pre_score + val * pre_mask.float()).view(1, -1)
                 lp_score = cur_score * length_norm(length).float()
                 _, score_idx = lp_score.topk(k, sorted=False)

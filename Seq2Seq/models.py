@@ -18,6 +18,14 @@ class Encoder(nn.Module):
         else:
             self.embedding = embedding
         self.gru = nn.GRU(emb_size, hid_size, n_layers, bidirectional=True)
+
+        # weight init
+        for weight in self.gru.parameters():
+            if len(weight.size()) > 1:
+                nn.init.orthogonal_(weight.data)
+        initrange = 0.1
+        self.embedding.weight.data.uniform_(-initrange, initrange)
+
         self.to(DEVICE)
 
     def forward(self, x):
@@ -37,6 +45,13 @@ class NaiveDecoder(nn.Module):
             self.embedding = embedding
         self.gru = nn.GRU(emb_size, hid_size, n_layers)
         self.out = nn.Linear(hid_size, voc_size)
+
+        for weight in self.gru.parameters():
+            if len(weight.size()) > 1:
+                nn.init.orthogonal_(weight.data)
+        initrange = 0.1
+        self.embedding.weight.data.uniform_(-initrange, initrange)
+
         self.to(DEVICE)
 
     def forward(self, x, hidden=None, dummy=None):
@@ -81,6 +96,13 @@ class BahdanauAttnDecoder(nn.Module):
         self.gru = nn.GRU(emb_size + hid_size, hid_size, n_layers)
         self.attn = BahdanauAttn(hid_size)
         self.out = nn.Linear(hid_size, voc_size)
+
+        for weight in self.gru.parameters():
+            if len(weight.size()) > 1:
+                nn.init.orthogonal_(weight.data)
+        initrange = 0.1
+        self.embedding.weight.data.uniform_(-initrange, initrange)
+
         self.to(DEVICE)
 
     def forward(self, x, latest_hid, HT):

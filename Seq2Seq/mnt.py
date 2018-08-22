@@ -3,18 +3,22 @@ import os
 import torch.optim as optim
 from torch.nn.utils import clip_grad_norm_
 
+from corpus import *
 from models import *
 from utils import *
 
 
 class MNT:
-    def __init__(self, save_dir, src, trg, tri_iter, val_iter, tst_iter,
+    def __init__(self, save_dir, src, trg, tri_iter, val_iter,
                  e_emb_size=512, e_hid_size=512, e_n_layers=1,
                  d_emb_size=512, d_hid_size=512, d_n_layers=1,
                  lr=1e-3, n_epochs=20, grad_clip=5, print_every=100, use_attn=False):
 
         self.save_dir = save_dir
         os.makedirs(save_dir, exist_ok=True)
+
+        self.src = src
+        self.trg = trg
 
         self.lr = lr
         self.n_epochs = n_epochs
@@ -25,7 +29,6 @@ class MNT:
         self.d_vocab_size = len(trg.vocab)
         self.tri_iter = tri_iter
         self.val_iter = val_iter
-        self.tst_iter = tst_iter
 
         enc = Encoder(self.e_vocab_size, e_emb_size, e_hid_size, e_n_layers)
         if use_attn:
@@ -37,7 +40,7 @@ class MNT:
         print('--' * 10)
         print(self.seq2seq)
 
-        self.criterion = nn.NLLLoss(ignore_index=trg.vocab.stoi['<pad>'])
+        self.criterion = nn.NLLLoss(ignore_index=PAD_ID)
         self.optimizer = optim.Adam(self.seq2seq.parameters(), lr=lr, betas=(0.5, 0.999))
 
     def valid(self):
@@ -64,8 +67,16 @@ class MNT:
                 self.optimizer.step()
                 if b % self.print_every == 0:
                     val_loss = self.valid()
-                    print("[ %3d/%5d ] [ train_loss: %5.2f ] [valid_loss: %5.2f] " % (
-                        epoch, (b + 1), loss.item(), val_loss))
+                    print("[ %3d/%5d ] [ train_loss: %5.2f ] [valid_loss: %5.2f] " % (epoch, b, loss.item(), val_loss))
 
-            test(self.seq2seq, self.tri_iter, ('train_1.txt', 'train_2.txt'))
-            test(self.seq2seq, self.tst_iter, ('test_1.txt', 'test_2.txt'))
+            torch.save(self.seq2seq.state_dict(), self.save_dir + '%d.pth')
+
+    def load(self, name):
+        self.seq2seq.load_state_dict(torch.load(self.save_dir + name))
+
+    def translate(self, src, beam=True):
+        if beam:
+            res = self.seq2seq.beam_sample(src, SOS_ID, EOS_ID)[0]
+        else:
+            res = self.seq2seq.rand_sample(src, SOS_ID, EOS_ID)
+        return to_str(res, self.trg.vocab.itos, EOS_ID)

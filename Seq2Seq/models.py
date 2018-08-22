@@ -107,5 +107,54 @@ class Seq2Seq(nn.Module):
             input = trg[t:t + 1, :]
             log_prob, hidden, attn_weight = self.dec(input, hidden, enc_out)
             outputs.append(log_prob)
-
         return torch.cat(outputs)
+
+    def rand_sample(self, src, sos_idx, eos_idx, max_len=50):
+        assert src.size(1) == 1  # 每次只采样一个sample
+        enc_out, hidden = self.enc(src)
+        hidden = hidden[-self.dec.n_layers:, :, :]
+
+        output = []
+        input = sos_idx * torch.ones(1, 1).long().to(DEVICE)
+        for t in range(max_len):
+            log_prob, hidden, attn_weight = self.dec(input, hidden, enc_out)
+            word_idx = log_prob.max(-1)[1].item()
+            if word_idx == eos_idx:
+                break
+            output.append(word_idx)
+        return torch.tensor(output)
+
+    def beam_sample(self, src, sos_idx, eos_idx, max_len=30, k=10):
+        assert src.size(1) == 1  # 每次只采样一个sample
+        outputs, mask, score = None, None, None
+
+        enc_out, hidden = self.enc(src)
+        hidden = hidden[-self.dec.n_layers:, :, :]
+        input = sos_idx * torch.ones(1, 1).long().to(DEVICE)
+        for t in range(max_len):
+            rnn_out, hidden, _ = self.dec(input, hidden, enc_out)
+            rnn_out = rnn_out.squeeze(0)
+            val, idx = rnn_out.topk(k, dim=-1, sorted=False)
+            if mask is not None and mask.sum() == 0:
+                break
+            if t == 0:
+                score = val.exp()
+                outputs = idx.t()
+                mask = (idx != eos_idx)
+                hidden = hidden.repeat(1, k, 1)
+                enc_out = enc_out.repeat(1, k, 1)
+            else:
+                pre_score = score.t().repeat(1, k)  # kxk
+                pre_mask = mask.t().repeat(1, k)
+                cur_score = (pre_score + val.exp() * pre_mask.float()).view(1, -1)
+                score, score_idx = cur_score.topk(k, sorted=False)
+                selected_idx = idx.view(1, -1).gather(1, score_idx)
+                mask = pre_mask.view(1, -1).gather(1, score_idx) * (selected_idx != eos_idx)
+                pre_idx = (score_idx / k).long().squeeze()
+                outputs = torch.cat([outputs.index_select(0, pre_idx), selected_idx.t()], -1)
+
+            input = outputs[:, -1].unsqueeze(0)
+
+        # 选取最大的一个
+        best_score, ix = score.topk(1)
+        return outputs[ix.item()], best_score

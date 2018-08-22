@@ -25,6 +25,6 @@ else:
             src = to_str(sample.src, SRC.vocab.itos)
             trg = to_str(sample.trg[1:-1], TRG.vocab.itos, EOS_ID)
             trs = mnt.translate(sample.src)
-            sf.write(src), tf.write(trg), of.write(trs)
+            sf.write(src + '\n'), tf.write(trg + '\n'), of.write(trs + '\n')
     # 计算bleu
     bleu_f('./trg.txt', './trs.txt')

@@ -16,7 +16,7 @@ SRC = tt.data.Field(tokenize=tokenize_en, pad_token=PAD_TOK, lower=True)
 TRG = tt.data.Field(tokenize=tokenize_zh, init_token=SOS_TOK, eos_token=EOS_TOK, pad_token=PAD_TOK, lower=True)
 
 NEU_tri, NEU_val, NEU_tst = tt.datasets.TranslationDataset.splits(
-    exts=('.en.txt', '.cn.txt'), fields=(SRC, TRG), path='../../Datasets/WMT17/neu2017',
+    exts=('.en.txt', '.cn.txt'), fields=(SRC, TRG), path='../../Datasets/WMT17/neu2017/',
     filter_pred=lambda ex: 10 <= len(ex.trg) <= 20
 )
 

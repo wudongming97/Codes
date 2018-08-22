@@ -5,6 +5,10 @@ import torch.nn.functional as F
 from utils import DEVICE
 
 
+def length_norm(lengths, alpha=0.7):
+    return (5 + 1) / (5 + lengths ** alpha)
+
+
 class Encoder(nn.Module):
     def __init__(self, voc_size, emb_size, hid_size, n_layers, embedding=None):
         super(Encoder, self).__init__()
@@ -126,7 +130,7 @@ class Seq2Seq(nn.Module):
 
     def beam_sample(self, src, sos_idx, eos_idx, max_len=30, k=10):
         assert src.size(1) == 1  # 每次只采样一个sample
-        outputs, mask, score = None, None, None
+        outputs, mask, score, length = None, None, None, None
 
         enc_out, hidden = self.enc(src)
         hidden = hidden[-self.dec.n_layers:, :, :]
@@ -138,16 +142,22 @@ class Seq2Seq(nn.Module):
             if mask is not None and mask.sum() == 0:
                 break
             if t == 0:
-                score = val.exp()
+                score = val
                 outputs = idx.t()
                 mask = (idx != eos_idx)
+                length = mask
                 hidden = hidden.repeat(1, k, 1)
                 enc_out = enc_out.repeat(1, k, 1)
             else:
                 pre_score = score.t().repeat(1, k)  # kxk
                 pre_mask = mask.t().repeat(1, k)
-                cur_score = (pre_score + val.exp() * pre_mask.float()).view(1, -1)
-                score, score_idx = cur_score.topk(k, sorted=False)
+                pre_length = length.t().repeat(1, k)
+                length = (pre_length + (idx != eos_idx)).view(1, -1)
+                cur_score = (pre_score + val * pre_mask.float()).view(1, -1)
+                lp_score = cur_score * length_norm(length).float()
+                _, score_idx = lp_score.topk(k, sorted=False)
+                score = cur_score.gather(1, score_idx)
+                length = pre_length.view(1, -1).gather(1, score_idx)
                 selected_idx = idx.view(1, -1).gather(1, score_idx)
                 mask = pre_mask.view(1, -1).gather(1, score_idx) * (selected_idx != eos_idx)
                 pre_idx = (score_idx / k).long().squeeze()

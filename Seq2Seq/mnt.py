@@ -69,7 +69,7 @@ class MNT:
                     val_loss = self.valid()
                     print("[ %3d/%5d ] [ train_loss: %5.2f ] [valid_loss: %5.2f] " % (epoch, b, loss.item(), val_loss))
 
-            torch.save(self.seq2seq.state_dict(), self.save_dir + '%d.pth')
+            torch.save(self.seq2seq.state_dict(), self.save_dir + '%d.pth' % epoch)
 
     def load(self, name):
         self.seq2seq.load_state_dict(torch.load(self.save_dir + name))

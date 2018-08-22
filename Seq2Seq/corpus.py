@@ -28,7 +28,7 @@ EOS_ID = TRG.vocab.stoi[EOS_TOK]
 PAD_ID = TRG.vocab.stoi[PAD_TOK]
 
 NEU_tri_iter, NEU_val_iter, NEU_tst_iter = tt.data.BucketIterator.splits(
-    datasets=(NEU_tri, NEU_val, NEU_tst), batch_sizes=(1, 1, 1), repeat=False, device=DEVICE
+    datasets=(NEU_tri, NEU_val, NEU_tst), batch_sizes=(100, 100, 1), repeat=False, device=DEVICE
 )
 
 print("[TRAIN]:%d (dataset:%d)\t[TEST]:%d (dataset:%d)\t[VAL]:%d (dataset:%d)"

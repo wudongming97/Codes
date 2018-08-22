@@ -2,8 +2,8 @@ from bleu import *
 from corpus import *
 from mnt import MNT
 
-# saved_model_name = None
-saved_model_name = 'best.pth'
+saved_model_name = None
+# saved_model_name = 'best.pth'
 
 mnt = MNT(
     save_dir='./',

@@ -4,6 +4,29 @@ import torch.nn as nn
 from utils import DEVICE
 
 
+class RDPG_Actor(nn.Module):
+    def __init__(self, obs_size, act_size):
+        super(RDPG_Actor, self).__init__()
+        self.fc_in = nn.Linear(obs_size, 128)
+        self.gru = nn.GRUCell(128, 128)
+        self.fc_out = nn.Linear(128, act_size)
+        # weight init
+        self.fc_in.weight.data.uniform_(-3e-3, 3e-3)
+        self.fc_out.weight.data.uniform_(-3e-3, 3e-3)
+        self.to(DEVICE)
+
+    def forward(self, x, hidden=None):
+        x = torch.relu(self.fc_in(x))
+        hx = self.gru(x, hidden)
+        x = torch.tanh(self.fc_out(hx))
+        return x, hx
+
+    def get_action(self, state, hidden=None):
+        state = torch.FloatTensor(state).to(DEVICE)
+        action, hx = self.forward(state, hidden)
+        return action.detach().cpu().numpy(), hx
+
+
 class DDPG_Actor(nn.Module):
     def __init__(self, obs_size, act_size):
         super(DDPG_Actor, self).__init__()

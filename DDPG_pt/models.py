@@ -24,7 +24,7 @@ class RDPG_Actor(nn.Module):
     def get_action(self, state, hidden=None):
         state = torch.FloatTensor(state).to(DEVICE)
         action, hx = self.forward(state, hidden)
-        return action.detach().cpu().numpy(), hx
+        return action.detach().cpu().numpy().squeeze(), hx
 
 
 class DDPG_Actor(nn.Module):
@@ -49,7 +49,7 @@ class DDPG_Actor(nn.Module):
     def get_action(self, state):
         state = torch.FloatTensor(state).to(DEVICE)
         action = self.forward(state)
-        return action.detach().cpu().numpy()
+        return action.detach().cpu().numpy().squeeze()
 
 
 class DDPG_Critic(nn.Module):

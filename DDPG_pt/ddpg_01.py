@@ -72,7 +72,7 @@ while True:
     loss_act, loss_cri = 0, 0
 
     for t in range(max_steps):
-        action = act_net.get_action([state])[0][0]
+        action = act_net.get_action([state])
         action = ou_noise.get_action(action, t)
         next_state, reward, done, _ = env.step(action)
         replay_buffer.append(state, action, reward, next_state, done)

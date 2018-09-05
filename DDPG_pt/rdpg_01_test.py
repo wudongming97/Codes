@@ -2,16 +2,16 @@ import gym
 import torch
 
 from env_wrappers import ActionNormalizedEnv
-from models import DDPG_Actor
+from models import RDPG_Actor
 
-model_name = 'ddpg_01'
+model_name = 'rdpg_01'
 env_id = "Pendulum-v0"
 identity = model_name + '_' + env_id
 env = ActionNormalizedEnv(gym.make(env_id))
 
 obs_size = env.observation_space.shape[0]
 act_size = env.action_space.shape[0]
-act_net = DDPG_Actor(obs_size, act_size)
+act_net = RDPG_Actor(obs_size, act_size)
 act_net.load_state_dict(torch.load(identity + '_act.pth'))
 
 
@@ -21,8 +21,9 @@ def test_policy(actor, env, vis=False, n_episodes=2, max_len=500):
         state = env.reset()
         if vis: env.render()
         episode_return = 0
+        hx = None
         for t in range(max_len):
-            action = actor.get_action([state])
+            action, hx = actor.get_action([state], hx)
             state, reward, done, _ = env.step(action)
             episode_return += reward
             if vis: env.render()

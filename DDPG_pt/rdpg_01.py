@@ -12,7 +12,7 @@ from utils import *
 
 GAMMA = 0.99
 SOFT_TAU = 1e-2
-EPISODE_STEP = 200   # Pendulum 似乎在200个step后，其done就会返回True
+EPISODE_STEP = 200  # Pendulum 似乎在200个step后，其done就会返回True
 
 model_name = 'rdpg_01'
 env_id = "Pendulum-v0"
@@ -48,7 +48,7 @@ def rdpg_update(batch_size):
         qval = cri_net(state, action)
         pred_act_t, hx_t = act_net_t(next_state, hx_t)
         t_qval = cri_net_t(next_state, pred_act_t)
-        expected_qval = reward + GAMMA * t_qval
+        expected_qval = reward.unsqueeze(1) + GAMMA * t_qval
         loss_cri += mse_criterion(qval, expected_qval.detach())
 
     act_trainer.zero_grad()
@@ -84,8 +84,7 @@ while True:
         action = ou_noise.get_action(action, t)
         next_state, reward, done, _ = env.step(action)
         episode_reward += reward
-        next_state = next_state.squeeze()
-        replay_buffer.append(state, action.squeeze(1), reward, next_state, done)
+        replay_buffer.append(state, action, reward, next_state, done)
         state = next_state
         frame_idx += 1
 
@@ -99,7 +98,7 @@ while True:
     if frame_idx % 500 == 0:
         print('Frame_idx: %d, loss_act: %.3f, loss_cri： %.3f, mean_return: %.3f' % (
             frame_idx, loss_act, loss_cri, float(mean_return)))
-    if mean_return > -300:
+    if mean_return > -400:
         torch.save(act_net.state_dict(), identity + '_act.pth')
         torch.save(act_net.state_dict(), identity + '_cri.pth')
         print('Solved!')

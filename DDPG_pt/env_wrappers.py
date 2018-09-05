@@ -11,3 +11,8 @@ class ActionNormalizedEnv(gym.ActionWrapper):
         act_k_inv = 2. / (self.action_space.high - self.action_space.low)
         act_b = (self.action_space.high + self.action_space.low) / 2.
         return act_k_inv * (action - act_b)
+
+
+class PendulumPartialEnv(gym.ObservationWrapper):
+    def observation(self, observation):
+        return observation[:-1]

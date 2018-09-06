@@ -80,7 +80,6 @@ for frame_idx in range(N_FRAMES):
         continue
 
     # update
-    experiences = replay_buffer.sample(BATCH_SIZE)
     loss = calc_td_loss(replay_buffer.sample(BATCH_SIZE))
     trainer.zero_grad()
     loss.backward()

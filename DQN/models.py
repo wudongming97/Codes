@@ -41,6 +41,11 @@ class NoisyLinear(nn.Module):
 
 
 class ReplayBuffer(object):
+    """
+    后面尽量使用ExperimentReplayBuffer，这个类暴露了experiment的细节，
+    而很多dqn方法使用的experiment不进相同
+    """
+
     def __init__(self, capacity):
         self.buffer = deque(maxlen=capacity)
 
@@ -50,6 +55,21 @@ class ReplayBuffer(object):
     def sample(self, batch_size):
         state, action, reward, next_state, done = zip(*random.sample(self.buffer, batch_size))
         return np.vstack(state), action, reward, np.vstack(next_state), done
+
+    def __len__(self):
+        return len(self.buffer)
+
+
+class ExperimentReplayBuffer(object):
+    def __init__(self, capacity):
+        self.buffer = deque(maxlen=capacity)
+
+    def append(self, experiment):
+        self.buffer.append(experiment)
+
+    def sample(self, batch_size):
+        # 把解开操作放在外面，由不同的dqn方法自己处理
+        return random.sample(self.buffer, batch_size)
 
     def __len__(self):
         return len(self.buffer)
@@ -208,3 +228,45 @@ class NoisyDQN(nn.Module):
     def optimal_q_and_action(self, state):
         out = self.forward(state)
         return out.max(1)[0], out.max(1)[1]
+
+
+class BootstrappedDQN(nn.Module):
+    def __init__(self, input_shape, n_actions, k):
+        super(BootstrappedDQN, self).__init__()
+        self.input_shape = input_shape
+        self.n_actions = n_actions
+
+        self.conv = nn.Sequential(
+            nn.Conv2d(input_shape[0], 32, 8, 4),
+            nn.ReLU(),
+            nn.Conv2d(32, 64, 4, 2),
+            nn.ReLU(),
+            nn.Conv2d(64, 64, 3, 1),
+            nn.ReLU()
+        )
+
+        conv_out_size = self._get_conv_out(input_shape)
+        self.bootstrap_heads = nn.ModuleList(
+            [nn.Sequential(
+                nn.Linear(conv_out_size, 512),
+                nn.ReLU(),
+                nn.Linear(512, n_actions)
+            ) for _ in range(k)]
+        )
+        self.to(DEVICE)
+
+    def _get_conv_out(self, shape):
+        o = self.conv(torch.zeros(1, *shape))
+        return int(np.prod(o.size()))
+
+    def forward(self, x):
+        out = []
+        x = self.conv(x)
+        x = x.view(1, x.size(0), -1)
+        for h in self.bootstrap_heads:
+            out.append(h(x))
+        return torch.cat(out)  # K*B*A
+
+    def optimal_q_and_action(self, state):
+        out = self.forward(state)
+        return out.max(-1)[0], out.max(-1)[1]  # K*B

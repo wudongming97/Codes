@@ -1,5 +1,8 @@
+import os
+
 import torch
 
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 

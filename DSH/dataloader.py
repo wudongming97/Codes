@@ -18,6 +18,21 @@ def _file_paths(dir, ext):
     return paths
 
 
+class MonolingualImageFolder(data.Dataset):
+    def __init__(self, root, ext='.png', transform=None):
+        self.transform = transform
+        self.paths = _file_paths(root, ext)
+
+    def __len__(self):
+        return len(self.paths)
+
+    def __getitem__(self, item):
+        im = Image.open(self.paths[item]).convert("L")
+        if self.transform is not None:
+            im = self.transform(im)
+        return im
+
+
 class ImageFolder(data.Dataset):
     def __init__(self, root, ext='.png', is_training=True, transform=None, test_ratio=0.2):
         self.transform = transform
@@ -74,14 +89,20 @@ _transformer = tv.transforms.Compose([
 ])
 
 train_iter = torch.utils.data.DataLoader(
-    dataset=ImageFolder('../../Datasets/shougong/', is_training=True, transform=_transformer),
+    dataset=ImageFolder('../../Datasets/Dicom/', is_training=True, transform=_transformer),
     batch_size=50,
     shuffle=True,
     drop_last=True
 )
 
 test_iter = torch.utils.data.DataLoader(
-    dataset=ImageFolder('../../Datasets/shougong/', is_training=False, transform=_transformer),
+    dataset=ImageFolder('../../Datasets/Dicom/', is_training=False, transform=_transformer),
     batch_size=10,
+    drop_last=True
+)
+
+test_16W_iter = torch.utils.data.DataLoader(
+    dataset=MonolingualImageFolder('../../Datasets/16W/', transform=_transformer),
+    batch_size=1,
     drop_last=True
 )

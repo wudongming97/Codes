@@ -49,9 +49,9 @@ class BBLayer(nn.Module):
 
     def reset_parameters(self):
         # 初始化很重要 ref:https://gluon.mxnet.io/chapter18_variational-methods-and-uncertainty/bayes-by-backprop-gluon.html
-        nn.init.normal_(self.W_mu, std=0.1)
+        nn.init.normal_(self.W_mu, std=0.01)
         nn.init.constant_(self.W_rho, -3)
-        nn.init.normal_(self.B_mu, std=0.1)
+        nn.init.normal_(self.B_mu, std=0.01)
         nn.init.constant_(self.B_rho, -3)
 
     def forward(self, x, infer=False):

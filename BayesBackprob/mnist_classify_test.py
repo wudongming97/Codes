@@ -85,24 +85,27 @@ class VanillaMLP(nn.Module):
         return self._block(x)
 
 
-lr = 1e-4
+lr = 1e-3
+mo = 0.9
+
 bb_mlp = BBMlp()
 b_criterion = nn.CrossEntropyLoss(reduction='sum')
-b_trainer = optim.SGD(bb_mlp.parameters(), lr)
+b_trainer = optim.SGD(bb_mlp.parameters(), lr, mo)
 
 # 对比模型
 vanilla_mlp = VanillaMLP()
 dropout_mlp = VanillaMLP(dropp=0.5)
 v_criterion = nn.CrossEntropyLoss()
-v_trainer = optim.SGD(vanilla_mlp.parameters(), lr)
+v_trainer = optim.SGD(vanilla_mlp.parameters(), lr, mo)
 d_criterion = nn.CrossEntropyLoss()
-d_trainer = optim.SGD(dropout_mlp.parameters(), lr)
+d_trainer = optim.SGD(dropout_mlp.parameters(), lr, mo)
 
 b_writer = SummaryWriter(log_dir='./runs/b/')
 v_writer = SummaryWriter(log_dir='./runs/v/')
 d_writer = SummaryWriter(log_dir='./runs/d/')
 
 n_epochs = 600
+n_samples = 3
 
 for e in range(n_epochs):
     bb_mlp.train()
@@ -112,12 +115,14 @@ for e in range(n_epochs):
         y = y.to(DEVICE)
 
         # train
-        rec_loss = b_criterion(bb_mlp(x), y)
-        # reweight kl_loss
-        # kl_reweight = 2 ** (n_batchs - i - 1) / (2 ** n_batchs - 1)
-        # kl_loss = kl_reweight * bb_mlp.kl_loss()
-        kl_loss = bb_mlp.kl_loss() / n_batchs
-        b_loss = rec_loss + kl_loss
+        rec_loss, kl_loss = 0, 0
+        for _ in range(n_samples):
+            rec_loss += b_criterion(bb_mlp(x), y)
+            # reweight kl_loss
+            # kl_reweight = 2 ** (n_batchs - i - 1) / (2 ** n_batchs - 1)
+            # kl_loss = kl_reweight * bb_mlp.kl_loss()
+            kl_loss += bb_mlp.kl_loss() / n_batchs
+        b_loss = (rec_loss + kl_loss) / n_samples
 
         b_trainer.zero_grad()
         b_loss.backward()

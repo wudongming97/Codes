@@ -7,14 +7,18 @@ from utils import *
 
 
 class MLP(nn.Module):
+    """
+    使用《Preconditioned Stochastic Gradient Langevin Dynamics for Deep Neural Networks》中的网络结构
+    """
+
     def __init__(self):
         super(MLP, self).__init__()
         self._block = nn.Sequential(
-            nn.Linear(784, 1024),
+            nn.Linear(784, 1200),
             nn.ReLU(),
-            nn.Linear(1024, 256),
+            nn.Linear(1200, 1200),
             nn.ReLU(),
-            nn.Linear(256, 10))
+            nn.Linear(1200, 10))
         self.to(DEVICE)
 
     def forward(self, x):
@@ -59,11 +63,9 @@ def test(model):
     return acc / len(mnist_test_iter)
 
 
-def train(trainer_cls):
-    model = MLP()
-    trainer = trainer_cls(model.parameters(), lr=0.001)
+def train(model, trainer, log_dir):
     lr_scheduler = optim.lr_scheduler.ExponentialLR(trainer, gamma=0.998)
-    writer = SummaryWriter(log_dir='./run/' + trainer_cls.__name__)
+    writer = SummaryWriter(log_dir='./run/' + log_dir)
 
     for epoch in range(100):
         n_batchs = len(mnist_train_iter)
@@ -86,4 +88,9 @@ def train(trainer_cls):
                 writer.add_scalar('lr', lr_scheduler.get_lr()[0], cur_step)
 
             if i % 100 == 0:
-                print('[%s][Epoch: %d] [Batch: %d] [Loss: %.3f]' % (trainer_cls.__name__, epoch, i, loss.item()))
+                print('[%s][Epoch: %d] [Batch: %d] [Loss: %.3f]' % (
+                    trainer.__class__.__name__, epoch, i, loss.item()))
+
+        # 查看权重分布
+        for name, param in model.named_parameters():
+            writer.add_histogram(name, param.clone().cpu().data.numpy(), epoch)

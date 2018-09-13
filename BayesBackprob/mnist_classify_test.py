@@ -36,7 +36,7 @@ test_iter = torch.utils.data.DataLoader(
 def test(model, data_iter):
     # test
     acc = 0
-    bb_mlp.eval()
+    model.eval()
     for x, y in data_iter:
         with torch.no_grad():
             x = x.view(x.size(0), -1).to(DEVICE)

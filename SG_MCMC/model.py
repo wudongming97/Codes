@@ -52,9 +52,9 @@ def test(model):
     model.eval()
     for x, y in mnist_test_iter:
         with torch.no_grad():
-            x = x.view(x.size(0), -1).to(DEVICE)
+            x = x.to(DEVICE)
             y = y.to(DEVICE)
-            y_ = model(x, True)
+            y_ = model(x)
             acc += get_cls_accuracy(y_, y)
     return acc / len(mnist_test_iter)
 

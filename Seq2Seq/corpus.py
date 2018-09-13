@@ -17,11 +17,11 @@ TRG = tt.data.Field(tokenize=tokenize_zh, init_token=SOS_TOK, eos_token=EOS_TOK,
 
 NEU_tri, NEU_val, NEU_tst = tt.datasets.TranslationDataset.splits(
     exts=('.en.txt', '.cn.txt'), fields=(SRC, TRG), path='../../Datasets/WMT17/neu2017/',
-    filter_pred=lambda ex: 10 <= len(ex.trg) <= 20
+    filter_pred=lambda ex: 5 <= len(ex.trg) <= 30
 )
 
-SRC.build_vocab(NEU_tri, max_size=20000)  # max_size=20000 or min_freq=5
-TRG.build_vocab(NEU_tri, max_size=20000)
+SRC.build_vocab(NEU_tri, min_freq=10, max_size=50000)  # max_size=20000 or min_freq=5
+TRG.build_vocab(NEU_tri, min_freq=10, max_size=50000)
 
 SOS_ID = TRG.vocab.stoi[SOS_TOK]
 EOS_ID = TRG.vocab.stoi[EOS_TOK]

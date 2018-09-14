@@ -64,11 +64,11 @@ def test(model):
 
 
 def train(model, trainer, log_dir):
-    lr_scheduler = optim.lr_scheduler.ExponentialLR(trainer, gamma=0.998)
-    writer = SummaryWriter(log_dir='./run/' + log_dir)
+    lr_scheduler = optim.lr_scheduler.StepLR(trainer, step_size=10, gamma=0.65)
+    writer = SummaryWriter(log_dir='./runs/' + log_dir)
 
-    for epoch in range(100):
-        n_batchs = len(mnist_train_iter)
+    for epoch in range(200):
+        lr_scheduler.step()
         for i, (x, y) in enumerate(mnist_train_iter):
             x = x.to(DEVICE)
             y = y.to(DEVICE)
@@ -78,19 +78,14 @@ def train(model, trainer, log_dir):
             loss.backward()
             trainer.step()
 
-            if i % 20 == 0:
-                acc = test(model)
-                lr_scheduler.step()
-                cur_step = epoch * n_batchs + i
-
-                writer.add_scalar('acc', acc.item(), cur_step)
-                writer.add_scalar('loss', loss.item(), cur_step)
-                writer.add_scalar('lr', lr_scheduler.get_lr()[0], cur_step)
-
             if i % 100 == 0:
                 print('[%s][Epoch: %d] [Batch: %d] [Loss: %.3f]' % (
                     trainer.__class__.__name__, epoch, i, loss.item()))
 
         # 查看权重分布
+        acc = test(model)
+        writer.add_scalar('acc', acc.item(), epoch)
+        writer.add_scalar('loss', loss.item(), epoch)
+        writer.add_scalar('lr', lr_scheduler.get_lr()[0], epoch)
         for name, param in model.named_parameters():
             writer.add_histogram(name, param.clone().cpu().data.numpy(), epoch)

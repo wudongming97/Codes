@@ -1,38 +1,16 @@
+import os
+
 import matplotlib.pyplot as plt
 import numpy as np
-import torch as T
+import torch
+import torch.utils.data as data
 import torchvision as tv
+from PIL import Image
 
-_use_cuda = T.cuda.is_available()
-DEVICE = T.device('cuda' if _use_cuda else 'cpu')
+_use_cuda = torch.cuda.is_available()
+DEVICE = torch.device('cuda' if _use_cuda else 'cpu')
 
 batch_size = 64
-
-train_iter = T.utils.data.DataLoader(
-    dataset=tv.datasets.MNIST(
-        root='../../Datasets/MNIST/',
-        transform=tv.transforms.ToTensor(),
-        train=True,
-        download=True
-    ),
-    batch_size=batch_size,
-    shuffle=True,
-    drop_last=True,
-    num_workers=2,
-)
-
-test_iter = T.utils.data.DataLoader(
-    dataset=tv.datasets.MNIST(
-        root='../../Datasets/MNIST/',
-        transform=tv.transforms.ToTensor(),
-        train=False,
-        download=True
-    ),
-    batch_size=1000,
-    shuffle=True,
-    drop_last=True,
-    num_workers=2,
-)
 
 
 def plot_q_z(x, y, filename):
@@ -53,3 +31,47 @@ def plot_q_z(x, y, filename):
 
     plt.savefig(filename)
     plt.close()
+
+
+def _file_paths(dir, ext):
+    paths = []
+    for entry in os.scandir(dir):
+        if entry.is_file() and entry.path.endswith(ext):
+            paths.append(entry.path)
+        elif entry.is_dir():
+            paths.extend(_file_paths(entry.path, ext))
+    return paths
+
+
+class MonolingualImageFolder(data.Dataset):
+    def __init__(self, root, ext='.png', transform=None):
+        self.img_paths = _file_paths(root, ext)
+        self.L = len(self.img_paths)
+        self.transform = transform
+
+    def __len__(self):
+        return self.L
+
+    def __getitem__(self, item):
+        img = Image.open(self.img_paths[item])
+        if self.transform is not None:
+            img = self.transform(img)
+        return img
+
+
+def anime_face_loader(root, transform, batch_size=128):
+    face_loader = torch.utils.data.DataLoader(
+        dataset=MonolingualImageFolder(root=root, transform=transform),
+        batch_size=batch_size, shuffle=True)
+    return face_loader
+
+
+def mnist_loaders(root, batch_size=128):
+    trans = tv.transforms.ToTensor()
+    train_loader = torch.utils.data.DataLoader(
+        dataset=tv.datasets.MNIST(root=root, train=True, transform=trans, download=True),
+        batch_size=batch_size, shuffle=True)
+    test_loader = torch.utils.data.DataLoader(
+        dataset=tv.datasets.MNIST(root=root, train=False, transform=trans),
+        batch_size=batch_size, shuffle=False)
+    return train_loader, test_loader

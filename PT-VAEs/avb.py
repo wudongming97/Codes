@@ -1,7 +1,5 @@
 # simple implementation of Adversarial Variational Bayes
-import os
 
-import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
@@ -48,6 +46,7 @@ opt_d = optim.Adam(D.parameters(), lr, betas=[0.5, 0.999])
 
 bce_criterion = nn.BCELoss()
 
+train_iter, test_iter = mnist_loaders('../../Datasets/MNIST/')
 fix_noise = torch.randn(64, dim_z, device=DEVICE)  # only for test
 
 for e in range(n_epochs):

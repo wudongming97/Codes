@@ -103,11 +103,13 @@ class VAE(nn.Module):
 
     def z_to_samples(self, f_name, batch_size=64):
         with torch.no_grad():
+            self.dec.eval()
             z = torch.randn(batch_size, self.z_dim).to(DEVICE)
             x_loc, x_scale = self.dec(z)
             images = torch.distributions.Normal(x_loc, x_scale).sample()
             images = torch.clamp(images, min=0., max=1.)
             tv.utils.save_image(images, f_name, int(math.sqrt(batch_size)))
+            self.dec.train()  # 恢复
 
 
 def train(n_epochs, save_dir):

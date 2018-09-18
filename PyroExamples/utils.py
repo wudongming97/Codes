@@ -22,3 +22,12 @@ def mnist_loaders(root, batch_size=128):
         dataset=tv.datasets.MNIST(root=root, train=False, transform=trans),
         batch_size=batch_size, shuffle=False)
     return train_loader, test_loader
+
+
+def get_cls_accuracy(score, label):
+    total = label.size(0)
+    _, pred = torch.max(score, dim=1)
+    correct = torch.sum(pred == label)
+    accuracy = correct.float() / total
+
+    return accuracy

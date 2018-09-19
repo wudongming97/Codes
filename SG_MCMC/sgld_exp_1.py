@@ -1,9 +1,11 @@
 import torch.nn as nn
 import torch.optim as optim
-import torchvision as tv
 from tensorboardX import SummaryWriter
 
+from sgld import SGLD
 from utils import *
+
+mnist_train_iter, mnist_test_iter = mnist_loaders('../../Datasets/MNIST/', 100)
 
 
 class MLP(nn.Module):
@@ -26,34 +28,11 @@ class MLP(nn.Module):
         return self._block(x)
 
 
-mnist_train_iter = torch.utils.data.DataLoader(
-    dataset=tv.datasets.MNIST(
-        root='../../Datasets/MNIST/',
-        transform=tv.transforms.ToTensor(),
-        train=True,
-        download=True
-    ),
-    batch_size=100,
-    shuffle=True,
-)
-
-mnist_test_iter = torch.utils.data.DataLoader(
-    dataset=tv.datasets.MNIST(
-        root='../../Datasets/MNIST/',
-        transform=tv.transforms.ToTensor(),
-        train=False,
-        download=True
-    ),
-    batch_size=1000,
-    drop_last=True,
-)
-
 criterion = nn.CrossEntropyLoss()
 
 
-def test(model):
+def valid_acc(model):
     acc = 0
-    model.eval()
     for x, y in mnist_test_iter:
         with torch.no_grad():
             x = x.to(DEVICE)
@@ -83,9 +62,21 @@ def train(model, trainer, log_dir):
                     trainer.__class__.__name__, epoch, i, loss.item()))
 
         # 查看权重分布
-        acc = test(model)
+        acc = valid_acc(model)
         writer.add_scalar('acc', acc.item(), epoch)
         writer.add_scalar('loss', loss.item(), epoch)
         writer.add_scalar('lr', lr_scheduler.get_lr()[0], epoch)
         for name, param in model.named_parameters():
             writer.add_histogram(name, param.clone().cpu().data.numpy(), epoch)
+
+
+if __name__ == '__main__':
+    # 用mlp分类模型上对比sgld和sgd的效果差异
+    
+    sgld_model = MLP()
+    sgld_trainer = SGLD(sgld_model.parameters(), lr=0.01)
+    train(sgld_model, sgld_trainer, 'sgld')
+
+    sgd_model = MLP()
+    sgd_trainer = SGLD(sgd_model.parameters(), lr=0.01, addnoise=False)
+    train(sgd_model, sgd_trainer, 'sgd')

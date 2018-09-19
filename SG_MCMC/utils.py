@@ -1,4 +1,5 @@
 import torch
+import torchvision as tv
 
 seed = 77
 torch.manual_seed(seed)
@@ -22,3 +23,14 @@ def get_cls_accuracy(score, label):
     accuracy = correct.float() / total
 
     return accuracy
+
+
+def mnist_loaders(root, batch_size=128):
+    trans = tv.transforms.ToTensor()
+    train_loader = torch.utils.data.DataLoader(
+        dataset=tv.datasets.MNIST(root=root, train=True, transform=trans, download=True),
+        batch_size=batch_size, shuffle=True)
+    test_loader = torch.utils.data.DataLoader(
+        dataset=tv.datasets.MNIST(root=root, train=False, transform=trans),
+        batch_size=batch_size, shuffle=False)
+    return train_loader, test_loader

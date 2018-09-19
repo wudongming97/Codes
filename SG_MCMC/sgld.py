@@ -21,7 +21,7 @@ class SGLD(Optimizer):
                     size = d_p.size()
                     langevin_noise = Normal(
                         torch.zeros(size),
-                        torch.ones(size) * np.sqrt(group['lr'])
+                        2 * torch.ones(size) * np.sqrt(group['lr'])
                     )
                     p.data.add_(-group['lr'], d_p + langevin_noise.sample().to(DEVICE))
                 else:

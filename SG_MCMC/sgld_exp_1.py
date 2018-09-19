@@ -70,7 +70,7 @@ def train(model, trainer, train_iter, test_iter, log_dir):
                     trainer.__class__.__name__, epoch, i, loss.item(), loss_px.item(), loss_pw.item()))
 
         # update lr
-        updated_lr = lr_schedule_helper(epoch, INIT_LR, LAST_LR, total_steps=N_EPOCHS)
+        updated_lr = lr_linear_scheduler(epoch, INIT_LR, LAST_LR, total_steps=N_EPOCHS - 1)
         for param_group in trainer.param_groups:
             param_group['lr'] = updated_lr
 

@@ -71,7 +71,7 @@ if __name__ == '__main__':
             samples_theta2.append(params[1].item())
 
         # update lr
-        updated_lr = lr_schedule_helper(epoch, init_lr, last_lr, total_steps=n_epochs)
+        updated_lr = lr_linear_scheduler(epoch, init_lr, last_lr, total_steps=n_epochs)
         for param_group in trainer.param_groups:
             param_group['lr'] = updated_lr
         print('[Epoch: %d] [loss: %.3f][Lr: %.5f]' % (epoch, epoch_loss, updated_lr))

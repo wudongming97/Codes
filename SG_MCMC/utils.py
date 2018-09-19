@@ -16,11 +16,15 @@ def log_gaussian(x, mu, sigma):
     return -0.5 * math.log(2.0 * np.pi) - math.log(sigma) - (x - mu) ** 2 / (2 * sigma ** 2)
 
 
-def lr_schedule_helper(t, init_lr=0.01, end_lr=0.0001, factor=0.55, total_steps=10000):
+def lr_sgld_scheduler(t, init_lr=0.01, end_lr=0.0001, factor=0.55, total_steps=10000):
     # ref https://github.com/apache/incubator-mxnet/blob/master/example/bayesian-methods/sgld.ipynb
     b = (total_steps - 1.0) / ((init_lr / end_lr) ** (1.0 / factor) - 1.0)
     a = init_lr / (b ** (-factor))
     return a * (b + t) ** (-factor)
+
+
+def lr_linear_scheduler(t, init_lr=0.01, end_lr=0.0001, total_steps=10000):
+    return init_lr - t * (init_lr - end_lr) / total_steps
 
 
 def print_network(net):

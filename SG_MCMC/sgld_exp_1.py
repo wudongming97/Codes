@@ -1,11 +1,12 @@
 import torch.nn as nn
-import torch.optim as optim
 from tensorboardX import SummaryWriter
 
 from sgld import SGLD
 from utils import *
 
-mnist_train_iter, mnist_test_iter = mnist_loaders('../../Datasets/MNIST/', 100)
+INIT_LR = 0.01
+LAST_LR = 0.000001
+N_EPOCHS = 200
 
 
 class MLP(nn.Module):
@@ -27,56 +28,69 @@ class MLP(nn.Module):
         x = x.view(-1, 784)
         return self._block(x)
 
+    def log_gaussian_piror(self):
+        log_p = 0
+        for param in self.parameters():
+            log_p += log_gaussian(param, 0., 1.).sum()
+        return log_p
 
-criterion = nn.CrossEntropyLoss()
+
+criterion = nn.CrossEntropyLoss(reduction='sum')
 
 
-def valid_acc(model):
+def valid_acc(model, data_iter):
     acc = 0
-    for x, y in mnist_test_iter:
+    for x, y in data_iter:
         with torch.no_grad():
             x = x.to(DEVICE)
             y = y.to(DEVICE)
             y_ = model(x)
             acc += get_cls_accuracy(y_, y)
-    return acc / len(mnist_test_iter)
+    return acc / len(data_iter)
 
 
-def train(model, trainer, log_dir):
-    lr_scheduler = optim.lr_scheduler.StepLR(trainer, step_size=10, gamma=0.65)
+def train(model, trainer, train_iter, test_iter, log_dir):
     writer = SummaryWriter(log_dir='./runs/' + log_dir)
 
-    for epoch in range(200):
-        lr_scheduler.step()
-        for i, (x, y) in enumerate(mnist_train_iter):
+    for epoch in range(N_EPOCHS):
+        n_batchs = len(train_iter)
+        for i, (x, y) in enumerate(train_iter):
             x = x.to(DEVICE)
             y = y.to(DEVICE)
 
-            loss = criterion(model(x), y)
+            loss_px = criterion(model(x), y)
+            loss_pw = -model.log_gaussian_piror() / n_batchs  # 增加高斯先验等价于L2_norm，注意要进行grad scale
+            loss = loss_px + loss_pw
             trainer.zero_grad()
             loss.backward()
             trainer.step()
 
             if i % 100 == 0:
-                print('[%s][Epoch: %d] [Batch: %d] [Loss: %.3f]' % (
-                    trainer.__class__.__name__, epoch, i, loss.item()))
+                print('[%s][Epoch: %d] [Batch: %d] [Loss: %.3f] [Loss_px: %.3f] [Loss_pw: %.3f]' % (
+                    trainer.__class__.__name__, epoch, i, loss.item(), loss_px.item(), loss_pw.item()))
+
+        # update lr
+        updated_lr = lr_schedule_helper(epoch, INIT_LR, LAST_LR, total_steps=N_EPOCHS)
+        for param_group in trainer.param_groups:
+            param_group['lr'] = updated_lr
 
         # 查看权重分布
-        acc = valid_acc(model)
+        acc = valid_acc(model, test_iter)
         writer.add_scalar('acc', acc.item(), epoch)
         writer.add_scalar('loss', loss.item(), epoch)
-        writer.add_scalar('lr', lr_scheduler.get_lr()[0], epoch)
+        writer.add_scalar('lr', updated_lr, epoch)
         for name, param in model.named_parameters():
             writer.add_histogram(name, param.clone().cpu().data.numpy(), epoch)
 
 
 if __name__ == '__main__':
     # 用mlp分类模型上对比sgld和sgd的效果差异
-    
+    mnist_train_iter, mnist_test_iter = mnist_loaders('../../Datasets/MNIST/', 100)
+
     sgld_model = MLP()
-    sgld_trainer = SGLD(sgld_model.parameters(), lr=0.01)
-    train(sgld_model, sgld_trainer, 'sgld')
+    sgld_trainer = SGLD(sgld_model.parameters(), lr=INIT_LR)
+    train(sgld_model, sgld_trainer, mnist_train_iter, mnist_test_iter, 'sgld')
 
     sgd_model = MLP()
-    sgd_trainer = SGLD(sgd_model.parameters(), lr=0.01, addnoise=False)
-    train(sgd_model, sgd_trainer, 'sgd')
+    sgd_trainer = SGLD(sgd_model.parameters(), lr=INIT_LR, addnoise=False)
+    train(sgd_model, sgd_trainer, mnist_train_iter, mnist_test_iter, 'sgd')

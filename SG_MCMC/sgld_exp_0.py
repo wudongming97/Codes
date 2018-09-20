@@ -5,9 +5,9 @@ from sgld import SGLD
 from utils import *
 
 
-class MixtureGuass(nn.Module):
+class TiedMixtureGuass(nn.Module):
     def __init__(self, sigma1, sigma2, sigmax):
-        super(MixtureGuass, self).__init__()
+        super(TiedMixtureGuass, self).__init__()
         self.sigma1 = sigma1
         self.sigma2 = sigma2
         self.sigmax = sigmax
@@ -20,7 +20,7 @@ class MixtureGuass(nn.Module):
         log_theta2_prior = log_gaussian(self.theta_2, 0, self.sigma2)
         log_px = -2 * math.log(2) + log_gaussian(x, self.theta_1, self.sigmax) + \
                  log_gaussian(x, self.theta_1 + self.theta_2, self.sigmax)
-        return log_theta1_prior + log_theta2_prior, log_px.sum(0)
+        return log_theta1_prior + log_theta2_prior, log_px.sum()
 
 
 def synthetic_data(theta1, theta2, sigmax, num=100):
@@ -41,40 +41,40 @@ if __name__ == '__main__':
 
     init_lr = 0.01
     last_lr = 0.0001
-    n_epochs = 10000
+    batch_size = 1
+    total_iter_num = 1000000
 
-    model = MixtureGuass(sigma1, sigma2, sigmax)
+    model = TiedMixtureGuass(sigma1, sigma2, sigmax)
     trainer = SGLD(model.parameters(), init_lr)
 
     data_iter = tensor_loader(
         data=synthetic_data(theta1, theta2, sigmax, num=100),
-        batch_size=1
+        batch_size=batch_size
     )
-
+    n_batchs = len(data_iter)
     # train
     samples_theta1 = []
     samples_theta2 = []
-    for epoch in range(n_epochs):
-        epoch_loss = 0
-        n_batchs = len(data_iter)
-        for i, x in enumerate(data_iter):
-            log_pw, log_px = model(x.to(DEVICE))
-            loss = -log_pw - n_batchs * log_px
-            trainer.zero_grad()
-            loss.backward()
-            trainer.step()
-            epoch_loss += loss.item()
+    for t in range(total_iter_num):
+        x = next(iter(data_iter)).to(DEVICE)
+        log_pw, log_px = model(x)
+        loss = -log_pw - n_batchs * log_px
+        trainer.zero_grad()
+        loss.backward()
+        trainer.step()
 
-            # sample theta
-            params = list(model.parameters())
-            samples_theta1.append(params[0].item())
-            samples_theta2.append(params[1].item())
+        # sample theta
+        params = list(model.parameters())
+        samples_theta1.append(params[0].item())
+        samples_theta2.append(params[1].item())
 
         # update lr
-        updated_lr = lr_linear_scheduler(epoch, init_lr, last_lr, total_steps=n_epochs)
+        updated_lr = lr_sgld_scheduler(t, init_lr, last_lr, total_steps=total_iter_num)
         for param_group in trainer.param_groups:
             param_group['lr'] = updated_lr
-        print('[Epoch: %d] [loss: %.3f][Lr: %.5f]' % (epoch, epoch_loss, updated_lr))
+
+        if t % 100 == 0:
+            print('[T: %d] [loss: %.3f][Lr: %.8f]' % (t, loss.item(), updated_lr))
 
     # plot
     plt.hist2d(samples_theta1, samples_theta2, 200, cmap=plt.cm.jet)

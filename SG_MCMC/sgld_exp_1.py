@@ -6,7 +6,7 @@ from utils import *
 
 INIT_LR = 0.01
 LAST_LR = 0.000001
-N_EPOCHS = 200
+TOTAL_ITER_NUM = 500000
 
 
 class MLP(nn.Module):
@@ -51,36 +51,35 @@ def valid_acc(model, data_iter):
 
 def train(model, trainer, train_iter, test_iter, log_dir):
     writer = SummaryWriter(log_dir='./runs/' + log_dir)
+    n_batchs = len(train_iter)
 
-    for epoch in range(N_EPOCHS):
-        n_batchs = len(train_iter)
-        for i, (x, y) in enumerate(train_iter):
-            x = x.to(DEVICE)
-            y = y.to(DEVICE)
+    for t in range(TOTAL_ITER_NUM):
+        x, y = next(iter(train_iter))
+        x = x.to(DEVICE)
+        y = y.to(DEVICE)
 
-            loss_px = criterion(model(x), y)
-            loss_pw = -model.log_gaussian_piror() / n_batchs  # 增加高斯先验等价于L2_norm，注意要进行grad scale
-            loss = loss_px + loss_pw
-            trainer.zero_grad()
-            loss.backward()
-            trainer.step()
-
-            if i % 100 == 0:
-                print('[%s][Epoch: %d] [Batch: %d] [Loss: %.3f] [Loss_px: %.3f] [Loss_pw: %.3f]' % (
-                    trainer.__class__.__name__, epoch, i, loss.item(), loss_px.item(), loss_pw.item()))
+        loss_px = criterion(model(x), y)
+        loss_pw = -model.log_gaussian_piror() / n_batchs  # 增加高斯先验等价于L2_norm，注意要进行grad scale
+        loss = loss_px + loss_pw
+        trainer.zero_grad()
+        loss.backward()
+        trainer.step()
 
         # update lr
-        updated_lr = lr_linear_scheduler(epoch, INIT_LR, LAST_LR, total_steps=N_EPOCHS - 1)
+        updated_lr = lr_sgld_scheduler(t, INIT_LR, LAST_LR, total_steps=TOTAL_ITER_NUM)
         for param_group in trainer.param_groups:
             param_group['lr'] = updated_lr
 
-        # 查看权重分布
-        acc = valid_acc(model, test_iter)
-        writer.add_scalar('acc', acc.item(), epoch)
-        writer.add_scalar('loss', loss.item(), epoch)
-        writer.add_scalar('lr', updated_lr, epoch)
-        for name, param in model.named_parameters():
-            writer.add_histogram(name, param.clone().cpu().data.numpy(), epoch)
+        if t % 100 == 0:
+            # 查看权重分布
+            acc = valid_acc(model, test_iter)
+            writer.add_scalar('acc', acc.item(), )
+            writer.add_scalar('loss', loss.item(), t)
+            writer.add_scalar('lr', updated_lr, t)
+            for name, param in model.named_parameters():
+                writer.add_histogram(name, param.clone().cpu().data.numpy(), t)
+            print('[%s] [T: %d] [Loss: %.3f] [Loss_px: %.3f] [Loss_pw: %.3f]' % (
+                trainer.__class__.__name__, t, loss.item(), loss_px.item(), loss_pw.item()))
 
 
 if __name__ == '__main__':

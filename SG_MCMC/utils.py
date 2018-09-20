@@ -18,6 +18,7 @@ def log_gaussian(x, mu, sigma):
 
 def lr_sgld_scheduler(t, init_lr=0.01, end_lr=0.0001, factor=0.55, total_steps=10000):
     # ref https://github.com/apache/incubator-mxnet/blob/master/example/bayesian-methods/sgld.ipynb
+    assert 0 < factor < 1
     b = (total_steps - 1.0) / ((init_lr / end_lr) ** (1.0 / factor) - 1.0)
     a = init_lr / (b ** (-factor))
     return a * (b + t) ** (-factor)

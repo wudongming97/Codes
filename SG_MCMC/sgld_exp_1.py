@@ -6,7 +6,7 @@ from utils import *
 
 INIT_LR = 0.01
 LAST_LR = 0.000001
-TOTAL_ITER_NUM = 500000
+TOTAL_ITER_NUM = 50000  # 100个epoch
 
 
 class MLP(nn.Module):

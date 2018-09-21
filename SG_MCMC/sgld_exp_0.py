@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import torch.nn as nn
 
-from sgld import SGLD
+from sgld import *
 from utils import *
 
 
@@ -45,7 +45,7 @@ if __name__ == '__main__':
     total_iter_num = 1000000
 
     model = TiedMixtureGuass(sigma1, sigma2, sigmax)
-    trainer = SGLD(model.parameters(), init_lr)
+    trainer = pSGLD(model.parameters(), init_lr)
 
     data_iter = tensor_loader(
         data=synthetic_data(theta1, theta2, sigmax, num=100),
@@ -55,23 +55,20 @@ if __name__ == '__main__':
     # train
     samples_theta1 = []
     samples_theta2 = []
+    updated_lr = init_lr
     for t in range(total_iter_num):
         x = next(iter(data_iter)).to(DEVICE)
         log_pw, log_px = model(x)
         loss = -log_pw - n_batchs * log_px
         trainer.zero_grad()
         loss.backward()
-        trainer.step()
+        trainer.step(updated_lr)
+        updated_lr = lr_sgld_scheduler(t, init_lr, last_lr, total_steps=total_iter_num)
 
         # sample theta
         params = list(model.parameters())
         samples_theta1.append(params[0].item())
         samples_theta2.append(params[1].item())
-
-        # update lr
-        updated_lr = lr_sgld_scheduler(t, init_lr, last_lr, total_steps=total_iter_num)
-        for param_group in trainer.param_groups:
-            param_group['lr'] = updated_lr
 
         if t % 100 == 0:
             print('[T: %d] [loss: %.3f][Lr: %.8f]' % (t, loss.item(), updated_lr))

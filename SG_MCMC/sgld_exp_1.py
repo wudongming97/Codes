@@ -53,6 +53,7 @@ def train(model, trainer, train_iter, test_iter, log_dir):
     writer = SummaryWriter(log_dir='./runs/' + log_dir)
     n_batchs = len(train_iter)
 
+    updated_lr = INIT_LR
     for t in range(TOTAL_ITER_NUM):
         x, y = next(iter(train_iter))
         x = x.to(DEVICE)
@@ -63,12 +64,8 @@ def train(model, trainer, train_iter, test_iter, log_dir):
         loss = loss_px + loss_pw
         trainer.zero_grad()
         loss.backward()
-        trainer.step()
-
-        # update lr
+        trainer.step(updated_lr)
         updated_lr = lr_sgld_scheduler(t, INIT_LR, LAST_LR, total_steps=TOTAL_ITER_NUM)
-        for param_group in trainer.param_groups:
-            param_group['lr'] = updated_lr
 
         if t % 100 == 0:
             # 查看权重分布

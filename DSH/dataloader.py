@@ -7,6 +7,8 @@ import torch.utils.data as data
 import torchvision as tv
 from PIL import Image
 
+random.seed(111)  # 使测试和训练用的数据集分割是一致的
+
 
 def _file_paths(dir, ext):
     paths = []
@@ -89,14 +91,14 @@ _transformer = tv.transforms.Compose([
 ])
 
 train_iter = torch.utils.data.DataLoader(
-    dataset=ImageFolder('../../Datasets/Dicom/', is_training=True, transform=_transformer),
+    dataset=ImageFolder('../../Datasets/shougong/', is_training=True, transform=_transformer),
     batch_size=50,
     shuffle=True,
     drop_last=True
 )
 
 test_iter = torch.utils.data.DataLoader(
-    dataset=ImageFolder('../../Datasets/Dicom/', is_training=False, transform=_transformer),
+    dataset=ImageFolder('../../Datasets/shougong/', is_training=False, transform=_transformer),
     batch_size=10,
     drop_last=True
 )

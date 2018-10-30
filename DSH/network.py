@@ -1,4 +1,39 @@
+import torch
 import torch.nn as nn
+import torch.nn.functional as F
+
+
+class STNLayer(nn.Module):
+    def __init__(self, in_features):
+        super(STNLayer, self).__init__()
+        self.localization = nn.Sequential(
+            nn.Conv2d(in_features, in_features * 2, 4, 2, 1),
+            nn.MaxPool2d(4, stride=2),
+            nn.ReLU(True),
+            nn.Conv2d(in_features * 2, in_features * 2, 4, 2, 1),
+            nn.MaxPool2d(4, stride=2),
+            nn.ReLU(True),
+            nn.Conv2d(in_features * 2, in_features, 4, 2, 1),
+            nn.ReLU(True)
+        )
+
+        self.fc_loc = nn.Sequential(
+            nn.Linear(in_features * 7 * 7, 256),
+            nn.ReLU(True),
+            nn.Linear(256, 6)
+        )
+
+        self.fc_loc[2].weight.data.zero_()
+        self.fc_loc[2].bias.data.copy_(torch.tensor([1, 0, 0, 0, 1, 0], dtype=torch.float))
+
+    def forward(self, x):
+        xs = self.localization(x)
+        xs = xs.view(x.size(0), -1)
+        theta = self.fc_loc(xs)
+        theta = theta.view(-1, 2, 3)
+        grid = F.affine_grid(theta, x.size())  # (64,256,256,2)
+        x = F.grid_sample(x, grid)
+        return x
 
 
 class Conv2dBlock(nn.Module):

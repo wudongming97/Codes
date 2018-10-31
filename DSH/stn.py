@@ -1,4 +1,5 @@
 import os
+import random
 
 import numpy as np
 import torch.nn as nn
@@ -11,6 +12,8 @@ from torchvision import transforms
 
 from network import Conv2dBlock, STNLayer
 from utils import *
+
+random.seed(111)  # 使测试和训练用的数据集分割是一致的
 
 
 # dataset
@@ -76,7 +79,7 @@ train_loader = DataLoader(
     dataset=train_dataset, batch_size=64, shuffle=True, num_workers=4, )
 # Test dataset
 test_loader = DataLoader(
-    dataset=test_dataset, batch_size=64, shuffle=True, num_workers=4)
+    dataset=test_dataset, batch_size=4, shuffle=True, num_workers=4)
 
 model = nn.Sequential(
     STNLayer(1),
@@ -111,6 +114,21 @@ def train(epoch):
         torch.save(model.state_dict(), 'stn_{}.pth'.format(epoch))
 
 
+def test():
+    model.eval()
+    with torch.no_grad():
+        for batch_idx, (data, target) in enumerate(test_loader):
+            data, target = data.to(DEVICE), target.to(DEVICE)
+            output = model(data)
+            loss = F.mse_loss(output, target)
+            print('TEST loss : %.3f' % loss.item())
+            save_imgs = torch.cat([data, target, output.detach()], 0)
+            tv.utils.save_image(save_imgs, save_dir + 'test_{}.png'.format(batch_idx), 4)
+
+
+
 if __name__ == '__main__':
     for epoch in range(20):
         train(epoch)
+    model.load_state_dict(torch.load('stn_19.pth'))
+    test()

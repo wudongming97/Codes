@@ -91,20 +91,20 @@ _transformer = tv.transforms.Compose([
 ])
 
 train_iter = torch.utils.data.DataLoader(
-    dataset=ImageFolder('../../Datasets/shougong/', is_training=True, transform=_transformer),
+    dataset=ImageFolder('../../Datasets/shougong_STN/', is_training=True, transform=_transformer),
     batch_size=50,
     shuffle=True,
     drop_last=True
 )
 
 test_iter = torch.utils.data.DataLoader(
-    dataset=ImageFolder('../../Datasets/shougong/', is_training=False, transform=_transformer),
+    dataset=ImageFolder('../../Datasets/shougong_STN/', is_training=False, transform=_transformer),
     batch_size=10,
     drop_last=True
 )
 
 test_16W_iter = torch.utils.data.DataLoader(
-    dataset=MonolingualImageFolder('../../Datasets/16W/', transform=_transformer),
+    dataset=MonolingualImageFolder('../../Datasets/16W_STN/', transform=_transformer),
     batch_size=1,
     drop_last=True
 )

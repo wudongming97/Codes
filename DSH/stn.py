@@ -1,12 +1,14 @@
 import os
 import random
 
+import matplotlib.pyplot as plt
 import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.optim as optim
 import torchvision as tv
 from PIL import Image
+from matplotlib.pyplot import cm
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 
@@ -41,7 +43,7 @@ class ImageFolder(Dataset):
         print('数据总量：{}， 其中{}条用于训练{}条用于测试........................'.format(self.L, self.train_len, self.test_len))
 
     def __len__(self):
-        if self.is_train == True:
+        if self.is_train:
             return self.train_len
         else:
             return self.test_len
@@ -98,8 +100,8 @@ def train(epoch):
         data, target = data.to(DEVICE), target.to(DEVICE)
         trainer.zero_grad()
         output = model(data)
-        loss = F.mse_loss(output, target)
-        # loss = F.smooth_l1_loss(output, target)
+        # loss = F.mse_loss(output, target)
+        loss = F.smooth_l1_loss(output, target)
         loss.backward()
         trainer.step()
 
@@ -126,9 +128,13 @@ def test():
             tv.utils.save_image(save_imgs, save_dir + 'test_{}.png'.format(batch_idx), 4)
 
 
-
 if __name__ == '__main__':
-    for epoch in range(20):
-        train(epoch)
+    # for epoch in range(20):
+    #     train(epoch)
     model.load_state_dict(torch.load('stn_19.pth'))
-    test()
+    # test()
+    from dataloader import test_16W_iter
+
+    for it, data in enumerate(test_16W_iter):
+        output = model(data.to(DEVICE)).squeeze()
+        plt.imsave('../../Datasets/16W_TSN/%d.png' % it, output.detach().cpu().numpy(), format="png", cmap=cm.gray)

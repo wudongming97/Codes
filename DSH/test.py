@@ -1,15 +1,15 @@
-from dataloader import test_iter
+from dataloader import test_iter, test_16W_iter
 from network import *
 from utils import *
 
 if __name__ == '__main__':
     # load model
-    saved_model = 'best_dsh_sg.pth'
+    saved_model = 'best_dsh_3.pth'
     model = get_network().to(DEVICE)
     model.load_state_dict(torch.load(save_dir + saved_model))
 
     # mean topk 评价标准
-    top_k = mean_topk(model, test_iter)
+    top_k = mean_topk(model, test_iter, test_16W_iter)
     ##############################################
     top1, top2, top5, top10, mrr = 0, 0, 0, 0, 0
     for tt in top_k:
